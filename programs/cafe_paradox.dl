@@ -1,0 +1,46 @@
+% The Café Paradox — the barber paradox in catering form.
+%
+% A town's inhabitants divide into those who live in a household that cooks
+% its own meals and those who don't.  Policy: anyone who does NOT live in a
+% household that cooks may eat free in the café.  The café is operated by
+% one of the households (cafe_house), and Bob — a member of that household —
+% is assigned to cook the meals served in the café.
+%
+% Modelling note: this encoding reads "a household cooks its own meals" as
+% a statement about the meals its members actually take, so whether a
+% household cooks depends on where its members eat (second household_cooks
+% rule below).  That reading is what turns Bob's situation into a cycle
+% through negation.  The alternative, direct reading — Bob cooks the café's
+% meals, the café is his household, therefore his household cooks, full
+% stop — is encoded in cafe_constraint.dl, where the same paradox surfaces
+% instead as an integrity violation in a stratified program.
+%
+% Evaluate with --models for the semantic verdict: this program has NO
+% stable model (Bob's atoms form an odd loop through negation, the shape of
+% "p :- not p"), and its well-founded model leaves exactly Bob's three
+% atoms undefined.
+
+% ------------------------------------------------------------------- facts
+member(alice, house_a).
+member(alan,  house_a).
+member(carol, house_b).
+member(bob,   cafe_house).
+
+cooks_at_home(alice).        % alice cooks house_a's meals at home
+cooks_cafe_meals(bob).       % bob cooks the meals served in the café
+
+% ------------------------------------------------------------------- rules
+% A household cooks its own meals if a member cooks at home ...
+household_cooks(H) :- member(P, H), cooks_at_home(P).
+
+% ... or if its members take their meals in the café and the café's meals
+% are cooked by a member of that very household.  (Bob's situation: the
+% meals his household eats in the café are cooked by Bob himself.)
+household_cooks(H) :-
+    member(P, H), eats_in_cafe(P), cooks_cafe_meals(Cook), member(Cook, H).
+
+% Everyone whose household cooks eats at home.
+eats_at_home(P) :- member(P, H), household_cooks(H).
+
+% Everyone whose household does not cook may eat free in the café.
+eats_in_cafe(P) :- member(P, H), not household_cooks(H).

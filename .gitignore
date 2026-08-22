@@ -1,0 +1,6 @@
+# Local source material — not for redistribution.
+input/
+
+__pycache__/
+*.pyc
+.DS_Store

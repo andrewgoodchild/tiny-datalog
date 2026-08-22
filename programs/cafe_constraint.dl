@@ -1,0 +1,40 @@
+% The Café Paradox, direct reading.
+%
+% This encoding argues directly: Bob cooks the meals served in the café, the café
+% is operated by his household, therefore his household cooks — no detour
+% through who eats there.  Under this reading household_cooks is derived
+% outright from who cooks what, the program is stratified, and the paradox
+% surfaces in the DATA rather than in the rules: Bob eats in the café (it
+% is his home, and his household cooks), violating the policy's conclusion
+% that everyone who takes meals in the café does not have a household
+% that cooks.  The rule itself is ok — the problem arises from the
+% situation in which it is applied.
+%
+% The alternative, self-referential reading — where whether a household
+% cooks depends on where its members eat — is in cafe_paradox.dl.
+
+% ------------------------------------------------------------------- facts
+member(alice, house_a).
+member(alan,  house_a).
+member(carol, house_b).
+member(bob,   cafe_house).
+
+cafe(cafe_house).            % the café is operated by (is) this household
+cooks_at_home(alice).        % alice cooks house_a's meals at home
+cooks_cafe_meals(bob).       % bob cooks the meals served in the café
+
+% ------------------------------------------------------------------- rules
+% A household cooks its own meals if a member cooks at home ...
+household_cooks(H) :- member(P, H), cooks_at_home(P).
+% ... or, directly: it operates the café and one of its own members cooks
+% the café's meals.  (Bob's situation exactly.)
+household_cooks(H) :- cafe(H), cooks_cafe_meals(P), member(P, H).
+
+% Where people take their meals.  One relation, because for Bob "at home"
+% and "in the café" are the same place — his home IS the café.
+eats_at(P, H) :- member(P, H), household_cooks(H).              % at home
+eats_at(P, C) :- cafe(C), member(P, H), not household_cooks(H). % free café meals
+
+% The policy's conclusion as an integrity check: "everyone who takes meals in
+% the café does not have a household that cooks."  Nonempty = paradox.
+violation(P) :- eats_at(P, C), cafe(C), member(P, H), household_cooks(H).

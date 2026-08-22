@@ -1,0 +1,29 @@
+% The Foodary resolution of the café paradox.
+%
+% Same town, but the café is a Foodary: sandwiches and pies are delivered
+% from another town, so nobody local cooks the café's meals.  Then Bob is
+% not a member of a household that cooks, and can eat in the café.
+% A household now cooks its own meals only if a member cooks at
+% home, which breaks the cycle through negation: the program stratifies.
+
+% ------------------------------------------------------------------- facts
+member(alice, house_a).
+member(alan,  house_a).
+member(carol, house_b).
+member(bob,   cafe_house).
+
+cooks_at_home(alice).        % alice cooks house_a's meals at home
+
+% ------------------------------------------------------------------- rules
+household_cooks(H) :- member(P, H), cooks_at_home(P).
+
+eats_at_home(P) :- member(P, H), household_cooks(H).
+eats_in_cafe(P) :- member(P, H), not household_cooks(H).
+
+% The policy's two stated conclusions, mechanised as consistency checks.
+% Both relations must come out empty.
+%   1. "everyone whose household cooks will eat at home"
+conclusion1_violated(P) :- member(P, H), household_cooks(H), not eats_at_home(P).
+%   2. "everyone who takes meals in the café does not have a household
+%       that cooks"
+conclusion2_violated(P) :- eats_in_cafe(P), member(P, H), household_cooks(H).
