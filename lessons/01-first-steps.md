@@ -15,7 +15,8 @@ input); relations defined by rules are **IDB** (intensional — derived).
 
 ## A first program
 
-Save as `family.dl`:
+This ships as `programs/01-family.dl` (with an `ancestor` rule you'll meet
+properly in Lesson 2); the heart of it:
 
 ```prolog
 parent(abe, bob).
@@ -28,7 +29,7 @@ sibling(X, Y) :- parent(P, X), parent(P, Y).
 ```
 
 ```sh
-$ python3 datalog.py family.dl
+$ python3 datalog.py 01-family.dl
 % grandparent/2 (derived) — 2 facts
 grandparent(abe, carl).
 grandparent(abe, dana).
@@ -50,7 +51,7 @@ Two things to notice:
 ## Queries
 
 ```sh
-$ python3 datalog.py -q 'grandparent(abe, X)' family.dl
+$ python3 datalog.py -q 'grandparent(abe, X)' 01-family.dl
 ?- grandparent(abe, X)
    grandparent(abe, carl).
    grandparent(abe, dana).
@@ -67,6 +68,16 @@ rule in every possible way, adding new facts until nothing new appears —
 the *fixpoint*. That's different from Prolog, which starts from a query
 and searches top-down (and can loop forever; Datalog cannot — see the
 next lesson).
+
+## Is this real, or just academic?
+
+This lesson is the least academic thing in computing: a rule body is a
+relational join, and joins are what every database on earth sells.
+`grandparent(X, Z) :- parent(X, Y), parent(Y, Z).` is `SELECT ... FROM
+parent p1 JOIN parent p2 ON p1.child = p2.parent` with the ceremony
+removed. The Datalog spelling itself ships commercially too: Datomic and
+XTDB use it as their query language, and every CodeQL security query on
+GitHub starts life as exactly this kind of conjunctive pattern.
 
 ## Exercises
 

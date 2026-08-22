@@ -1,0 +1,20 @@
+% The lesson-1 family tree: joins, and a first recursive rule.
+%
+%   python3 datalog.py programs/01-family.dl
+%   python3 datalog.py -q 'ancestor(abe, X)' programs/01-family.dl
+%   python3 datalog.py --magic --trace -q 'ancestor(bob, X)' programs/01-family.dl
+
+parent(abe, bob).
+parent(abe, ann).
+parent(bob, carl).
+parent(ann, dana).
+
+grandparent(X, Z) :- parent(X, Y), parent(Y, Z).
+
+% Deliberately buggy, as discussed in lessons/01-first-steps.md: nothing
+% stops X and Y being the same person, so everyone with a parent is
+% their own sibling.  Reading what a rule *really* says is the lesson.
+sibling(X, Y) :- parent(P, X), parent(P, Y).
+
+ancestor(X, Y) :- parent(X, Y).
+ancestor(X, Z) :- parent(X, Y), ancestor(Y, Z).

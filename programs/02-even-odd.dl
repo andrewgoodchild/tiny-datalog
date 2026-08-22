@@ -1,0 +1,10 @@
+% Mutual recursion: odd- and even-length paths defined through each
+% other, evaluated together in one stratum.
+%
+%   python3 datalog.py --trace programs/02-even-odd.dl
+
+edge(n1, n2).  edge(n2, n3).  edge(n3, n4).  edge(n4, n5).
+
+odd(X, Y)  :- edge(X, Y).
+odd(X, Y)  :- even(X, Z), edge(Z, Y).
+even(X, Y) :- odd(X, Z), edge(Z, Y).

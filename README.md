@@ -1,11 +1,24 @@
 # datalog
 
-Classical Datalog in one file of standard-library Python: parser, safety
+Classical Datalog in readable standard-library Python: parser, safety
 checks, **semi-naive evaluation**, **stratified negation**, **magic
 sets**, **stable models**, and the **well-founded semantics** — the core
 techniques of the deductive-database literature, small enough to read in
 an afternoon, with a test suite that doubles as a tour of the classic
 example programs.
+
+Around the core engine, four satellite modules reach from the classical
+canon to the field's modern research threads: **semiring-valued
+evaluation** (shortest paths, derivation counting, why-provenance),
+**probabilistic facts** (Viterbi), **incremental maintenance** (DRed),
+and a **top-down Horn-clause interpreter** marking the boundary Datalog
+lives on.
+
+Never met Datalog? Start with
+[lesson 0](lessons/00-what-is-datalog.md): what it is, the field's
+history from resolution to CodeQL and DBSP — and why sound, auditable
+inference matters *more* in a world of LLMs, not less (short version:
+LLMs generate; logic engines guarantee).
 
 **What this is:** a teaching and reference implementation. The code
 favors readability over speed, the algorithms are the textbook ones, and
@@ -20,31 +33,50 @@ programming), RDFox (knowledge graphs), or Feldera (incremental).
 ## Quick start
 
 ```sh
-python3 tests.py                                       # 32 tests
-python3 datalog.py programs/reachability.dl            # evaluate a program
-python3 datalog.py --trace programs/reachability.dl    # + strata, per-round deltas
-python3 datalog.py -q 'eats_in_cafe(X)' programs/cafe_foodary.dl
-python3 datalog.py --magic -q 'path(n5, X)' programs/reachability.dl  # goal-directed
-python3 datalog.py --models programs/cafe_paradox.dl   # stable + well-founded models
+python3 tests.py                                       # 67 tests
+python3 datalog.py programs/01-family.dl                  # evaluate a program
+python3 datalog.py --trace programs/02-reachability.dl    # + strata, per-round deltas
+python3 datalog.py -q 'eats_in_cafe(X)' programs/05-cafe-foodary.dl
+python3 datalog.py --magic -q 'path(n5, X)' programs/02-reachability.dl  # goal-directed
+python3 datalog.py --models programs/05-cafe-paradox.dl   # stable + well-founded models
+python3 semiring.py --semiring minplus programs/06-routes.dl  # shortest paths
+python3 semiring.py --semiring why programs/06-routes.dl      # why-provenance
+python3 incremental.py                                     # DRed demo
+python3 prolog.py programs/09-peano.pl -q 'add(X, Y, s(s(zero)))'  # Horn clauses
+python3 subsumption.py programs/10-family-ontology.dl      # classify an ontology
 ```
 
 No dependencies; Python 3.9+.
 
 ## Learning Datalog
 
-`docs/` is a short course, each lesson runnable against this engine:
+`lessons/` is a complete course — no prior exposure assumed, every
+example a runnable file, following the field's own history from 1977 to
+the current research threads:
 
-1. [Getting started](docs/getting-started.md) — install, CLI, syntax
-2. [Facts, rules, and queries](docs/01-first-steps.md)
-3. [Recursion and semi-naive evaluation](docs/02-recursion.md)
-4. [Negation and stratification](docs/03-negation.md)
-5. [Magic sets: asking questions efficiently](docs/04-magic-sets.md)
-6. [Beyond stratification: stable models and the café paradox](docs/05-beyond-stratification.md)
+0. [What is Datalog, and why should you care?](lessons/00-what-is-datalog.md) — orientation, history, and the LLM-era case
+1. [Getting started](lessons/getting-started.md) — install, CLI, syntax
+2. [Facts, rules, and queries](lessons/01-first-steps.md)
+3. [Recursion and semi-naive evaluation](lessons/02-recursion.md)
+4. [Negation and stratification](lessons/03-negation.md)
+5. [Magic sets: asking questions efficiently](lessons/04-magic-sets.md)
+6. [Beyond stratification: stable models and the café paradox](lessons/05-beyond-stratification.md)
+7. [Semirings: provenance and recursive aggregation](lessons/06-semirings.md)
+8. [Probabilistic Datalog, honestly](lessons/07-probabilistic.md)
+9. [Incremental maintenance: don't recompute the world](lessons/08-incremental.md)
+10. [Horn clauses: the boundary Datalog lives on](lessons/09-horn-clauses.md)
+11. [KL-ONE and subsumption: reasoning about definitions](lessons/10-kl-one-subsumption.md)
+12. [Under the hood: how this engine is built](lessons/11-under-the-hood.md) — a guided tour of the implementation itself
 
-The classics are all in `tests.py`: ancestor, same-generation,
-transitive closure (linear and non-linear), mutual recursion, Tweety
-default reasoning, the win/move game, the barber paradox, and a miniature
-Andersen-style pointer analysis.
+Every lesson ends with an "is this real, or just academic?" note tying
+its technique to the systems that ship it.
+
+The classic teaching programs ship as runnable files in `programs/` —
+family/ancestor, same-generation, transitive closure, mutual recursion
+(even/odd), Tweety default reasoning, the win/move game, the barber
+paradox, a miniature Andersen-style pointer analysis, weighted routes,
+a flaky probabilistic network, and Peano arithmetic — each verified by
+the test suite.
 
 ## Features
 
@@ -69,11 +101,30 @@ Andersen-style pointer analysis.
   this is where the semantic verdict lives.
 - Safety checks (range restriction for head and negated variables, ground
   facts, consistent arities) and a tiny Prolog-style syntax:
-  `head(X) :- body(X, Y), not other(Y).`
+  `head(X) :- body(X, Y), not other(Y).`  Facts may carry numeric
+  weights: `edge(a, b) @ 3.`
+- **Semiring evaluation** (`semiring.py`) — the same program computes
+  reachability, shortest paths, derivation counts, minimal why-provenance
+  witnesses, or best-derivation probabilities, by swapping the (plus,
+  times) algebra. Positive programs, Kleene iteration, divergence
+  detected and explained.
+- **Incremental maintenance** (`incremental.py`) — insertions resume
+  semi-naive from a delta; deletions run DRed (over-delete, then
+  re-derive survivors). Every repair is verified against from-scratch
+  recomputation in the tests.
+- **Horn clauses beyond Datalog** (`prolog.py`) — a top-down SLD
+  interpreter with function symbols, unification (occurs check included),
+  negation as failure, and an honest depth bound. The core engine rejects
+  function symbols with an error message that states the boundary.
+- **Concept subsumption** (`subsumption.py`) — a KL-ONE-style classifier
+  for the EL description logic (the fragment that classifies SNOMED CT),
+  implemented as a compiler: the ontology is normalised and emitted as a
+  plain Datalog program (`--emit` shows it), so classification runs on
+  the same engine as everything else.
 
 ## Magic sets in one look
 
-For `path(n5, X)` on `programs/reachability.dl` the rewriting is:
+For `path(n5, X)` on `programs/02-reachability.dl` the rewriting is:
 
 ```prolog
 path#bf(X, Y)     :- magic#path#bf(X), edge(X, Y).
@@ -101,7 +152,7 @@ the café's meals. Where will Bob take his meals?
 
 Three encodings, three verdicts:
 
-- **`programs/cafe_paradox.dl`** reads "a household cooks its own meals"
+- **`programs/05-cafe-paradox.dl`** reads "a household cooks its own meals"
   as being about the meals its members actually eat. That makes
   `household_cooks` depend on `eats_in_cafe`, which depends on
   `not household_cooks` — the stratified engine rejects the cycle, and
@@ -112,28 +163,42 @@ Three encodings, three verdicts:
   Note the distinction being made: unstratifiable alone doesn't mean
   paradoxical — `win(X) :- move(X, Y), not win(Y)` is unstratifiable yet
   has perfectly good stable models. "No stable model" is the real thing.
-- **`programs/cafe_constraint.dl`** reads the argument directly:
+- **`programs/05-cafe-constraint.dl`** reads the argument directly:
   Bob cooks the café's meals, the café is his household, therefore his
   household cooks. The program stratifies, and the paradox surfaces in
   the *data*, as an integrity check naming him and only him:
   `violation(bob).` — the rule itself is ok; the problem arises from the
   situation in which it is applied.
-- **`programs/cafe_foodary.dl`** is the resolution: the café's food is
+- **`programs/05-cafe-foodary.dl`** is the resolution: the café's food is
   delivered from another town, nobody local cooks it, the cycle
   disappears, and `eats_in_cafe(bob)` holds.
 
 The full walk-through is
-[lesson 5](docs/05-beyond-stratification.md).
+[lesson 5](lessons/05-beyond-stratification.md).
 
 ## Layout
 
 ```
-datalog.py     the whole engine (~900 lines): parser, stratifier,
-               semi-naive evaluator, magic sets, stable/well-founded models
-programs/      café paradox (three encodings) + reachability demo
-docs/          getting started + five lessons
-tests.py       32 tests; the classic examples live here
+datalog.py      the core: AST, parser, safety checks, stratification,
+                the semi-naive evaluator, and the CLI
+magic.py        the magic-sets rewriting (a program-to-program pass)
+semantics.py    grounding, stable models, the well-founded model
+semiring.py     semiring-valued evaluation (costs, counts, provenance,
+                probabilities)
+incremental.py  insertions + DRed deletions over a live materialisation
+prolog.py       top-down SLD resolution with function symbols
+subsumption.py  KL-ONE-style EL classifier, compiled to Datalog
+programs/       the classic teaching programs, numbered by lesson
+                (01-family.dl ... 10-family-ontology.dl), plus the café
+                paradox
+lessons/        getting started + lessons 0–11, following the field's
+                history from 1977 to the current research threads
+tests.py        67 tests — every shipped program is exercised
 ```
+
+The code itself is part of the course: comments explain the algorithms
+as they happen, and [lesson 10](lessons/11-under-the-hood.md) is the
+guided tour.
 
 ## License
 

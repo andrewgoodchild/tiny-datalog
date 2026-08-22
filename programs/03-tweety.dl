@@ -1,0 +1,12 @@
+% Tweety — default reasoning with stratified negation: birds fly unless
+% proven abnormal.  Add penguin(tweety). and watch a conclusion retract —
+% non-monotonicity, tamed by stratification.
+%
+%   python3 datalog.py --trace programs/03-tweety.dl
+
+bird(tweety).
+bird(opus).
+penguin(opus).
+
+abnormal(X) :- penguin(X).
+flies(X) :- bird(X), not abnormal(X).

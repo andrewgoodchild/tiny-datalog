@@ -6,8 +6,8 @@ install beyond Python 3.9+.
 ```sh
 git clone <this repo>
 cd datalog
-python3 tests.py                     # 32 tests, should all pass
-python3 datalog.py programs/reachability.dl
+python3 tests.py                     # 67 tests, should all pass
+python3 datalog.py programs/02-reachability.dl
 ```
 
 ## Running programs
@@ -21,10 +21,10 @@ ancestor(X, Y) :- parent(X, Y).          % a rule
 ancestor(X, Z) :- parent(X, Y), ancestor(Y, Z).
 ```
 
-Save that as `family.dl` and run it:
+Save that as `01-family.dl` and run it:
 
 ```sh
-python3 datalog.py family.dl
+python3 datalog.py 01-family.dl
 ```
 
 The engine prints every *derived* relation (add `--all` to also print the
@@ -37,6 +37,10 @@ input facts). The other modes:
 | `python3 datalog.py --magic -q '...' prog.dl` | answer the query *goal-directedly* (magic sets) |
 | `python3 datalog.py --trace prog.dl` | show strata and per-round derivation counts |
 | `python3 datalog.py --models prog.dl` | stable models + well-founded model (small programs) |
+| `python3 semiring.py --semiring minplus prog.dl` | evaluate over a semiring (costs, counts, provenance, probabilities) |
+| `python3 incremental.py` | demo: repair derived facts on insert/delete instead of recomputing |
+| `python3 prolog.py prog.pl -q 'goal(X)'` | top-down Horn clauses *with* function symbols |
+| `python3 subsumption.py ontology.dl` | classify a KL-ONE-style ontology (compiled to Datalog) |
 
 ## Syntax reference
 
@@ -56,19 +60,28 @@ input facts). The other modes:
 ```python
 from datalog import run_program, parse, magic_query
 
-engine = run_program(open("family.dl").read())
+engine = run_program(open("01-family.dl").read())
 print(engine.rels["ancestor"])           # set of tuples
 
 query = parse("ancestor(bob, X).")[0].head
-_, answers = magic_query(parse(open("family.dl").read()), query)
+_, answers = magic_query(parse(open("01-family.dl").read()), query)
 ```
 
 ## Where to go next
 
-The lessons build up the whole engine feature by feature:
+The lessons build up the whole repository feature by feature:
 
+0. [What is Datalog, and why should you care?](00-what-is-datalog.md) —
+   start here if Datalog is new to you: what it is, its history, and why
+   it matters in the LLM era
 1. [Facts, rules, and queries](01-first-steps.md)
 2. [Recursion and semi-naive evaluation](02-recursion.md)
 3. [Negation and stratification](03-negation.md)
 4. [Magic sets: asking questions efficiently](04-magic-sets.md)
 5. [Beyond stratification: stable models and the café paradox](05-beyond-stratification.md)
+6. [Semirings: provenance and recursive aggregation](06-semirings.md)
+7. [Probabilistic Datalog, honestly](07-probabilistic.md)
+8. [Incremental maintenance: don't recompute the world](08-incremental.md)
+9. [Horn clauses: the boundary Datalog lives on](09-horn-clauses.md)
+10. [KL-ONE and subsumption: reasoning about definitions](10-kl-one-subsumption.md)
+11. [Under the hood: how this engine is built](11-under-the-hood.md)

@@ -12,7 +12,7 @@
 % rule below).  That reading is what turns Bob's situation into a cycle
 % through negation.  The alternative, direct reading — Bob cooks the café's
 % meals, the café is his household, therefore his household cooks, full
-% stop — is encoded in cafe_constraint.dl, where the same paradox surfaces
+% stop — is encoded in 05-cafe-constraint.dl, where the same paradox surfaces
 % instead as an integrity violation in a stratified program.
 %
 % Evaluate with --models for the semantic verdict: this program has NO

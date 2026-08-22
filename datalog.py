@@ -6,10 +6,16 @@ stratified negation.  Pure standard-library Python.
 Syntax
 ------
     fact(a, b).                       % ground facts
+    edge(a, b) @ 3.                   % facts may carry a numeric weight
+                                      % (ignored here; used by semiring.py)
     head(X) :- body(X, Y), not q(Y).  % rules; `not` is stratified negation
     % and # start line comments
 
-Constants are lowercase identifiers, integers, or quoted strings.
+Constants are lowercase identifiers, numbers (int or float), or quoted
+strings.  Compound terms like s(N) are *parsed* but rejected by
+validation — banning function symbols is precisely the restriction that
+makes Datalog terminate.  For Horn clauses with function symbols, see the
+top-down interpreter in prolog.py.
 Variables start with an uppercase letter or underscore ('_' is anonymous).
 `not` is reserved for negation.
 
@@ -32,12 +38,17 @@ Semantics
   without giving up semi-naive.  Negated subgoals are not specialised:
   their predicates are included untransformed and computed in full, which
   keeps the rewriting stratified whenever the original program is.
+  (Implementation: magic.py.)
 
 Stratifiability is a *syntactic* condition; rejection by the stratified
 engine does not by itself mean a program is semantically paradoxical.
 For small programs, `--models` grounds the program and reports the
 semantic story: all stable models (by exhaustive search) and the
-well-founded (three-valued) model.
+well-founded (three-valued) model.  (Implementation: semantics.py.)
+
+This file is the core: AST, parser, safety validation, stratification,
+and the semi-naive evaluator, plus the CLI.  Lesson 11 of the course is
+a guided tour of how it all works.
 
 CLI
 ---
@@ -81,6 +92,17 @@ class Const:
 
 
 @dataclass(frozen=True)
+class Struct:
+    """A compound term like s(N) or cons(H, T).  Parsed for prolog.py's
+    benefit; Datalog validation rejects it (the function-symbol ban)."""
+    functor: str
+    args: tuple
+
+    def __str__(self):
+        return "%s(%s)" % (self.functor, ", ".join(map(str, self.args)))
+
+
+@dataclass(frozen=True)
 class Atom:
     pred: str
     args: tuple
@@ -104,9 +126,12 @@ class Literal:
 class Rule:
     head: Atom
     body: tuple  # tuple of Literal; empty tuple => fact
+    weight: object = None  # numeric fact annotation `@ w`; facts only
 
     def __str__(self):
         if not self.body:
+            if self.weight is not None:
+                return "%s @ %s." % (self.head, self.weight)
             return "%s." % self.head
         return "%s :- %s." % (self.head, ", ".join(map(str, self.body)))
 
@@ -133,19 +158,30 @@ class StratificationError(DatalogError):
 # Parser
 # ---------------------------------------------------------------------------
 
+# One regex, alternatives tried in order, each wrapped in a named group —
+# whichever group matched tells us the token kind.  Two orderings matter:
+# `:-` must be tried somewhere `:` alone can't shadow it (there is no
+# lone-colon token, so it's safe), and the number alternative must come
+# before `dot`, so that in `edge(a, b) @ 3.5.` the "3.5" is one float
+# token and the final "." still terminates the clause.
 _TOKEN = re.compile(
     r"""
       (?P<ws>\s+)
     | (?P<comment>[%\#][^\n]*)
     | (?P<implies>:-)
-    | (?P<lparen>\() | (?P<rparen>\)) | (?P<comma>,) | (?P<dot>\.)
-    | (?P<number>-?\d+)
+    | (?P<lparen>\() | (?P<rparen>\)) | (?P<comma>,) | (?P<at>@)
+    | (?P<number>-?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?)
+    | (?P<dot>\.)
     | (?P<string>"[^"\n]*"|'[^'\n]*')
     | (?P<var>[A-Z_][A-Za-z0-9_]*)
     | (?P<ident>[a-z][A-Za-z0-9_]*)
     """,
     re.VERBOSE,
 )
+
+
+def _num(text):
+    return float(text) if any(c in text for c in ".eE") else int(text)
 
 
 def _tokenize(text):
@@ -166,10 +202,23 @@ def _tokenize(text):
 
 
 class _Parser:
+    """Recursive descent over the token stream — one method per grammar
+    rule, reading top to bottom:
+
+        program := clause*
+        clause  := atom [ '@' number ] '.'  |  atom ':-' literal (',' literal)* '.'
+        literal := [ 'not' ] atom
+        atom    := IDENT [ '(' term (',' term)* ')' ]
+        term    := VARIABLE | NUMBER | STRING | IDENT [ '(' term... ')' ]
+
+    The last alternative of `term` (an identifier with arguments) is a
+    compound term like s(N) — parsed here so prolog.py can share this
+    parser, but rejected later by Datalog validation."""
+
     def __init__(self, text):
         self.tokens = _tokenize(text)
         self.i = 0
-        self.fresh = 0
+        self.fresh = 0  # counter for renaming each `_` to a fresh variable
 
     def _peek(self):
         return self.tokens[self.i]
@@ -194,7 +243,13 @@ class _Parser:
     def _parse_clause(self):
         head = self._parse_atom()
         body = ()
-        if self._peek()[0] == "implies":
+        weight = None
+        kind = self._peek()[0]
+        if kind == "at":
+            self._next()
+            tok = self._expect("number")
+            weight = _num(tok[1])
+        elif kind == "implies":
             self._next()
             lits = [self._parse_literal()]
             while self._peek()[0] == "comma":
@@ -202,7 +257,7 @@ class _Parser:
                 lits.append(self._parse_literal())
             body = tuple(lits)
         self._expect("dot")
-        return Rule(head, body)
+        return Rule(head, body, weight)
 
     def _parse_literal(self):
         kind, value, _line = self._peek()
@@ -233,9 +288,17 @@ class _Parser:
                 return Var("_G%d" % self.fresh)
             return Var(value)
         if kind == "ident":
+            if self._peek()[0] == "lparen":
+                self._next()
+                args = [self._parse_term()]
+                while self._peek()[0] == "comma":
+                    self._next()
+                    args.append(self._parse_term())
+                self._expect("rparen")
+                return Struct(value, tuple(args))
             return Const(value)
         if kind == "number":
-            return Const(int(value))
+            return Const(_num(value))
         if kind == "string":
             return Const(value[1:-1])
         raise ParseError("line %d: expected a term, got %r" % (line, value))
@@ -250,9 +313,17 @@ def parse(text):
 # Validation: arity consistency, groundness of facts, rule safety
 # ---------------------------------------------------------------------------
 
-def validate(clauses):
-    """Check arities, ground facts, and safety.  Returns {pred: arity}."""
-    arity = {}
+def validate(clauses, arity=None):
+    """Check arities, ground facts, and safety.  Returns {pred: arity}.
+    An `arity` seed map lets a caller check new clauses against an
+    already-loaded program's signature (incremental.py does this).
+    "Safety" is range restriction, and it is what makes every relation
+    finite: a variable may appear in a rule head, or under `not`, only if
+    a positive body literal also binds it.  Without it, p(X) :- q(a)
+    would assert p of *everything*, and `not r(X)` with X unbound would
+    quantify over an open universe.  The compound-term check is the
+    Datalog boundary itself — see the module docstring and prolog.py."""
+    arity = dict(arity) if arity is not None else {}
 
     def check_arity(atom):
         n = arity.setdefault(atom.pred, len(atom.args))
@@ -260,10 +331,24 @@ def validate(clauses):
             raise SafetyError(
                 "predicate %s used with arity %d and %d" % (atom.pred, len(atom.args), n))
 
+    def check_no_structs(atom, rule):
+        for a in atom.args:
+            if isinstance(a, Struct):
+                raise SafetyError(
+                    "function symbols are not Datalog: term %s in %s.  "
+                    "Datalog bans compound terms so that bottom-up "
+                    "evaluation always terminates; for Horn clauses with "
+                    "function symbols use the top-down engine (prolog.py)."
+                    % (a, rule))
+
     for rule in clauses:
         check_arity(rule.head)
+        check_no_structs(rule.head, rule)
+        if rule.weight is not None and rule.body:
+            raise SafetyError("only facts may carry an @ weight: %s" % rule)
         for lit in rule.body:
             check_arity(lit.atom)
+            check_no_structs(lit.atom, rule)
         if not rule.body:
             if any(isinstance(a, Var) for a in rule.head.args):
                 raise SafetyError("fact is not ground: %s" % rule)
@@ -290,7 +375,14 @@ def validate(clauses):
 # ---------------------------------------------------------------------------
 
 def _tarjan(nodes, edges):
-    """Strongly connected components; returns {node: scc_id}."""
+    """Strongly connected components; returns {node: scc_id}.
+
+    Why SCCs?  A program is stratifiable exactly when no *cycle* of
+    dependencies contains a negative edge, and every cycle lives inside
+    one SCC — so the whole check reduces to: does any negative edge have
+    both endpoints in the same component?  This is Tarjan's algorithm in
+    its iterative form (an explicit frame stack instead of recursion, so
+    a long dependency chain can't hit Python's recursion limit)."""
     adj = defaultdict(list)
     for u, v, _neg in edges:
         adj[u].append(v)
@@ -398,6 +490,12 @@ def stratify(clauses):
                 "program has no stratified model." % _format_cycle(cycle),
                 cycle=cycle)
 
+    # Assign stratum numbers by relaxation: a predicate must sit at least
+    # as high as anything it depends on, and *strictly* higher than
+    # anything it depends on through negation ("compute that completely
+    # before I ask what's not in it").  The SCC check above guarantees no
+    # negative cycle, so these constraints have a finite solution and the
+    # loop terminates at the least one.
     stratum = {p: 1 for p in idb}
     changed = True
     while changed:
@@ -419,7 +517,13 @@ _EMPTY = frozenset()
 
 
 def _match(args, tup, subst):
-    """Extend subst so that args == tup, or return None."""
+    """Extend subst so that args == tup, or return None.
+
+    This is one-way unification (pattern matching): `tup` is always
+    ground, so a variable either takes the tuple's value or must agree
+    with its earlier binding, and a constant simply has to be equal.
+    Joins fall out for free — matching path(X, Y) then edge(Y, Z) under
+    one growing substitution *is* the join on Y."""
     s = dict(subst)
     for a, v in zip(args, tup):
         if isinstance(a, Const):
@@ -444,7 +548,14 @@ class Program:
 
 
 class Engine:
-    """Bottom-up, stratum-by-stratum semi-naive evaluator."""
+    """Bottom-up, stratum-by-stratum semi-naive evaluator.
+
+    Data representation, in full: `rels` maps each predicate name to a
+    Python set of ground tuples — path -> {("a","b"), ("a","c")}.  That's
+    the whole database.  Rules never delete (Datalog is monotone within a
+    stratum), so evaluation is: grow these sets until one full pass adds
+    nothing.  Strata are computed once, then processed in order, so by
+    the time a negated literal is consulted its relation is finished."""
 
     def __init__(self, program):
         self.program = program
@@ -556,286 +667,31 @@ def run_program(text):
 
 
 # ---------------------------------------------------------------------------
-# Magic sets: goal-directed rewriting for queries
-# ---------------------------------------------------------------------------
-# Given a query with some arguments bound to constants, rewrite the program
-# so that bottom-up evaluation derives only facts relevant to the query.
-# Standard construction: adorn each IDB predicate occurrence with a
-# bound/free pattern (left-to-right sideways information passing, matching
-# the evaluator's join order), introduce a magic predicate per adorned
-# predicate that collects the subgoal bindings actually demanded, guard
-# every specialised rule with its magic predicate, and seed the query's own
-# magic predicate with the query constants.
-#
-# Negation: negated subgoals are NOT specialised.  A negated literal keeps
-# its original predicate, whose defining rules (and everything they depend
-# on) are included untransformed and evaluated in full.  This is sound, and
-# since negative edges then only point from the rewritten world into the
-# original one, the rewriting is stratified whenever the original is.
-
-def _adorned_name(pred, adorn):
-    return "%s#%s" % (pred, adorn)
-
-
-def _magic_name(pred, adorn):
-    return "magic#%s#%s" % (pred, adorn)
-
-
-def magic_transform(clauses, query):
-    """Magic-sets rewriting of the program for `query` (an Atom, possibly
-    with variables).  Returns (transformed_clauses, answer_pred): evaluate
-    the transformed program and read the query's answers from answer_pred.
-    """
-    validate(clauses)
-    idb = {c.head.pred for c in clauses if c.body}
-    if query.pred not in idb:
-        return list(clauses), query.pred  # EDB query: nothing to specialise
-
-    defs = defaultdict(list)  # IDB pred -> its clauses (rules AND facts)
-    edb_facts = []
-    for c in clauses:
-        if c.head.pred in idb:
-            defs[c.head.pred].append(c)
-        else:
-            edb_facts.append(c)
-
-    query_adorn = "".join("b" if isinstance(a, Const) else "f"
-                          for a in query.args)
-
-    out = []
-    full_needed = set()   # predicates under negation: evaluate in full
-    seen = set()
-    work = [(query.pred, query_adorn)]
-    while work:
-        pred, adorn = work.pop()
-        if (pred, adorn) in seen:
-            continue
-        seen.add((pred, adorn))
-        for clause in defs[pred]:
-            head = clause.head
-            bound_vars = {head.args[i].name
-                          for i, ch in enumerate(adorn)
-                          if ch == "b" and isinstance(head.args[i], Var)}
-            magic_args = tuple(head.args[i]
-                               for i, ch in enumerate(adorn) if ch == "b")
-            # prefix = magic guard + transformed positive literals so far
-            prefix = [Literal(Atom(_magic_name(pred, adorn), magic_args))]
-            negatives = []
-            for lit in clause.body:
-                if lit.negated:
-                    negatives.append(lit)
-                    if lit.atom.pred in idb:
-                        full_needed.add(lit.atom.pred)
-                    continue
-                if lit.atom.pred in idb:
-                    sub = "".join(
-                        "b" if isinstance(a, Const) or a.name in bound_vars
-                        else "f"
-                        for a in lit.atom.args)
-                    sub_bound = tuple(a for a, ch in zip(lit.atom.args, sub)
-                                      if ch == "b")
-                    # this subgoal's bindings are demanded whenever the
-                    # prefix so far succeeds
-                    out.append(Rule(Atom(_magic_name(lit.atom.pred, sub),
-                                         sub_bound),
-                                    tuple(prefix)))
-                    work.append((lit.atom.pred, sub))
-                    prefix.append(
-                        Literal(Atom(_adorned_name(lit.atom.pred, sub),
-                                     lit.atom.args)))
-                else:
-                    prefix.append(lit)
-                bound_vars |= {a.name for a in lit.atom.args
-                               if isinstance(a, Var)}
-            out.append(Rule(Atom(_adorned_name(pred, adorn), head.args),
-                            tuple(prefix) + tuple(negatives)))
-
-    # Include negated subgoals' definitions untransformed, transitively.
-    stack = list(full_needed)
-    included = set()
-    while stack:
-        p = stack.pop()
-        if p in included:
-            continue
-        included.add(p)
-        for c in defs[p]:
-            out.append(c)
-            for lit in c.body:
-                if lit.atom.pred in idb and lit.atom.pred not in included:
-                    stack.append(lit.atom.pred)
-
-    # Seed the query's magic predicate with the query constants, keep EDB.
-    seed_args = tuple(a for a in query.args if isinstance(a, Const))
-    out.append(Rule(Atom(_magic_name(query.pred, query_adorn), seed_args), ()))
-    out.extend(edb_facts)
-
-    deduped, seen_rules = [], set()
-    for c in out:
-        if c not in seen_rules:
-            seen_rules.add(c)
-            deduped.append(c)
-    return deduped, _adorned_name(query.pred, query_adorn)
-
-
-def magic_query(clauses, query):
-    """Answer `query` via magic-sets rewriting + semi-naive evaluation.
-    Returns (engine, answers): the engine that ran the rewritten program,
-    and the set of ground tuples matching the query."""
-    transformed, answer_pred = magic_transform(clauses, query)
-    engine = Engine(Program(transformed))
-    engine.run()
-    answers = {tup for tup in engine.rels.get(answer_pred, ())
-               if _match(query.args, tup, {}) is not None}
-    return engine, answers
-
-
-# ---------------------------------------------------------------------------
-# Ground semantics: stable models and the well-founded model
-# ---------------------------------------------------------------------------
-# Stratifiability is syntactic, and unstratifiable programs may still have
-# perfectly good stable models (win(X) :- move(X, Y), not win(Y) is the
-# classic example).  These analyses give the semantic verdict for programs
-# the stratified engine rejects.  They are meant for small demo programs:
-# grounding is naive and stable models are found by exhaustive search.
-
-def _instantiate_atom(atom, subst):
-    return (atom.pred, tuple(a.value if isinstance(a, Const) else subst[a.name]
-                             for a in atom.args))
-
-
-def _ground(clauses):
-    """Ground the program.
-
-    Returns (facts, ground_rules, candidates): facts is the set of ground
-    atoms (pred, args) from unit clauses; ground_rules is a list of
-    (head, pos_atoms, neg_atoms) triples over ground atoms; candidates is
-    the set of rule-derivable ground atoms when every negation is assumed
-    to succeed — an upper bound on any stable model (the Gelfond–Lifschitz
-    operator is antimonotone, so every stable model M satisfies
-    M subseteq Gamma(emptyset)).
-    """
-    validate(clauses)
-    facts = {(r.head.pred, tuple(a.value for a in r.head.args))
-             for r in clauses if not r.body}
-    rules = [r for r in clauses if r.body]
-
-    # Least model ignoring negation = envelope of possibly-true atoms.
-    rels = defaultdict(set)
-    for pred, args in facts:
-        rels[pred].add(args)
-
-    def substitutions(rule):
-        substs = [{}]
-        for lit in rule.body:
-            if lit.negated:
-                continue
-            new = []
-            for s in substs:
-                for tup in rels.get(lit.atom.pred, ()):
-                    m = _match(lit.atom.args, tup, s)
-                    if m is not None:
-                        new.append(m)
-            substs = new
-        return substs
-
-    changed = True
-    while changed:
-        changed = False
-        for rule in rules:
-            for s in substitutions(rule):
-                pred, args = _instantiate_atom(rule.head, s)
-                if args not in rels[pred]:
-                    rels[pred].add(args)
-                    changed = True
-
-    ground_rules = []
-    seen = set()
-    for rule in rules:
-        for s in substitutions(rule):
-            gr = (_instantiate_atom(rule.head, s),
-                  tuple(_instantiate_atom(l.atom, s)
-                        for l in rule.body if not l.negated),
-                  tuple(_instantiate_atom(l.atom, s)
-                        for l in rule.body if l.negated))
-            if gr not in seen:
-                seen.add(gr)
-                ground_rules.append(gr)
-    candidates = {gr[0] for gr in ground_rules} - facts
-    return facts, ground_rules, candidates
-
-
-def _gamma(S, facts, ground_rules):
-    """Gelfond–Lifschitz operator: the least model of the reduct of the
-    ground program with respect to S (a negative literal `not a` survives
-    the reduct iff a is not in S)."""
-    derived = set(facts)
-    changed = True
-    while changed:
-        changed = False
-        for head, pos, neg in ground_rules:
-            if head in derived:
-                continue
-            if any(a in S for a in neg):
-                continue
-            if all(a in derived for a in pos):
-                derived.add(head)
-                changed = True
-    return derived
-
-
-def stable_models(clauses, limit_atoms=16):
-    """All stable models of the program, as sets of ground atoms (pred,
-    args), EDB facts included.  Exhaustive search over subsets of the
-    candidate atoms; small programs only."""
-    facts, ground_rules, candidates = _ground(clauses)
-    atoms = sorted(candidates)
-    if len(atoms) > limit_atoms:
-        raise DatalogError(
-            "stable-model search is limited to %d candidate atoms; this "
-            "program grounds to %d" % (limit_atoms, len(atoms)))
-    models = []
-    for mask in range(1 << len(atoms)):
-        M = {atoms[i] for i in range(len(atoms)) if mask >> i & 1} | facts
-        if _gamma(M, facts, ground_rules) == M:
-            models.append(M)
-    return models
-
-
-def well_founded(clauses):
-    """The well-founded (three-valued) model, via Van Gelder's alternating
-    fixpoint: returns (true_atoms, undefined_atoms); everything else is
-    false.  Gamma is antimonotone, so Gamma o Gamma is monotone; true atoms
-    are its least fixpoint T, and the undefined atoms are Gamma(T) - T."""
-    facts, ground_rules, _candidates = _ground(clauses)
-    T = set(facts)
-    while True:
-        upper = _gamma(T, facts, ground_rules)
-        T2 = _gamma(upper, facts, ground_rules)
-        if T2 == T:
-            return T, upper - T
-        T = T2
-
-
-# ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
 
 def _sort_key(tup):
-    return tuple((v.__class__.__name__, str(v)) for v in tup)
+    # numbers sort numerically (and before strings); strings sort as text
+    return tuple((0, v) if isinstance(v, (int, float)) else (1, str(v))
+                 for v in tup)
 
 
 def _format_value(v):
     if isinstance(v, str) and re.fullmatch(r"[a-z][A-Za-z0-9_]*", v):
         return v
-    if isinstance(v, int):
+    if isinstance(v, (int, float)):
         return str(v)
     return '"%s"' % v
 
 
-def format_fact(pred, tup):
+def format_atom(pred, tup):
     if not tup:
-        return "%s." % pred
-    return "%s(%s)." % (pred, ", ".join(_format_value(v) for v in tup))
+        return pred
+    return "%s(%s)" % (pred, ", ".join(_format_value(v) for v in tup))
+
+
+def format_fact(pred, tup):
+    return format_atom(pred, tup) + "."
 
 
 def _print_strata(program):
@@ -872,6 +728,7 @@ def _format_atoms(atoms):
 
 def _print_models(clauses):
     """Report the semantic story: stable models and the well-founded model."""
+    from semantics import ground_program, stable_models, well_founded
     try:
         stratify(clauses)
         print("Syntactic check: stratifiable.")
@@ -879,8 +736,9 @@ def _print_models(clauses):
         print("Syntactic check: not stratifiable (%s)." % _format_cycle(exc.cycle))
         print("  (Syntactic only — an unstratifiable program may still have "
               "stable models.)")
-    facts, _rules, _candidates = _ground(clauses)
-    models = stable_models(clauses)
+    grounding = ground_program(clauses)
+    facts = grounding[0]
+    models = stable_models(clauses, grounding=grounding)
     if not models:
         print("Stable models: none — no consistent two-valued model exists.")
     else:
@@ -889,18 +747,47 @@ def _print_models(clauses):
                 sorted(models, key=lambda m: _format_atoms(m - facts)), 1):
             print("  model %d: %s" % (i, _format_atoms(m - facts)
                                       or "(EDB facts only)"))
-    true, undef = well_founded(clauses)
+    true, undef = well_founded(clauses, grounding=grounding)
     print("Well-founded model (three-valued):")
     print("  true:      %s" % (_format_atoms(true - facts) or "(EDB facts only)"))
     print("  undefined: %s" % (_format_atoms(undef) or "(none)"))
     return 0
 
 
-def _parse_query_atom(q):
+def parse_goal(q):
+    """Parse a query/goal string into a single atom (no validation —
+    prolog.py uses this too, and its goals may carry compound terms)."""
     clauses = parse(q if q.rstrip().endswith(".") else q + ".")
     if len(clauses) != 1 or clauses[0].body:
         raise ParseError("query must be a single atom: %r" % q)
     return clauses[0].head
+
+
+def check_query_atom(atom, arity=None):
+    """Datalog-side validation of a query atom: no compound terms, and
+    arity agreement with the program when known.  The single home for
+    these checks — the CLI, magic.py, and semiring.py all route here."""
+    for a in atom.args:
+        if isinstance(a, Struct):
+            raise SafetyError(
+                "function symbols are not Datalog: term %s in query %s "
+                "(see prolog.py)" % (a, atom))
+    if arity is not None and atom.pred in arity \
+            and arity[atom.pred] != len(atom.args):
+        raise SafetyError(
+            "query %s has arity %d but %s is used with arity %d"
+            % (atom, len(atom.args), atom.pred, arity[atom.pred]))
+
+
+def _parse_query_atom(q, arity=None):
+    atom = parse_goal(q)
+    check_query_atom(atom, arity)
+    return atom
+
+
+def match_answers(atom, tuples):
+    """The tuples matching a query atom: constants filter, variables bind."""
+    return [tup for tup in tuples if _match(atom.args, tup, {}) is not None]
 
 
 def _print_answers(atom, tuples, suffix=""):
@@ -912,14 +799,12 @@ def _print_answers(atom, tuples, suffix=""):
 
 
 def _run_query(q, engine):
-    atom = _parse_query_atom(q)
-    tuples = [tup for tup in engine.rels.get(atom.pred, ())
-              if len(tup) == len(atom.args)
-              and _match(atom.args, tup, {}) is not None]
-    _print_answers(atom, tuples)
+    atom = _parse_query_atom(q, engine.program.arity)
+    _print_answers(atom, match_answers(atom, engine.rels.get(atom.pred, ())))
 
 
 def _run_magic_query(q, clauses, trace):
+    from magic import magic_transform
     atom = _parse_query_atom(q)
     transformed, answer_pred = magic_transform(clauses, atom)
     mprog = Program(transformed)
@@ -946,10 +831,8 @@ def _run_magic_query(q, clauses, trace):
             print("[magic] %d IDB facts derived (no full-evaluation baseline: "
                   "the original program is not stratifiable)" % magic_total)
         print()
-    tuples = [tup for tup in mengine.rels.get(answer_pred, ())
-              if len(tup) == len(atom.args)
-              and _match(atom.args, tup, {}) is not None]
-    _print_answers(atom, tuples, suffix="   [magic]")
+    _print_answers(atom, match_answers(atom, mengine.rels.get(answer_pred, ())),
+                   suffix="   [magic]")
 
 
 def main(argv=None):
@@ -980,8 +863,9 @@ def main(argv=None):
         text = fh.read()
 
     try:
+        # every mode re-validates via Program / magic_transform /
+        # ground_program, so parsing is all that must happen up front
         clauses = parse(text)
-        validate(clauses)
     except DatalogError as exc:
         print("error: %s" % exc, file=sys.stderr)
         return 1

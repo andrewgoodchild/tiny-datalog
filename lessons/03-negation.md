@@ -34,7 +34,7 @@ growing, you might say yes today and be wrong tomorrow.
 That ordering requirement generalizes: slice the program into **strata**
 so that each predicate's negated dependencies live in strictly lower
 strata, then compute the strata in order, each to fixpoint. Run
-`--trace` on `programs/cafe_foodary.dl` and you'll see the engine do
+`--trace` on `programs/05-cafe-foodary.dl` and you'll see the engine do
 exactly this:
 
 ```
@@ -44,7 +44,7 @@ Stratification:
 ```
 
 The classic non-monotone idiom this enables is **default reasoning**
-(Tweety, from `tests.py`):
+(Tweety, `programs/03-tweety.dl`):
 
 ```prolog
 bird(tweety). bird(opus). penguin(opus).
@@ -59,6 +59,7 @@ stratification.
 ## When stratification fails
 
 What if negation sits *inside* a recursive loop?
+(`programs/03-win.dl`)
 
 ```prolog
 move(a, b).  move(b, a).
@@ -80,7 +81,8 @@ It does **not** by itself mean the program is meaningless — this very
 program has two perfectly sensible "solutions" ({win(a)} and {win(b)}).
 Making that precise needs better semantics, which is Lesson 5.
 
-Meanwhile the truly pathological case looks the same syntactically:
+Meanwhile the truly pathological case looks the same syntactically
+(`programs/03-barber.dl`):
 
 ```prolog
 person(barber). person(plato).
@@ -91,6 +93,18 @@ The barber shaves exactly those who don't shave themselves. Does the
 barber shave the barber? Russell's paradox as a Datalog program — also
 rejected, and here the rejection is hiding something genuinely broken.
 Lesson 5 separates the two cases.
+
+## Is this real, or just academic?
+
+Stratified negation is the exact dialect production engines ship —
+Soufflé and RDFox both enforce stratification, for the same reason this
+engine does. Commercially, negation-as-failure is how rule systems
+express the patterns businesses actually run on: eligibility ("covered
+unless excluded"), access control ("deny unless granted"), compliance
+("flag transactions with no matching invoice"). The Tweety pattern —
+defaults with exceptions — is the backbone of product-configuration and
+policy engines. When a vendor demo says "the rules engine handles
+exceptions," this lesson is what's underneath.
 
 ## Exercises
 

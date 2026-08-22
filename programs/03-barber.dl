@@ -1,0 +1,13 @@
+% The barber paradox: the barber shaves exactly those who do not shave
+% themselves.  Does the barber shave the barber?  Russell's paradox as a
+% logic program — no stable model exists, and the well-founded model
+% leaves precisely shaves(barber, barber) undefined while still settling
+% that the barber shaves plato.
+%
+%   python3 datalog.py programs/03-barber.dl            (rejected)
+%   python3 datalog.py --models programs/03-barber.dl   (the semantic verdict)
+
+person(barber).
+person(plato).
+
+shaves(barber, X) :- person(X), not shaves(X, X).

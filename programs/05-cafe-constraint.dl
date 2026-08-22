@@ -11,7 +11,7 @@
 % situation in which it is applied.
 %
 % The alternative, self-referential reading — where whether a household
-% cooks depends on where its members eat — is in cafe_paradox.dl.
+% cooks depends on where its members eat — is in 05-cafe-paradox.dl.
 
 % ------------------------------------------------------------------- facts
 member(alice, house_a).

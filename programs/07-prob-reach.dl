@@ -1,0 +1,18 @@
+% A flaky network: each link is up with some probability.
+%
+%   python3 semiring.py --semiring viterbi programs/07-prob-reach.dl
+%
+% Viterbi (max, x) scores the MOST LIKELY single route — a true semiring.
+% "Total probability of reachability" is deliberately not offered: its
+% natural sum (a + b - ab) breaks distributivity, so it is not a semiring
+% at all.  See lessons/07-probabilistic.md for why that failure is the
+% doorway to Scallop-style neurosymbolic systems.
+
+link(s, a) @ 0.9.
+link(a, t) @ 0.9.
+link(s, b) @ 0.5.
+link(b, t) @ 0.95.
+link(a, b) @ 0.8.
+
+reach(X, Y) :- link(X, Y).
+reach(X, Z) :- link(X, Y), reach(Y, Z).

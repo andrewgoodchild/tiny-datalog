@@ -1,0 +1,21 @@
+% A miniature Andersen-style pointer analysis — the modern classic that
+% brought Datalog back (Doop, Souffle, CodeQL are this, scaled up).
+% The analysed "program" is:
+%
+%     v1 = new h1;  v2 = new h2;  v3 = v1;  *v3 = v2;  v4 = *v3
+%
+% pt(V, H): variable V may point to heap object H.
+% hpt(H1, H2): a field of H1 may point to H2.  Mutually recursive.
+%
+%   python3 datalog.py --trace programs/02-points-to.dl
+
+alloc(v1, h1).
+alloc(v2, h2).
+assign(v3, v1).
+store(v3, v2).
+load(v4, v3).
+
+pt(V, H)    :- alloc(V, H).
+pt(V, H)    :- assign(V, W), pt(W, H).
+hpt(H1, H2) :- store(P, W), pt(P, H1), pt(W, H2).
+pt(V, H2)   :- load(V, P), pt(P, H1), hpt(H1, H2).

@@ -1,0 +1,12 @@
+% The win/move game: a position is winning if some move reaches a losing
+% position.  Negation inside recursion — unstratifiable, so datalog.py
+% rejects it.  But it is NOT paradoxical: on this two-position cycle it
+% has two perfectly good stable models, {win(a)} and {win(b)}.
+%
+%   python3 datalog.py programs/03-win.dl            (rejected)
+%   python3 datalog.py --models programs/03-win.dl   (two stable models)
+
+move(a, b).
+move(b, a).
+
+win(X) :- move(X, Y), not win(Y).

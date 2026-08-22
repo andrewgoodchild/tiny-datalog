@@ -13,7 +13,7 @@ evaluation of the original would have done.
 ## The idea in one example
 
 ```sh
-$ python3 datalog.py --magic --trace -q 'path(n5, X)' programs/reachability.dl
+$ python3 datalog.py --magic --trace -q 'path(n5, X)' programs/02-reachability.dl
 Magic-sets rewriting (answer predicate path#bf):
   path#bf(X, Y)     :- magic#path#bf(X), edge(X, Y).
   magic#path#bf(Y)  :- magic#path#bf(X), edge(X, Y).
@@ -51,13 +51,17 @@ adornment `bb` for the inner call. One predicate, several specializations,
 each with its own magic predicate. Try it:
 
 ```sh
-python3 datalog.py --magic --trace -q 'path(X, n10)' programs/reachability.dl
+python3 datalog.py --magic --trace -q 'path(X, n10)' programs/02-reachability.dl
 ```
 
-The classic showpiece is the **same-generation** program (see
-`test_same_generation`) — for "who is in cal's generation?" magic sets
-explores only cal's ancestors and their descendants, not the whole family
-forest.
+The classic showpiece is the **same-generation** program
+(`programs/04-same-generation.dl`) — for "who is in cal's generation?"
+magic sets explores only cal's ancestors and their descendants, not the
+whole family forest:
+
+```sh
+python3 datalog.py --magic --trace -q 'sg(cal, Y)' programs/04-same-generation.dl
+```
 
 ## Negation, briefly
 
@@ -67,10 +71,23 @@ included untransformed and computed in full. Specializing *through*
 negation is possible but subtle, and it's where the research literature
 lives.
 
+## Is this real, or just academic?
+
+The specific transformation ships: Soufflé offers a magic-set transform,
+and the LogicBlox engine (now RelationalAI's lineage) built its
+"demand transformation" on this idea. But the broader principle is one
+of the most commercial ideas in data systems: *push what you know about
+the query into the evaluation*. Every SQL optimizer's predicate pushdown,
+every "filter early, join late" rewrite, every distributed engine
+shipping filters to the data — all are the magic-sets instinct wearing
+different clothes. Learn it here in its purest form and you will
+recognise it in every query plan you ever read.
+
 ## Exercises
 
-1. For the ancestor program of Lesson 1, compare `-q 'ancestor(abe, X)'`
-   with and without `--magic --trace`. How many facts does each derive?
+1. For the ancestor program of Lesson 1 (`programs/01-family.dl`),
+   compare `-q 'ancestor(abe, X)'` with and without `--magic --trace`.
+   How many facts does each derive?
 2. Write down, by hand, the rewriting for `ancestor(X, dee)` (adornment
    `fb`). Then check yourself against `--magic --trace`.
 3. When does magic *not* help? Try `-q 'path(X, Y)'` (nothing bound) and

@@ -1,0 +1,171 @@
+# Lesson 0 — What is Datalog, and why should you care?
+
+Suppose your database has a table of who reports to whom, and you want
+everyone in Alice's reporting chain — her reports, their reports, all the
+way down. In SQL that's a recursive common table expression most
+developers have to look up the syntax for. In Datalog it is the problem's
+own logical structure, and nothing else:
+
+```prolog
+manages(alice, bob).
+manages(bob, carol).
+
+chain(X, Y) :- manages(X, Y).
+chain(X, Z) :- manages(X, Y), chain(Y, Z).
+```
+
+That's a complete program. `:-` reads "if", the comma reads "and",
+capital letters are variables. Run it and the engine derives every
+`chain` fact the rules imply — including `chain(alice, carol)`, which no
+one wrote down.
+
+**Datalog is a query language where you state what follows from what,
+and evaluation is the working-out of all consequences.** Three properties
+define it:
+
+1. **Declarative** — you never say *how* to compute (no loops, no
+   ordering); the engine picks the strategy.
+2. **Recursive** — reachability, hierarchies, and dependency closures are
+   native, not bolted on.
+3. **Terminating** — every Datalog program finishes. Always. This is a
+   theorem, not a convention, and Lesson 9 shows the price paid for it.
+
+If you know SQL: Datalog is roughly "SELECT–JOIN plus real recursion,
+minus the ceremony." If you know Prolog: Datalog is Prolog without
+function symbols, evaluated bottom-up, with termination guaranteed.
+
+## A short history, in five acts
+
+**Roots (1965–1977).** Automated reasoning begins in earnest with
+Robinson's resolution principle (1965); Prolog (1972, Colmerauer and
+Kowalski) turns Horn-clause logic into a programming language. The 1977
+*Logic and Databases* workshop asks the pivotal question: what happens
+when logic meets the relational database?
+
+**The golden age (1980s).** "Datalog" gets its name, and the
+deductive-database community works out the canon this repository
+implements: bottom-up **semi-naive evaluation** (don't rederive what you
+already know), **magic sets** (1986 — make bottom-up as goal-directed as
+Prolog), and **stratified negation** (give "not" a safe, layered
+meaning). When stratification proved too narrow, the semantics race of
+1988–1991 produced the two lasting answers: **stable models** (Gelfond
+and Lifschitz, 1988) and the **well-founded semantics** (Van Gelder,
+Ross, Schlipf, 1991).
+
+**The winter (1990s).** Deductive databases fail commercially. SQL:1999
+absorbs a weak form of recursion (`WITH RECURSIVE`) and the field is
+declared a theoretician's playground. Two quiet survivors matter later:
+the stable-model camp becomes **answer set programming** (today's
+clingo), and XSB keeps the well-founded semantics running in practice.
+
+**The renaissance (2000s–2010s).** Datalog returns because other fields
+discover their problems *are* Datalog. Program analysis leads the way —
+points-to analysis is mutually recursive rules, and the line runs from
+bddbddb (2004) and Doop (2009) to Soufflé and GitHub's **CodeQL**,
+probably the most widely deployed Datalog on earth. Databases speak it
+again (Datomic, 2012; RDFox; LogicBlox, whose engine gave database theory
+worst-case optimal joins). Distributed-systems theory gets the CALM
+theorem: monotone Datalog is exactly what needs no coordination.
+
+**The present (2020s).** The active research threads: **semiring
+provenance** (one program computing costs, counts, and evidence —
+Lesson 6), **incremental computation** (DBSP and differential dataflow —
+Lesson 8's DRed is their ancestor), **neurosymbolic AI** (Scallop:
+differentiable Datalog inside neural networks — Lesson 7 is the on-ramp),
+equality saturation (egglog), and verification via constrained Horn
+clauses (Lesson 9's closing note).
+
+## Who invented Datalog?
+
+Datalog has many parents but one namer. The mathematical object —
+Horn-clause logic with function symbols removed, read over a database —
+crystallised from several hands: Maarten van Emden and Robert Kowalski
+gave logic programs their least-model semantics in 1976 (Kowalski is now
+professor emeritus at Imperial College London, still writing on
+computational logic), and the field itself was convened by **Hervé
+Gallaire** and **Jack Minker**, whose 1977 workshop and 1978 book *Logic
+and Data Bases* made "logic meets databases" a discipline. Gallaire went
+on to senior research leadership at Xerox and is retired in France.
+Minker spent his career at the University of Maryland and was equally
+renowned outside computer science as a human-rights advocate for
+imprisoned Soviet scientists; he died in 2021.
+
+The *name* — and much of the language's identity as a thing distinct
+from Prolog — is generally credited to **David Maier**, who coined
+"Datalog" in the early 1980s. Maier is one of database theory's central
+figures: author of *The Theory of Relational Databases* (1983),
+co-author with **David S. Warren** of *Computing with Logic* (1988), a
+builder of the GemStone object database and of stream-processing
+systems. After Stony Brook and the Oregon Graduate Institute he held the
+Maseeh Chair of Emerging Technologies at Portland State University in
+Oregon, where he is now professor emeritus. In 2018 he co-wrote, with
+Warren and colleagues, the retrospective *"Datalog: Concepts, History,
+and Outlook"* — the definitive account of the language's life, by the
+people who lived it. Warren, for his part, built XSB — the tabling
+engine that kept the well-founded semantics alive through the winter
+years (Act 3 above) — and is professor emeritus at Stony Brook
+University.
+
+So when this course's Lesson 9 shows you the function-symbol boundary,
+you are looking at the exact line Maier drew when he needed a name for
+"Prolog's logic, a database's discipline."
+
+## Why any of this matters in a world of LLMs
+
+A fair question: if a language model can answer questions about your
+data, why learn a sixty-year-old logic formalism? Four reasons, each
+sharper *because* of LLMs, not despite them.
+
+**Soundness is not a vibe.** An LLM's answer is a plausibility; a
+Datalog derivation is a proof. When the conclusion must actually follow
+— access control, financial eligibility, safety interlocks, static
+analysis of code — "very likely correct" is a category error. The
+emerging production pattern is LLM-as-translator, solver-as-reasoner:
+the model turns a question into rules and facts, the engine does the
+inference, and every answer is exactly as trustworthy as the inputs.
+
+**Paradox detection, not paradox smoothing.** This repository's café
+paradox (Lesson 5) is the demonstration: a policy that sounds sensible
+in English but is formally self-contradictory. Ask an LLM and you get a
+fluent essay that papers over the contradiction. Ask the engine and you
+get a refusal that *names the cycle* — and the well-founded model
+pinpoints exactly which individual the policy breaks on. Systems that
+matter need the second behaviour.
+
+**Provenance is the answer to hallucination.** Lesson 6's
+why-provenance computes, for every conclusion, the minimal sets of base
+facts that support it — citations that cannot be invented, because they
+fall out of the derivation itself. Retrieval-augmented LLM systems
+approximate this; semiring Datalog simply has it.
+
+**The interface problem is solved — from the other side.** What killed
+deductive databases commercially in the 1990s was that ordinary users
+wouldn't write logic. LLMs are startlingly good at writing Datalog: the
+translation layer that was the field's fatal weakness is now nearly
+free, while the guarantees that were always its strength have become the
+scarce resource. The neurosymbolic thread (Lesson 7) goes further and
+puts the logic *inside* the learning loop, gradients and all.
+
+The one-line version: **LLMs generate; logic engines guarantee.**
+Systems that need both — and increasingly, that is most interesting
+systems — need people who understand the guarantee side.
+
+## How this course follows the history
+
+| Era | Idea | Where here |
+|---|---|---|
+| 1977–1985 | facts, rules, joins, recursion, semi-naive | Lessons 1–2 · `datalog.py` |
+| 1986 | magic sets | Lesson 4 · `magic.py` |
+| 1988–1991 | stratification; stable models; well-founded | Lessons 3 & 5 · `semantics.py` |
+| 2007– | provenance semirings, recursive aggregation | Lesson 6 · `semiring.py` |
+| 2020s | probabilistic / neurosymbolic | Lesson 7 |
+| 1993 → 2023 | DRed → differential dataflow → DBSP | Lesson 8 · `incremental.py` |
+| 1965–1972 | Horn clauses, resolution, Prolog | Lesson 9 · `prolog.py` |
+| 1978 → today | KL-ONE → description logics → OWL / SNOMED | Lesson 10 · `subsumption.py` |
+
+The repository is small on purpose — every algorithm named above is
+implemented in readable standard-library Python, and every example in
+every lesson is a file you can run.
+
+Start here: [getting started](getting-started.md), then
+[Lesson 1](01-first-steps.md).
