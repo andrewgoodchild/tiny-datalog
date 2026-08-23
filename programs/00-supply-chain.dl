@@ -1,0 +1,325 @@
+% A software supply chain: 160 packages, 292 dependency edges, 12 of
+% them services you actually deploy.  One package has a CVE.
+%
+%   python3 datalog.py -q 'exposed(S, C)' programs/00-supply-chain.dl
+%   python3 datalog.py --explain 'exposed(pkg4, cve_2026_0001)' programs/00-supply-chain.dl
+%
+% Three rules.  The question they answer — which deployed services are
+% reachable to the vulnerable package, through any depth of transitive
+% dependency — cannot be read off the facts, and being 95%% right means
+% shipping an unpatched service.
+%
+% Generated deterministically (layered graph, seed 0) so the answer is
+% stable; benchmarks/generate.py makes larger ones.
+
+depends(pkg0, pkg13).
+depends(pkg0, pkg7).
+depends(pkg1, pkg6).
+depends(pkg2, pkg10).
+depends(pkg2, pkg9).
+depends(pkg2, pkg15).
+depends(pkg3, pkg11).
+depends(pkg3, pkg9).
+depends(pkg4, pkg8).
+depends(pkg4, pkg13).
+depends(pkg4, pkg7).
+depends(pkg5, pkg8).
+depends(pkg5, pkg18).
+depends(pkg6, pkg16).
+depends(pkg7, pkg16).
+depends(pkg7, pkg19).
+depends(pkg8, pkg11).
+depends(pkg8, pkg13).
+depends(pkg8, pkg10).
+depends(pkg9, pkg11).
+depends(pkg9, pkg23).
+depends(pkg9, pkg20).
+depends(pkg10, pkg18).
+depends(pkg10, pkg19).
+depends(pkg11, pkg17).
+depends(pkg12, pkg18).
+depends(pkg12, pkg22).
+depends(pkg13, pkg17).
+depends(pkg13, pkg22).
+depends(pkg13, pkg21).
+depends(pkg14, pkg28).
+depends(pkg14, pkg23).
+depends(pkg15, pkg16).
+depends(pkg15, pkg28).
+depends(pkg16, pkg17).
+depends(pkg16, pkg18).
+depends(pkg16, pkg28).
+depends(pkg17, pkg29).
+depends(pkg17, pkg31).
+depends(pkg18, pkg29).
+depends(pkg18, pkg19).
+depends(pkg18, pkg28).
+depends(pkg19, pkg33).
+depends(pkg20, pkg24).
+depends(pkg20, pkg32).
+depends(pkg21, pkg33).
+depends(pkg21, pkg35).
+depends(pkg22, pkg26).
+depends(pkg23, pkg27).
+depends(pkg23, pkg36).
+depends(pkg24, pkg37).
+depends(pkg25, pkg33).
+depends(pkg25, pkg27).
+depends(pkg26, pkg35).
+depends(pkg26, pkg34).
+depends(pkg27, pkg32).
+depends(pkg28, pkg33).
+depends(pkg28, pkg40).
+depends(pkg28, pkg30).
+depends(pkg29, pkg35).
+depends(pkg29, pkg43).
+depends(pkg29, pkg38).
+depends(pkg30, pkg43).
+depends(pkg31, pkg40).
+depends(pkg31, pkg41).
+depends(pkg31, pkg36).
+depends(pkg32, pkg34).
+depends(pkg32, pkg42).
+depends(pkg33, pkg39).
+depends(pkg33, pkg43).
+depends(pkg34, pkg39).
+depends(pkg35, pkg39).
+depends(pkg36, pkg37).
+depends(pkg37, pkg48).
+depends(pkg37, pkg42).
+depends(pkg37, pkg45).
+depends(pkg38, pkg40).
+depends(pkg39, pkg52).
+depends(pkg39, pkg42).
+depends(pkg40, pkg54).
+depends(pkg41, pkg53).
+depends(pkg42, pkg53).
+depends(pkg42, pkg49).
+depends(pkg42, pkg56).
+depends(pkg43, pkg52).
+depends(pkg43, pkg48).
+depends(pkg44, pkg58).
+depends(pkg45, pkg56).
+depends(pkg46, pkg60).
+depends(pkg46, pkg53).
+depends(pkg46, pkg56).
+depends(pkg47, pkg55).
+depends(pkg48, pkg59).
+depends(pkg48, pkg60).
+depends(pkg48, pkg61).
+depends(pkg49, pkg51).
+depends(pkg49, pkg55).
+depends(pkg50, pkg52).
+depends(pkg50, pkg58).
+depends(pkg50, pkg60).
+depends(pkg51, pkg57).
+depends(pkg51, pkg65).
+depends(pkg51, pkg55).
+depends(pkg52, pkg53).
+depends(pkg53, pkg58).
+depends(pkg53, pkg55).
+depends(pkg53, pkg65).
+depends(pkg54, pkg60).
+depends(pkg55, pkg61).
+depends(pkg56, pkg70).
+depends(pkg56, pkg57).
+depends(pkg57, pkg70).
+depends(pkg58, pkg72).
+depends(pkg59, pkg63).
+depends(pkg59, pkg60).
+depends(pkg59, pkg73).
+depends(pkg60, pkg71).
+depends(pkg60, pkg69).
+depends(pkg60, pkg70).
+depends(pkg61, pkg63).
+depends(pkg61, pkg62).
+depends(pkg62, pkg66).
+depends(pkg62, pkg72).
+depends(pkg62, pkg76).
+depends(pkg63, pkg65).
+depends(pkg63, pkg70).
+depends(pkg64, pkg78).
+depends(pkg64, pkg66).
+depends(pkg65, pkg75).
+depends(pkg66, pkg70).
+depends(pkg67, pkg79).
+depends(pkg68, pkg76).
+depends(pkg69, pkg81).
+depends(pkg70, pkg81).
+depends(pkg71, pkg80).
+depends(pkg72, pkg82).
+depends(pkg72, pkg74).
+depends(pkg73, pkg75).
+depends(pkg73, pkg77).
+depends(pkg74, pkg85).
+depends(pkg75, pkg81).
+depends(pkg75, pkg82).
+depends(pkg76, pkg77).
+depends(pkg77, pkg85).
+depends(pkg77, pkg78).
+depends(pkg77, pkg87).
+depends(pkg78, pkg90).
+depends(pkg79, pkg83).
+depends(pkg79, pkg84).
+depends(pkg80, pkg92).
+depends(pkg80, pkg88).
+depends(pkg81, pkg84).
+depends(pkg81, pkg93).
+depends(pkg81, pkg92).
+depends(pkg82, pkg95).
+depends(pkg83, pkg96).
+depends(pkg84, pkg87).
+depends(pkg84, pkg98).
+depends(pkg85, pkg94).
+depends(pkg85, pkg90).
+depends(pkg86, pkg96).
+depends(pkg87, pkg98).
+depends(pkg87, pkg90).
+depends(pkg88, pkg96).
+depends(pkg89, pkg96).
+depends(pkg89, pkg99).
+depends(pkg89, pkg103).
+depends(pkg90, pkg95).
+depends(pkg90, pkg101).
+depends(pkg90, pkg96).
+depends(pkg91, pkg105).
+depends(pkg91, pkg102).
+depends(pkg92, pkg95).
+depends(pkg92, pkg101).
+depends(pkg93, pkg94).
+depends(pkg93, pkg101).
+depends(pkg93, pkg105).
+depends(pkg94, pkg100).
+depends(pkg95, pkg96).
+depends(pkg95, pkg104).
+depends(pkg95, pkg100).
+depends(pkg96, pkg100).
+depends(pkg97, pkg103).
+depends(pkg97, pkg107).
+depends(pkg98, pkg109).
+depends(pkg98, pkg104).
+depends(pkg99, pkg110).
+depends(pkg99, pkg113).
+depends(pkg99, pkg109).
+depends(pkg100, pkg112).
+depends(pkg101, pkg108).
+depends(pkg101, pkg113).
+depends(pkg102, pkg116).
+depends(pkg102, pkg113).
+depends(pkg103, pkg104).
+depends(pkg104, pkg108).
+depends(pkg104, pkg116).
+depends(pkg104, pkg110).
+depends(pkg105, pkg109).
+depends(pkg106, pkg117).
+depends(pkg107, pkg114).
+depends(pkg107, pkg119).
+depends(pkg108, pkg118).
+depends(pkg108, pkg122).
+depends(pkg108, pkg115).
+depends(pkg109, pkg116).
+depends(pkg110, pkg120).
+depends(pkg110, pkg117).
+depends(pkg110, pkg123).
+depends(pkg111, pkg123).
+depends(pkg111, pkg112).
+depends(pkg111, pkg114).
+depends(pkg112, pkg114).
+depends(pkg112, pkg117).
+depends(pkg113, pkg116).
+depends(pkg113, pkg121).
+depends(pkg113, pkg122).
+depends(pkg114, pkg123).
+depends(pkg114, pkg124).
+depends(pkg115, pkg116).
+depends(pkg116, pkg122).
+depends(pkg116, pkg121).
+depends(pkg117, pkg118).
+depends(pkg117, pkg130).
+depends(pkg118, pkg122).
+depends(pkg118, pkg127).
+depends(pkg119, pkg121).
+depends(pkg119, pkg133).
+depends(pkg119, pkg131).
+depends(pkg120, pkg121).
+depends(pkg121, pkg132).
+depends(pkg121, pkg128).
+depends(pkg122, pkg123).
+depends(pkg122, pkg126).
+depends(pkg123, pkg135).
+depends(pkg124, pkg138).
+depends(pkg125, pkg134).
+depends(pkg125, pkg135).
+depends(pkg125, pkg127).
+depends(pkg126, pkg128).
+depends(pkg127, pkg138).
+depends(pkg127, pkg131).
+depends(pkg127, pkg141).
+depends(pkg128, pkg133).
+depends(pkg128, pkg140).
+depends(pkg129, pkg131).
+depends(pkg130, pkg144).
+depends(pkg130, pkg137).
+depends(pkg131, pkg133).
+depends(pkg131, pkg132).
+depends(pkg131, pkg136).
+depends(pkg132, pkg145).
+depends(pkg133, pkg147).
+depends(pkg134, pkg137).
+depends(pkg134, pkg145).
+depends(pkg135, pkg149).
+depends(pkg135, pkg146).
+depends(pkg136, pkg138).
+depends(pkg136, pkg150).
+depends(pkg137, pkg142).
+depends(pkg138, pkg139).
+depends(pkg139, pkg143).
+depends(pkg140, pkg145).
+depends(pkg140, pkg149).
+depends(pkg140, pkg146).
+depends(pkg141, pkg151).
+depends(pkg141, pkg155).
+depends(pkg142, pkg156).
+depends(pkg143, pkg155).
+depends(pkg143, pkg153).
+depends(pkg143, pkg154).
+depends(pkg144, pkg156).
+depends(pkg144, pkg155).
+depends(pkg145, pkg156).
+depends(pkg145, pkg152).
+depends(pkg146, pkg159).
+depends(pkg146, pkg155).
+depends(pkg147, pkg151).
+depends(pkg148, pkg158).
+depends(pkg148, pkg153).
+depends(pkg149, pkg152).
+depends(pkg150, pkg155).
+depends(pkg151, pkg157).
+depends(pkg151, pkg159).
+depends(pkg152, pkg159).
+depends(pkg152, pkg154).
+depends(pkg153, pkg159).
+depends(pkg154, pkg155).
+depends(pkg155, pkg158).
+depends(pkg156, pkg159).
+depends(pkg157, pkg159).
+depends(pkg158, pkg159).
+
+service(pkg0).
+service(pkg1).
+service(pkg2).
+service(pkg3).
+service(pkg4).
+service(pkg5).
+service(pkg6).
+service(pkg7).
+service(pkg8).
+service(pkg9).
+service(pkg10).
+service(pkg11).
+
+vulnerable(pkg21, cve_2026_0001).
+uses(X, Y) :- depends(X, Y).
+uses(X, Z) :- depends(X, Y), uses(Y, Z).
+
+exposed(S, C) :- service(S), uses(S, L), vulnerable(L, C).

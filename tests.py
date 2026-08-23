@@ -143,6 +143,33 @@ class SemiNaiveTests(unittest.TestCase):
 class ClassicExamplesTests(unittest.TestCase):
     """The canonical example programs of the Datalog literature."""
 
+    def test_supply_chain_reachability(self):
+        # 292 dependency facts, 12 services, one CVE: which services are
+        # exposed is not readable off the data, which is the point
+        text = load("00-supply-chain.dl")
+        engine = run_program(text)
+        self.assertEqual(
+            {s for s, _c in engine.rels["exposed"]},
+            {"pkg0", "pkg4", "pkg5", "pkg8"})
+        # the derivation is the remediation path
+        tree = "\n".join(explain(engine, "exposed",
+                                 ("pkg4", "cve_2026_0001")))
+        self.assertIn("uses(pkg4, pkg21)", tree)
+        self.assertIn("vulnerable(pkg21, cve_2026_0001)   (base fact)", tree)
+
+    def test_supply_chain_new_cve_is_incremental(self):
+        # a CVE published overnight must not mean recomputing everything.
+        # (That the repair equals a fresh recompute is established for
+        # arbitrary programs by DifferentialFuzzTests; here we only need
+        # that the incremental path handles this one.)
+        inc = IncrementalEngine(load("00-supply-chain.dl"))
+        before = {s for s, _c in inc.rels["exposed"]}
+        stats = inc.insert("vulnerable(pkg40, cve_2026_0002).")
+        self.assertEqual(stats["inserted"], 1)
+        self.assertGreater(stats["derived"], 0)
+        after = {s for s, c in inc.rels["exposed"] if c == "cve_2026_0002"}
+        self.assertTrue(after > before)
+
     def test_eligibility_policy(self):
         # the README's opening example: negation as an exemption, and a
         # derivation tree that names the fact doing the discriminating
