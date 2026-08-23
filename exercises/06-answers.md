@@ -33,3 +33,37 @@ is genuinely infinite. Divergence isn't an implementation weakness;
 it's the semiring faithfully reporting that the question has no finite
 answer. (Idempotent min never has this problem: extra laps only ever
 lose.)
+
+**4. Writing `h : why → minplus`.**
+
+```python
+def h(why_value, weights):
+    return min(sum(weights[f] for f in witness) for witness in why_value)
+```
+
+Verified against `--semiring minplus` on all ten `path` facts by
+`exercises/06-homomorphism.py`. The axiom that takes thought is
+**times**: why's `times` is *pairwise union* of witness sets (every
+combination of one witness from each side), and it must land on `+`.
+It does, because the cost of a union of disjoint fact sets is the sum
+of their costs — and where the sets overlap, the shared fact is counted
+once on the left and twice on the right. That is the one case worth
+checking by hand; it is exactly why min-plus over *sets* behaves and
+counting over sets does not.
+
+**5. Breaking `why → count`, and why `why → bool` is safe.**
+
+Any program where one conclusion has two derivations over the same base
+facts will do; `programs/06-two-derivations.dl` uses a second rule that
+adds an already-implied literal. The sharpest form is the one the
+shipped program produces: `p(a, c)` and `q(a, c)` end up with
+*identical* why-values but counts of 1 and 2, so no function of the
+why-value can be correct for both.
+
+`why → bool` cannot be broken this way because bool has already thrown
+away strictly more than why has: it records only *whether* a fact is
+derivable, and both a one-derivation and a two-derivation fact are
+simply true. Sending every non-empty witness collection to `true` and
+the empty one to `false` respects both operations. The general rule is
+that you can always specialise *down* a chain of quotients — polynomial
+→ why → bool — and never back up it.

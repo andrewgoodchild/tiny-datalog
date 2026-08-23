@@ -6,7 +6,7 @@ install beyond Python 3.9+.
 ```sh
 git clone https://github.com/<you>/tiny-datalog
 cd tiny-datalog
-python3 tests.py                     # 102 tests, should all pass
+python3 tests.py                     # 114 tests, should all pass
 python3 datalog.py programs/02-reachability.dl
 ```
 
@@ -45,6 +45,7 @@ input facts). The other modes:
 | `python3 incremental.py` | demo: repair derived facts on insert/delete instead of recomputing |
 | `python3 prolog.py prog.pl -q 'goal(X)'` | top-down Horn clauses *with* function symbols |
 | `python3 subsumption.py ontology.dl` | classify a KL-ONE-style ontology (compiled to Datalog) |
+| `python3 containment.py prog.dl` | minimise conjunctive queries; `--contains` tests containment |
 
 ## Syntax reference
 
@@ -91,3 +92,4 @@ The lessons build up the whole repository feature by feature:
 11. [Under the hood: how this engine is built](11-under-the-hood.md)
 12. [Aggregation: counting without contradiction](12-aggregation.md)
 13. [Tabling: top-down without the cliff](13-tabling.md)
+14. [Containment: the same search, one level up](14-containment.md)

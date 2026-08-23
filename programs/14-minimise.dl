@@ -1,0 +1,27 @@
+% Query minimisation — every rule here is a conjunctive query, and
+% containment.py decides which ones carry redundant atoms.
+%
+%   python3 containment.py programs/14-minimise.dl
+%
+% Redundancy is not a syntactic property: you cannot see it by looking
+% for repeated atoms.  It is "some atom's job is already done by
+% another, under a renaming of the non-head variables" — which is a
+% homomorphism question, and the reason Chandra and Merlin (1977) is an
+% optimiser result rather than a curiosity.
+
+edge(a, b).
+edge(b, c).
+
+% 1. The self-join that isn't: e(X, Z) demands X have *an* outgoing
+%    edge, which e(X, Y) already guarantees.  Minimises.
+has_edge(X, Y) :- edge(X, Y), edge(X, Z).
+
+% 2. Two hops, plus a spurious third atom folding onto the first.
+two_hop(X) :- edge(X, Y), edge(Y, Z), edge(X, W).
+
+% 3. A 2-cycle: neither atom can fold onto the other without moving a
+%    head variable.  Already minimal.
+mutual(X) :- edge(X, Y), edge(Y, X).
+
+% 4. A triangle: minimal for the same reason, one size up.
+triangle(X) :- edge(X, Y), edge(Y, Z), edge(Z, X).

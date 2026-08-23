@@ -1,0 +1,22 @@
+% One witness set, two derivations — the program that decides whether
+% "materialise provenance once, specialise later" is a sound plan.
+%
+%   python3 semiring.py -s why   -q 'q(a, c)' programs/06-two-derivations.dl
+%   python3 semiring.py -s count -q 'q(a, c)' programs/06-two-derivations.dl
+%
+% why  reports {e(a, b), e(b, c)} — one witness set
+% count reports 2 — two distinct derivations
+%
+% Both are right.  The second q rule reaches the same conclusion from
+% the same base facts by a different route, and why-provenance is
+% absorptive: it records which facts were needed, not how many ways
+% they combined.  So no function of the why-value can recover the
+% count, and no homomorphism why -> count exists.
+
+e(a, b) @ 1.
+e(b, c) @ 1.
+
+p(X, Z) :- e(X, Y), e(Y, Z).
+
+q(X, Z) :- p(X, Z).
+q(X, Z) :- p(X, Z), e(X, Y).     % same facts, different derivation

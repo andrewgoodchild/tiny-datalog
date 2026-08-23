@@ -90,3 +90,7 @@ Lesson 0.
 This closes the course's loop: four evaluation strategies, one
 semantics, and every pair of them checkable against each other with the
 conformance suite in `tests.py`.
+
+Next: [containment](14-containment.md) — the last lesson asks a
+question evaluation never does: what does this query compute on
+*every* database?

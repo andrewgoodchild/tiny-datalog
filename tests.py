@@ -21,6 +21,7 @@ from semiring import run_semiring
 from incremental import IncrementalEngine
 import prolog
 import subsumption
+import containment
 from tabling import TabledEngine
 from datalog import match_answers, format_fact, _sort_key, explain
 
@@ -771,6 +772,85 @@ class ConformanceTests(unittest.TestCase):
                 with self.subTest(case=name, engine="tabled"):
                     self.assertEqual(
                         TabledEngine(parse(text)).query(atom), reference)
+
+
+class ContainmentTests(unittest.TestCase):
+    """Chandra–Merlin containment and minimisation (lesson 14)."""
+
+    @staticmethod
+    def rule(text):
+        return containment._parse_query_rule(text)
+
+    def test_containment_direction(self):
+        broad = self.rule("q(X) :- e(X, Y).")
+        narrow = self.rule("q(X) :- e(X, Y), e(Y, Z).")
+        self.assertTrue(containment.contains(broad, narrow))
+        self.assertFalse(containment.contains(narrow, broad))
+
+    def test_head_variables_are_pinned(self):
+        # the 2-cycle is NOT equivalent to a single edge; without fixing
+        # head variables the homomorphism would wrongly exist
+        cycle = self.rule("q(X) :- e(X, Y), e(Y, X).")
+        single = self.rule("q(X) :- e(X, Y).")
+        self.assertTrue(containment.contains(single, cycle))
+        self.assertFalse(containment.contains(cycle, single))
+        self.assertEqual(len(containment.minimise(cycle)), 2)
+
+    def test_minimisation_of_shipped_examples(self):
+        clauses = parse(load("14-minimise.dl"))
+        by_head = {c.head.pred: c for c in clauses if c.body}
+        self.assertEqual(len(containment.minimise(by_head["has_edge"])), 1)
+        self.assertEqual(len(containment.minimise(by_head["two_hop"])), 2)
+        self.assertEqual(len(containment.minimise(by_head["mutual"])), 2)
+        self.assertEqual(len(containment.minimise(by_head["triangle"])), 3)
+
+    def test_minimisation_preserves_answers_on_real_data(self):
+        # the theorem says "on every database"; check one of them
+        facts = "e(a, b).  e(b, c).  e(c, a).  e(a, d)."
+        original = "h(X, Y) :- e(X, Y), e(X, Z)."
+        rule = self.rule(original)
+        reduced = containment.minimise(rule)
+        minimised = "h(%s) :- %s." % (
+            ", ".join(str(a) for a in rule.head.args),
+            ", ".join(str(a) for a in reduced))
+        self.assertEqual(run_program(facts + original).rels["h"],
+                         run_program(facts + minimised).rels["h"])
+
+    def test_negation_refused(self):
+        with self.assertRaises(DatalogError):
+            containment.minimise(self.rule("q(X) :- e(X, Y), not e(Y, X)."))
+
+    def test_shipped_programs_are_already_minimal(self):
+        for name in ("01-family.dl", "04-same-generation.dl",
+                     "02-reachability.dl"):
+            for clause in parse(load(name)):
+                if clause.body and not any(l.negated for l in clause.body):
+                    with self.subTest(program=name, rule=str(clause)):
+                        self.assertEqual(len(containment.minimise(clause)),
+                                         len(clause.body))
+
+
+class SemiringHomomorphismTests(unittest.TestCase):
+    """Lesson 6: when may provenance be specialised after the fact?"""
+
+    def test_why_to_minplus_is_a_homomorphism(self):
+        r = subprocess.run(
+            [sys.executable, os.path.join(HERE, "exercises",
+                                          "06-homomorphism.py")],
+            capture_output=True, text=True, cwd=HERE)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("agrees on every fact", r.stdout)
+
+    def test_why_cannot_determine_count(self):
+        text = load("06-two-derivations.dl")
+        why = run_semiring(text, "why")
+        count = run_semiring(text, "count")
+        # identical provenance, different derivation counts: no function
+        # of the why-value can be right about both
+        self.assertEqual(why.value("p", ("a", "c")),
+                         why.value("q", ("a", "c")))
+        self.assertEqual(count.value("p", ("a", "c")), 1)
+        self.assertEqual(count.value("q", ("a", "c")), 2)
 
 
 class DifferentialFuzzTests(unittest.TestCase):

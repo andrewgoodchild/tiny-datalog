@@ -198,5 +198,30 @@ The repository is small on purpose — every algorithm named above is
 implemented in readable standard-library Python, and every example in
 every lesson is a file you can run.
 
+## Further reading, and one road not taken
+
+The course's mathematics is **lattice theory** (fixpoints — Lesson 2),
+**model theory** (homomorphisms and containment — Lesson 14), and
+**universal algebra** (semirings and their quotients — Lesson 6). Those
+are the tools the field actually reaches for, and every result in these
+lessons is stated in them.
+
+A reader arriving from category theory will notice that much of this
+*can* be recast categorically: instances and homomorphisms form a
+category, `lfp(T_P)` is an initial algebra, semiring specialisation is
+a functor. All true, and — for classical Datalog — none of it doing
+work the lattice-and-semiring toolkit wasn't already doing. Nothing in
+`datalog.py` would be different. It is worth saying plainly, because
+the vocabulary is attractive enough to mistake for content.
+
+Where categorical machinery genuinely earns its place is one step
+outside this repository: at **existential rules** (Datalog±, the
+chase), where the chase is a left Kan extension, and at **functorial
+data migration** (schemas as categories, instances as functors,
+migration as Kan extensions — CQL and the Topos Institute line). Both
+concern the fragment this engine deliberately does not implement, and
+both are live research rather than settled technique. If you add
+existentials, that is the road; until then, it is a signpost.
+
 Start here: [getting started](getting-started.md), then
 [Lesson 1](01-first-steps.md).

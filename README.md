@@ -6,7 +6,7 @@ on, and it can't warn you that your eligibility policy contradicts
 itself.
 
 A logic engine does all three. This one does it in ~3,000 lines of
-dependency-free Python you can read in an afternoon — plus a 14-lesson
+dependency-free Python you can read in an afternoon — plus a 15-lesson
 course that builds up to it.
 
 **Why does it believe that?** Here is the policy — the shape every
@@ -83,7 +83,7 @@ narrated.
 ## Quick start
 
 ```sh
-python3 tests.py                                          # 106 tests, ~0.5s
+python3 tests.py                                          # 114 tests, ~0.6s
 python3 datalog.py -q 'eligible(X)' programs/00-eligibility.dl
 python3 datalog.py --explain 'eligible(bob)' programs/00-eligibility.dl
 python3 datalog.py programs/01-family.dl                  # evaluate a program
@@ -97,6 +97,7 @@ python3 incremental.py                                         # DRed demo
 python3 prolog.py programs/09-peano.pl -q 'add(X, Y, s(s(zero)))'
 python3 subsumption.py programs/10-family-ontology.dl          # classify an ontology
 python3 tabling.py programs/13-left-recursive.dl -q 'ancestor(abe, X)'
+python3 containment.py programs/14-minimise.dl                 # minimise queries
 ```
 
 No dependencies; Python 3.9+. No packaging, no REPL, no install step —
@@ -157,6 +158,7 @@ lessons themselves use:
 - [11 · Under the hood: how this engine is built](lessons/11-under-the-hood.md)
 - [12 · Aggregation: counting without contradiction](lessons/12-aggregation.md)
 - [13 · Tabling: top-down without the cliff](lessons/13-tabling.md)
+- [14 · Containment: the same search, one level up](lessons/14-containment.md)
 
 Every lesson ends with exercises, and every exercise has a worked answer
 in `exercises/` — runnable where the answer is a program, and executed
@@ -175,6 +177,7 @@ regression test without writing Python.
 | Incremental maintenance | 8 | Differential Dataflow, DBSP, Feldera, Materialize |
 | Tabling | 13 | XSB, SWI-Prolog |
 | EL classification | 10 | ELK, Snorocket, SNOMED CT tooling |
+| Containment & minimisation | 14 | every SQL optimiser's rewrite stage |
 
 Static analysis at scale (CodeQL, Soufflé) is Datalog. Knowledge graphs
 (RDFox) are Datalog. Incremental view maintenance (Feldera) is the 1993
@@ -316,12 +319,13 @@ incremental.py  insertions + DRed deletions over a live materialisation
 prolog.py       top-down SLD resolution with function symbols
 tabling.py      tabled top-down evaluation (iterative QSQR)
 subsumption.py  KL-ONE-style EL classifier, compiled to Datalog
+containment.py  query containment and minimisation by homomorphism
 programs/       the classic teaching programs, numbered by lesson
-lessons/        getting started + lessons 0–13
+lessons/        getting started + lessons 0–14
 exercises/      worked answers, verified by the test suite
 cases/          golden test cases — add one without writing Python
 benchmarks/     scaled input generators (chain/tree/clique/grid)
-tests.py        105 tests: every shipped program and exercise answer is
+tests.py        114 tests: every shipped program and exercise answer is
                 executed, a conformance suite runs every query through
                 every applicable strategy, and a seeded fuzzer checks
                 the same property on random programs

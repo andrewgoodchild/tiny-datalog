@@ -72,6 +72,75 @@ Which semirings converge on which programs is the subject of the current
 semirings started it in 2007; the convergence story is Abo Khamis, Ngo,
 Suciu and colleagues, 2022 onward).
 
+## Can you compute provenance once and specialise later?
+
+A real design-review question. Why-provenance is the expensive
+semiring — witness sets are big — and someone will propose computing it
+once and deriving the cheap answers from it afterwards by applying a
+function. When is that sound?
+
+The condition is exact: a map `h : K → K'` commutes with evaluation
+precisely when it is a **semiring homomorphism** — `h(a + b) = h(a) +
+h(b)`, `h(a × b) = h(a) × h(b)`, and it preserves 0 and 1. Then
+specialising after the fact gives the same answer as evaluating in `K'`
+from the start, on every program.
+
+`exercises/06-homomorphism.py` checks two candidates and gets two
+different answers.
+
+**why → minplus works.** A witness set costs the sum of its facts; a
+set of alternatives costs the cheapest. That sends why's `plus` (set
+union) to `min` and its `times` (pairwise union) to `+`:
+
+```
+$ python3 exercises/06-homomorphism.py
+why -> minplus, over 06-routes.dl:
+  path(a, b)     h(why)=1     minplus=1     ok
+  ...
+  => agrees on every fact
+```
+
+**why → count does not exist.** Run `programs/06-two-derivations.dl`,
+where a second rule reaches the same conclusion from the same facts by
+a different route:
+
+```
+  q(a, c) why   = {e(a, b), e(b, c)}      p(a, c) why   = {e(a, b), e(b, c)}
+  q(a, c) count = 2                       p(a, c) count = 1
+```
+
+Two facts with **identical** why-values and different counts. That is a
+proof, not a hunch: any function of the why-value must give them the
+same answer, and the correct answers differ. No homomorphism can exist.
+
+The reason is structural. **Provenance polynomials** — ℕ[X], where each
+derivation contributes a monomial and multiplicities are kept — are the
+*free* commutative semiring on the base facts, so every other semiring's
+answer factors through them. Why-provenance is a **quotient** of that:
+it applies absorption (A + A·B = A) and forgets exponents, keeping which
+facts were needed and discarding how many ways they combined. Once
+information is quotiented away, no function recovers it.
+
+So the design-review answer: **materialise the polynomial and you may
+specialise to anything; materialise why-provenance and you may only
+specialise to semirings that don't need multiplicity** — the idempotent
+and absorptive ones, like minplus, max-min, and boolean. Counting,
+probability-by-summation, and anything else that distinguishes two
+routes through the same facts must be computed from the polynomial or
+from scratch.
+
+## Where this is going
+
+This lesson's fixpoint is deliberately naive because semi-naive needs
+subtraction and semirings have none. The current research thread —
+**Datalog°** (Abo Khamis, Ngo, Pichler, Suciu, Wang) — takes exactly
+that problem seriously: define program semantics as a least fixpoint in
+an *ordered* semiring, then characterise which algebraic properties
+make the fixpoint converge and which ones let semi-naive evaluation
+still be sound. It is Lesson 3's stratification and this lesson's
+algebra treated as one question, and it is the frontier this module
+sits just underneath.
+
 ## What's deliberately missing
 
 - **Negation.** What is `not p` when p carries a cost or a witness set?
@@ -92,6 +161,13 @@ Suciu and colleagues, 2022 onward).
    `path(a, d)` become in `06-routes.dl`? (This is bag semantics.)
 3. Design a semiring for "the *longest* path" and explain why it
    diverges on cyclic graphs for the same reason counting does.
+4. Write `h : why → minplus` yourself before reading
+   `exercises/06-homomorphism.py`, and check it against
+   `--semiring minplus` on `06-routes.dl`. Which of the two semiring
+   axioms is the one you have to think about?
+5. Construct your own program where `why → count` fails — two
+   derivations of one fact from one set of base facts. Then explain
+   why the same trick cannot break `why → bool`.
 
 Next: [probabilistic Datalog](07-probabilistic.md) — the semiring that
 almost works, and why its failure matters.
