@@ -66,8 +66,13 @@ Bob and Cyril through Cyril's pension; Edith because she cares for him.
 Dana is out — her household qualifies through Edith, but Dana has a
 job.
 
-You could have worked that out yourself, and so could a language model.
-Here is what neither of you can do by reading it.
+You could have worked that out yourself. So can a language model — I
+gave a frontier model this exact scenario and it got the eligibility
+right, spotted the ambiguity below, and localised it to the correct
+household. Seven facts is not where a logic engine earns its place.
+
+What follows is not a trick a model fails. It is what the engine tells
+you, in a form you can rely on.
 
 ## The policy is ambiguous, and here are both lawful readings
 
@@ -107,9 +112,30 @@ ambiguity is localised to the household that actually has one.
 
 An engine that quietly picked Bob would be worse than useless. This one
 says: your policy has a fork, here is exactly where, and you owe it a
-tie-break rule — oldest? lowest income? first to apply? That is a
-question about the policy rather than about a case, and no amount of
-reading seven facts answers it.
+tie-break rule — oldest? lowest income? first to apply?
+
+## So why not just ask the model?
+
+At seven facts, do. The case for an engine is not that the answer is
+beyond a language model; it is what you can rely on once the answer
+matters:
+
+- **The same answer every run.** Not usually right — right, or a
+  refusal. There is no sampling.
+- **Every option, not the observation that options exist.** Each
+  contested household doubles the allocations: three of them give eight
+  lawful outcomes, ten give 1,024. "There's an ambiguity here" and "here
+  are all 1,024 ways this scheme could lawfully run" are different
+  answers to different questions.
+- **Scale you can't eyeball.** Two thousand households evaluate in
+  about two seconds, exactly. That is well past where a model's
+  accuracy quietly degrades — and quietly is the problem, because
+  nothing in the output tells you which answers to stop trusting.
+- **A refusal when there is no answer.** Asked something
+  self-contradictory, the engine says so; a model under pressure to
+  answer will answer.
+- **Output a machine can check.** Derivations and models are data:
+  they go into a test suite, a diff, a CI gate. Prose does not.
 
 LLMs generate, logic engines guarantee; the obvious pairing is to let a
 model turn a policy document into rules and let the engine decide what
