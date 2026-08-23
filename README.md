@@ -3,143 +3,121 @@
 **A logic engine small enough to read in an afternoon, and a course
 that builds it up from nothing.**
 
-Ask a language model whether Bob qualifies for a benefit and it will
-probably be right, and it will explain itself convincingly. But that
-explanation is a *separate artifact* from the answer — written by the
-same process that sometimes invents citations — so you can't tell a
-real derivation from a plausible one without checking it yourself.
+Here is a question you cannot answer by reading your own data.
 
-Worse, there are questions about a set of rules that no amount of
-reading them answers. Is this policy self-contradictory? Does it have
-more than one lawful outcome? Which fact is actually doing the work?
+You deploy 12 services. They sit on 160 packages joined by 292
+dependency edges — each one individually boring, all of them together
+past what anyone holds in their head. A CVE lands on one package. Which
+services are exposed?
 
-A logic engine answers those — not by being cleverer, but by *deriving*
-instead of describing. The explanation is the computation that produced
-the answer, so it cannot disagree with it, it costs nothing to ask for,
-and it comes out identical every time.
+The 292 edges you wrote down imply **8,457** reachability facts. The
+answer is in those, not in the edges, and being 95% right means
+shipping a service you believed was clean.
 
-Here is what that looks like, on an example small enough to check by
-hand.
-
-## A worked example
-
-A council runs a meal-assistance scheme. You can claim if you live in a
-household where someone draws a pension — and caring for a pensioner
-counts too, even one who lives elsewhere — **unless** you are employed.
-
-Four people in two households: Bob and Cyril share oak_house, Dana and
-Edith share elm_house. Cyril draws a pension. Dana has a job. Edith is
-Cyril's carer, across the two houses.
-
-Written out, that is seven facts and three rules:
+Three rules compute it:
 
 ```prolog
-% programs/00-eligibility.dl
-member(bob,   oak_house).     member(cyril, oak_house).
-member(dana,  elm_house).     member(edith, elm_house).
+% programs/00-supply-chain.dl
+uses(X, Y) :- depends(X, Y).
+uses(X, Z) :- depends(X, Y), uses(Y, Z).      % ... at any depth
 
-receives_pension(cyril).
-employed(dana).
-carer(edith, cyril).          % edith cares for cyril, who lives elsewhere
-
-qualifying_household(H) :- member(P, H), receives_pension(P).
-qualifying_household(H) :- member(P, H), carer(P, Q), receives_pension(Q).
-eligible(P) :- member(P, H), qualifying_household(H), not employed(P).
+exposed(S, C) :- service(S), uses(S, L), vulnerable(L, C).
 ```
 
-If you have never seen Datalog: `:-` means "if", the comma means "and",
-and capital letters are variables standing for "anyone" or "any
-household". So the last rule reads *P is eligible if P is a member of
-household H, and H qualifies, and P is not employed.* That is most of
-the language already.
+`:-` means "if", the comma means "and", capitals are variables. The
+second rule is the whole trick: a package uses whatever its
+dependencies use, applied over and over until nothing new appears.
 
 ```
-$ python3 datalog.py -q 'eligible(X)' programs/00-eligibility.dl
-?- eligible(X)
-   eligible(bob).
-   eligible(cyril).
-   eligible(edith).
-   (3 answers)
+$ python3 datalog.py -q 'exposed(S, C)' programs/00-supply-chain.dl
+?- exposed(S, C)
+   exposed(pkg0, cve_2026_0001).
+   exposed(pkg4, cve_2026_0001).
+   exposed(pkg5, cve_2026_0001).
+   exposed(pkg8, cve_2026_0001).
+   (4 answers)
 ```
 
-Bob and Cyril through Cyril's pension; Edith because she cares for him.
-Dana is out — her household qualifies through Edith, but Dana has a
-job.
+Four of twelve — and nothing in the input told you which four.
 
-You could have worked that out yourself. So can a language model — I
-gave a frontier model this exact scenario and it got the eligibility
-right, spotted the ambiguity below, and localised it to the correct
-household. Seven facts is not where a logic engine earns its place.
+## Then the questions you actually have next
 
-What follows is not a trick a model fails. It is what the engine tells
-you, in a form you can rely on.
-
-## The policy is ambiguous, and here are both lawful readings
-
-Add the rule every real scheme has — only one member of a household may
-claim:
-
-```prolog
-% programs/00-eligibility-choice.dl
-other_claimant(P) :- member(P, H), member(Q, H), eligible(Q), distinct(P, Q).
-eligible(P) :- member(P, H), qualifying_household(H),
-               not employed(P), not other_claimant(P).
-```
-
-Now ask the engine not "who is eligible?" but "does this policy even
-have an answer?" A **stable model** is a complete, self-consistent way
-the world could be given these rules — every conclusion supported, no
-conclusion contradicted. A policy you can actually operate has exactly
-one.
+**"Why pkg4? I need to tell the team what to bump."**
 
 ```
-$ python3 datalog.py --models programs/00-eligibility-choice.dl
-Stable models: 2
-  model 1: eligible(bob).  eligible(edith).  other_claimant(cyril).  ...
-  model 2: eligible(cyril).  eligible(edith).  other_claimant(bob).  ...
-Well-founded model (three-valued):
-  true:      eligible(edith).  ...
-  undefined: eligible(bob).  eligible(cyril).  ...
+$ python3 datalog.py --explain 'exposed(pkg4, cve_2026_0001)' programs/00-supply-chain.dl
+?- explain exposed(pkg4, cve_2026_0001)
+   exposed(pkg4, cve_2026_0001)   [via exposed(S, C) :- service(S), uses(S, L), vulnerable(L, C).]
+     service(pkg4)   (base fact)
+     uses(pkg4, pkg21)   [via uses(X, Z) :- depends(X, Y), uses(Y, Z).]
+       depends(pkg4, pkg13)   (base fact)
+       uses(pkg13, pkg21)   [via uses(X, Y) :- depends(X, Y).]
+         depends(pkg13, pkg21)   (base fact)
+     vulnerable(pkg21, cve_2026_0001)   (base fact)
 ```
 
-This one has **two**. The rule never says *which* member claims, so for
-oak_house either answer is defensible and the engine spells out both.
-The second block is the *well-founded model*, which reports the same
-finding a different way: it marks what is settled regardless of how you
-resolve the fork. `eligible(edith)` is **true** in it, because
-elm_house was never in doubt — only Bob and Cyril are undefined. The
-ambiguity is localised to the household that actually has one.
+pkg4 → pkg13 → pkg21. That is not an explanation *about* the answer,
+it is the derivation the answer came out of — so it cannot be
+plausible-but-wrong, and it is what you paste into the ticket.
 
-An engine that quietly picked Bob would be worse than useless. This one
-says: your policy has a fork, here is exactly where, and you owe it a
-tie-break rule — oldest? lowest income? first to apply?
+**"Another CVE just dropped. Do I rerun everything?"**
 
-## So why not just ask the model?
+No. The engine keeps the 8,457 facts and repairs them:
 
-At seven facts, do. The case for an engine is not that the answer is
-beyond a language model; it is what you can rely on once the answer
-matters:
+```python
+>>> inc.insert("vulnerable(pkg40, cve_2026_0002).")
+{'inserted': 1, 'derived': 12}        # 0.03s, against 0.81s to rebuild
+```
 
-- **The same answer every run.** Not usually right — right, or a
-  refusal. There is no sampling.
-- **Every option, not the observation that options exist.** Each
-  contested household doubles the allocations: three of them give eight
-  lawful outcomes, ten give 1,024. "There's an ambiguity here" and "here
-  are all 1,024 ways this scheme could lawfully run" are different
-  answers to different questions.
-- **Scale you can't eyeball.** Two thousand households evaluate in
-  about two seconds, exactly. That is well past where a model's
-  accuracy quietly degrades — and quietly is the problem, because
-  nothing in the output tells you which answers to stop trusting.
-- **A refusal when there is no answer.** Asked something
-  self-contradictory, the engine says so; a model under pressure to
-  answer will answer.
-- **Output a machine can check.** Derivations and models are data:
-  they go into a test suite, a diff, a CI gate. Prose does not.
+Twelve new facts, and this CVE turns out to reach **all twelve
+services** — which, again, nobody predicted by looking.
 
-LLMs generate, logic engines guarantee; the obvious pairing is to let a
-model turn a policy document into rules and let the engine decide what
-follows from them.
+**"Is my policy even coherent?"** A different question again, and the
+engine answers it: given rules that refer to their own conclusions, it
+will tell you they have no consistent answer, or that they have several
+and you have not said which one you meant. That is
+[lesson 5](lessons/05-beyond-stratification.md), worked through on a
+benefits policy in `programs/00-eligibility.dl`.
+
+## Should you just ask a model instead?
+
+For seven facts, yes. For this, the evidence is unusually clear, and it
+does not say what a Datalog partisan would want it to say.
+
+**The problem class is provably outside what a transformer does in
+context.** Directed graph reachability is NL-complete and Horn-clause
+satisfiability — which is what evaluating these rules *is* — is
+P-complete. [Merrill and Sabharwal (ICLR 2024)](https://arxiv.org/abs/2310.07923)
+prove that transformers with a linear number of chain-of-thought steps
+cannot solve either, naming both explicitly. You would need roughly
+O(n²) reasoning tokens to walk the graph.
+
+**Measured, that shows up as a monotone slide.**
+[GraphGym (2026)](https://arxiv.org/abs/2608.12391) ran 202 graph tasks
+at n = 10 / 100 / 1,000 / 10,000. Reasoning in natural language:
+**66.7 → 38.8 → 19.8 → 10.4** exact match. On pure transitive chains
+with surface cues stripped out,
+[NLGraph](https://arxiv.org/abs/2305.10037) found chain-of-thought
+connectivity at **40.8% — below the 50% coin flip**. And when default
+negation sits inside a recursive cycle — the case
+[lesson 5](lessons/05-beyond-stratification.md) is about —
+[ASPBench (2025)](https://arxiv.org/abs/2507.19749) finds every model
+plateaus near 0.60 regardless of size or reasoning training.
+
+**But here is the finding that actually matters, and it argues for a
+pairing rather than a winner.** In that same GraphGym sweep, models
+that *wrote code and ran it against the graph on disk* scored
+**77.7 → 74.3 → 71.4 → 46.3** — the size-scaling cliff mostly
+disappears. Much of the apparent reasoning failure is really that a
+model cannot reliably transcribe a graph out of its own context window:
+extraction accuracy from an in-context serialisation measured 54.5%.
+
+So the honest conclusion is not that models cannot reason. It is that
+**this computation belongs outside the context window**, and the model's
+job is to write the rules, not to run them. Which is the pairing this
+repository is built for: let a model turn a policy document into
+Datalog, and let the engine decide what follows from it — exactly,
+repeatably, with the derivation attached.
 
 ## What's in here
 
