@@ -880,7 +880,7 @@ class DifferentialFuzzTests(unittest.TestCase):
     the iteration count is CI-sized by default and raisable for a real
     soak:
 
-        TINY_DATALOG_FUZZ=5000 python3 tests.py DifferentialFuzzTests
+        TINY_DATALOG_FUZZ=3000 python3 tests.py DifferentialFuzzTests
     """
 
     DOMAIN = ["a", "b", "c", "d"]

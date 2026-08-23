@@ -12,7 +12,7 @@ identically every time, over a database far larger than a context
 window, at no extra cost — the engine already did the work. Ask whether
 the policy contradicts itself and you get a decision, not an opinion.
 
-That trade is what this repository is about. The evaluator is about 650
+That trade is what this repository is about. The evaluator is about 800
 lines of dependency-free Python — genuinely an afternoon's read — plus
 eight modules that each add one classical technique, and a 15-lesson
 course that builds the whole thing up from facts and rules.
@@ -110,7 +110,7 @@ python3 tests.py        # 115 tests, ~0.6s
 | What holds *unless* something else does? | `datalog.py programs/03-tweety.dl` | 3 |
 | Answer just this query — don't compute everything | `datalog.py --magic -q 'path(n5, X)' programs/02-reachability.dl` | 4 |
 | Is this rule set self-contradictory? | `datalog.py --models programs/00-eligibility-paradox.dl` | 5 |
-| Why did you conclude that? | `datalog.py --explain 'eligible(bob)' programs/00-eligibility.dl` | 11 |
+| Why did you conclude that? | `datalog.py --explain 'eligible(bob)' programs/00-eligibility.dl` | 1, 11 |
 | Which facts does the conclusion rest on? | `semiring.py -s why programs/06-routes.dl` | 6 |
 | What's the cheapest route? How many ways? | `semiring.py -s minplus programs/06-routes.dl` | 6 |
 | How likely is it? | `semiring.py -s viterbi programs/07-prob-reach.dl` | 7 |
@@ -144,7 +144,8 @@ python3 benchmarks/generate.py chain 150 > chain150.dl
 
 | Claim | How to check | Measured here |
 |---|---|---|
-| Semi-naive beats naive, and the gap grows with depth | `--naive` vs default, chain-100 | **10.6s → 0.23s (46×)** |
+| Semi-naive beats naive... | `--naive` vs default, chain-50 | 0.7s → 0.07s (**10×**) |
+| ...and the gap grows with depth | `--naive` vs default, chain-100 | 10.8s → 0.23s (**47×**) |
 | Magic sets makes a *selective* query goal-directed | `--magic -q 'path(n140, X)'`, chain-150 | **66 facts vs 11,175; 0.05s vs 0.62s** |
 | Magic sets is not a free lunch | `--magic -q 'path(n1, X)'`, chain-150 | **11,325 facts vs 11,175; 2.19s vs 0.62s** |
 
@@ -154,9 +155,9 @@ query's bindings actually prune: ask from the far end of a chain and
 demand stays local — 170× fewer facts and 12× faster. Ask from the near
 end and demand propagates the chain's whole length, so the rewritten
 program derives *more* facts than the original and pays a guard literal
-on every join. Nested-loop joins amplify that overhead (an index would
-soften the bad case), but the governing variable is demand, not
-indexing. [Lesson 4](lessons/04-magic-sets.md) works through why.
+on every join. Nested-loop joins amplify that overhead — each magic guard is a scan
+rather than a lookup, which an index would fix — but the governing
+variable is demand, not indexing. [Lesson 4](lessons/04-magic-sets.md) works through why.
 
 Correctness claims are checked too, by a seeded differential fuzzer
 (`DifferentialFuzzTests`) that generates stratified programs and demands
@@ -336,12 +337,20 @@ tour.
 
 ### How big is it, honestly
 
+Line counts are `wc -l`, so you can check them:
+
 | | lines |
 |---|---|
-| the evaluator (AST, parser, safety, stratification, semi-naive) | **~650** |
-| its CLI, printing, and `--explain` | ~330 |
-| eight satellite modules, one classical technique each | ~2,100 |
-| whole toolkit, nine files | 3,292 — of which 2,043 are code and 787 are commentary |
+| the evaluator — AST, parser, safety checks, stratification, semi-naive (`datalog.py` 1–801) | 801 |
+| its CLI, result printing, and `--explain` (`datalog.py` 802–1200) | 399 |
+| eight satellite modules, one classical technique each | 2,092 |
+| **whole toolkit, nine files** | **3,292** |
+
+Of those 3,292 lines: 2,043 are code, 787 are commentary, 462 are
+blank. `tests.py` adds a further 1,230, which is the ratio the project
+is actually built on — roughly one line of test for every 2.7 lines of
+toolkit, and every shipped program, exercise answer and README command
+is executed by it.
 
 "Tiny" is a claim about the evaluator, and about each module taken on
 its own: none is longer than 380 lines, and every one is meant to be

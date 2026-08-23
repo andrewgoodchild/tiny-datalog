@@ -61,6 +61,31 @@ $ python3 datalog.py -q 'grandparent(abe, X)' 01-family.dl
 A query is an atom with variables; the engine returns every match.
 Constants in the query act as filters.
 
+## Asking why
+
+Any derived fact can be interrogated, from your very first program:
+
+```sh
+$ python3 datalog.py --explain 'grandparent(abe, carl)' programs/01-family.dl
+?- explain grandparent(abe, carl)
+   grandparent(abe, carl)   [via grandparent(X, Z) :- parent(X, Y), parent(Y, Z).]
+     parent(abe, bob)   (base fact)
+     parent(bob, carl)   (base fact)
+```
+
+The tree names the rule that fired and the facts it consumed, all the
+way down to what you typed in. Two things make this different from an
+explanation you would write by hand: it is generated from the same work
+that produced the answer, so it cannot disagree with it, and it costs
+nothing extra to ask.
+
+Use it whenever a result surprises you — it is the fastest debugging
+tool in the repository, and it gets more interesting as the programs
+do (recursive derivations nest, and negated conditions are shown as
+explicitly as positive ones). [Lesson 11](11-under-the-hood.md)
+explains how it is built, once you have seen enough evaluation for the
+mechanism to be interesting.
+
 ## How evaluation works (the short version)
 
 The engine is **bottom-up**: it starts from the facts and applies every
