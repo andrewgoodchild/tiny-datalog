@@ -1,13 +1,21 @@
 # tiny-datalog
 
-A language model can tell you Bob is eligible. It can't show you the
-derivation, it can't tell you which facts the conclusion actually rests
-on, and it can't warn you that your eligibility policy contradicts
-itself.
+Ask a language model whether Bob is eligible and it will probably be
+right, and it can talk you through why. The gap isn't capability — it's
+that the explanation is a *separate artifact* from the answer, produced
+by the same process that sometimes invents citations. You can't tell a
+real derivation from a plausible one without checking it yourself.
 
-A logic engine does all three. This one does it in ~3,000 lines of
-dependency-free Python you can read in an afternoon — plus a 15-lesson
-course that builds up to it.
+A logic engine has no gap to fall through: the derivation **is** the
+computation. Ask why and you get the proof tree the answer came out of,
+identically every time, over a database far larger than a context
+window, at no extra cost — the engine already did the work. Ask whether
+the policy contradicts itself and you get a decision, not an opinion.
+
+That trade is what this repository is about. The evaluator is about 650
+lines of dependency-free Python — genuinely an afternoon's read — plus
+eight modules that each add one classical technique, and a 15-lesson
+course that builds the whole thing up from facts and rules.
 
 **Why does it believe that?** Here is the policy — the shape every
 benefits rule, access-control list and compliance check is made of:
@@ -48,10 +56,12 @@ assignment exists, so the program has no stratified model.
 stable models and the well-founded model.)
 ```
 
-Neither answer is something a generative model can give you about its
-own output. That is the case for knowing this material: LLMs generate,
-logic engines guarantee, and the interesting systems use each for what
-it is good at.
+Both answers are *derived*, not described — which is what makes them
+checkable, cheap, and identical on every run. That is the case for
+knowing this material: LLMs generate, logic engines guarantee, and the
+interesting systems use each for what it is good at. (The obvious
+pairing: let the model turn a policy document into rules, and let the
+engine decide what follows from them.)
 
 Never met Datalog? Start with
 [lesson 0](lessons/00-what-is-datalog.md) — what it is, the field's
@@ -334,6 +344,27 @@ tests.py        114 tests: every shipped program and exercise answer is
 The code is part of the course: comments explain the algorithms as they
 happen, and [lesson 11](lessons/11-under-the-hood.md) is the guided
 tour.
+
+### How big is it, honestly
+
+| | lines |
+|---|---|
+| the evaluator (AST, parser, safety, stratification, semi-naive) | **~650** |
+| its CLI, printing, and `--explain` | ~330 |
+| eight satellite modules, one classical technique each | ~2,100 |
+| whole toolkit, nine files | 3,292 — of which 2,043 are code and 787 are commentary |
+
+"Tiny" is a claim about the evaluator, and about each module taken on
+its own: none is longer than 380 lines, and every one is meant to be
+read start to finish. It is not a claim that the whole repository is
+small — it is nine modules because it teaches nine things.
+
+The commentary is not overhead to be trimmed. It is roughly a quarter
+of the file volume on purpose: this is a repository where the source is
+assigned reading, so the explanation lives next to the code rather than
+only in the lessons. There is no dead code to golf away (checked), and
+shrinking it further would mean deleting either a technique or an
+explanation.
 
 ## License
 

@@ -169,13 +169,6 @@ class TabledEngine:
                 if _match(atom.args, t, {}) is not None}
 
 
-def tabled_query(text, goal):
-    """Convenience: parse a program and answer one goal string."""
-    engine = TabledEngine(parse(text))
-    atom = parse_goal(goal)
-    return engine, engine.query(atom)
-
-
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
