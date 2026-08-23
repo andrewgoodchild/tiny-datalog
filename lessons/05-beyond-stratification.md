@@ -39,6 +39,26 @@ At the other extreme, `p :- not p.` has **no** stable model: assume p
 false and the rule derives it; assume p true and nothing supports it. A
 program with no stable model is genuinely, semantically paradoxical.
 
+## Reading the verdict
+
+Those three outcomes are the practical value of this lesson, so it is
+worth stating them as a table you can act on:
+
+| `--models` says | your program is | what to do |
+|---|---|---|
+| exactly one stable model | determinate | nothing — this is the goal |
+| no stable model | self-contradictory | some condition reads its own outcome; break the loop |
+| several stable models | underspecified | consistent, but a choice is unmade — add a tie-break |
+
+The third row is the one people find surprising. Several models does
+not mean the program is broken; it means it is *silent* about
+something, and the engine has enumerated the ways that silence could be
+resolved. `programs/00-eligibility-choice.dl` is the worked case: "only
+one member of a household may claim" never says which, so a household
+with two candidates yields two models — and a household with only one
+candidate stays settled in both, so the ambiguity is localised rather
+than contagious.
+
 ## The well-founded model
 
 The **well-founded semantics** (Van Gelder–Ross–Schlipf, 1991) refuses to

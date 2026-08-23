@@ -111,39 +111,7 @@ tie-break rule — oldest? lowest income? first to apply? That is a
 question about the policy rather than about a case, and no amount of
 reading seven facts answers it.
 
-**One caveat that belongs here, not in a footnote.** `not employed(P)`
-does not mean the person is unemployed. It means the database never
-said they were. That is the closed-world assumption, and in a benefits
-system it is the difference between "we checked" and "we have no
-record" — missing employment data yields a confident `eligible` with an
-immaculate proof tree. [Lesson 15](lessons/15-closed-and-open-worlds.md)
-is about when that assumption is safe and what the alternative costs.
-
-Two more things the same command finds. Add anti-double-dipping instead
-— a household stops qualifying once a member claims — and the policy
-self-destructs: **no stable model at all**, because eligibility now
-depends on its own outcome (`00-eligibility-paradox.dl`,
-[lesson 5](lessons/05-beyond-stratification.md)). And
-`--explain 'eligible(bob)'` prints the proof tree any answer came out
-of, negative premises included
-([lesson 1](lessons/01-first-steps.md)).
-
-| `--models` says | your policy is | what to do |
-|---|---|---|
-| exactly one stable model | determinate | nothing — this is the goal |
-| no stable model | self-contradictory | a condition reads its own outcome; break the loop |
-| several stable models | underspecified | consistent, but you owe it a tie-break |
-
-Fixing the middle row is a policy decision, not a syntax trick: the
-double-dipping check has to read a **register** maintained elsewhere
-rather than this program's own output
-(`programs/00-eligibility-stable.dl`). The rule of thumb falls out of
-it — **negating a base fact is free; negating a derived predicate is
-what forces an order.**
-
-All of these verdicts are *derived* rather than described, which is
-what makes them checkable, cheap, and identical on every run. LLMs
-generate, logic engines guarantee; the obvious pairing is to let a
+LLMs generate, logic engines guarantee; the obvious pairing is to let a
 model turn a policy document into rules and let the engine decide what
 follows from them.
 

@@ -59,6 +59,22 @@ Birds fly *unless proven abnormal*. Add a fact (`penguin(tweety)`) and a
 conclusion (`flies(tweety)`) disappears — non-monotonicity, tamed by
 stratification.
 
+## A rule of thumb worth carrying
+
+Not all negation costs the same. Negating a **base fact** is free:
+`employed` is complete before evaluation starts, so `not employed(P)`
+can be checked at any moment. Negating a **derived** predicate is what
+forces an ordering, because the engine must finish computing that
+relation before it can honestly say what is missing from it.
+
+That is the whole content of stratification, and it is a useful thing
+to know while writing rules: if every `not` in your program points at
+input data, you will never see a stratification error. They appear
+exactly when a rule asks about the absence of something the program
+itself produces. (`programs/00-eligibility-stable.dl` and
+`programs/00-eligibility-paradox.dl` are the same policy on either side
+of that line.)
+
 ## When stratification fails
 
 What if negation sits *inside* a recursive loop?
