@@ -17,6 +17,8 @@ from semiring import run_semiring
 from incremental import IncrementalEngine
 import prolog
 import subsumption
+from tabling import TabledEngine
+from datalog import match_answers, format_fact, _sort_key, explain
 
 
 def query_atom(q):
@@ -81,7 +83,7 @@ class StratificationTests(unittest.TestCase):
         with self.assertRaises(StratificationError) as cm:
             run_program("move(a, b). win(X) :- move(X, Y), not win(Y).")
         self.assertIn("win", str(cm.exception))
-        self.assertIn(("win", "win", True), cm.exception.cycle)
+        self.assertIn(("win", "win", "not"), cm.exception.cycle)
 
     def test_negation_over_lower_stratum_ok(self):
         engine = run_program("""
@@ -574,6 +576,199 @@ class IncrementalValidationTests(unittest.TestCase):
         fresh = Engine(Program([c for c in parse(self.GRAPH) if c.body]))
         fresh.run()
         self.assertEqual(dict(inc.rels), dict(fresh.rels))
+
+
+class AggregationTests(unittest.TestCase):
+    SPEND = """
+        charge(alice, groceries, 120).  charge(alice, transport, 60).
+        charge(bob, groceries, 90).     charge(bob, rent, 900).
+        total(P, sum(A))    :- charge(P, C, A).
+        howmany(P, count(C)) :- charge(P, C, A).
+        cheapest(P, min(A)) :- charge(P, C, A).
+        biggest(P, max(A))  :- charge(P, C, A).
+    """
+
+    def test_group_and_fold(self):
+        engine = run_program(self.SPEND)
+        self.assertEqual(engine.rels["total"],
+                         {("alice", 180), ("bob", 990)})
+        self.assertEqual(engine.rels["howmany"],
+                         {("alice", 2), ("bob", 2)})
+        self.assertEqual(engine.rels["cheapest"],
+                         {("alice", 60), ("bob", 90)})
+        self.assertEqual(engine.rels["biggest"],
+                         {("alice", 120), ("bob", 900)})
+
+    def test_aggregation_over_recursion_stratifies(self):
+        engine = run_program(load("02-reachability.dl") + """
+            reach_count(X, count(Y)) :- path(X, Y).
+        """)
+        self.assertIn(("n1", 9), engine.rels["reach_count"])
+        strata = engine.program.strata
+        self.assertLess(strata["path"], strata["reach_count"])
+
+    def test_aggregate_cycle_rejected_as_aggregation(self):
+        with self.assertRaises(StratificationError) as cm:
+            run_program("p(a, 1). q(count(X)) :- q(Y), p(X, N).")
+        self.assertIn("aggregation", str(cm.exception))
+
+    def test_distinct_value_semantics(self):
+        # the same (group, value) via two different join paths counts once
+        engine = run_program("""
+            charge(alice, a, 50).  charge(alice, b, 50).
+            spent(P, sum(A)) :- charge(P, C, A).
+        """)
+        self.assertEqual(engine.rels["spent"], {("alice", 50)})
+
+    def test_sum_over_non_numeric_rejected(self):
+        with self.assertRaises(DatalogError):
+            run_program("q(alice, home). t(P, sum(W)) :- q(P, W).")
+
+    def test_magic_falls_back_to_full_for_aggregates(self):
+        clauses = parse(self.SPEND)
+        _e, answers = magic_query(clauses, query_atom("total(alice, X)"))
+        self.assertEqual(answers, {("alice", 180)})
+
+    def test_aggregate_fact_and_double_aggregate_rejected(self):
+        with self.assertRaises(SafetyError):
+            run_program("t(sum(X)).")
+        with self.assertRaises(SafetyError):
+            run_program("q(a, 1). t(sum(X), count(Y)) :- q(X, Y).")
+
+
+class NaiveAndExplainTests(unittest.TestCase):
+    def test_naive_matches_seminaive(self):
+        text = load("02-reachability.dl")
+        fast = run_program(text)
+        slow = Engine(Program(parse(text)), naive=True)
+        slow.run()
+        self.assertEqual(dict(fast.rels), dict(slow.rels))
+        # naive rederives: total tuples produced far exceeds the relation
+        produced = sum(slow.stats[0]["produced"])
+        self.assertGreater(produced, len(slow.rels["path"]))
+
+    def test_explain_builds_wellfounded_tree(self):
+        engine = run_program(load("02-reachability.dl"))
+        lines = explain(engine, "path", ("n1", "n3"))
+        self.assertIn("(base fact)", "\n".join(lines))
+        self.assertIn("[via", lines[0])
+        # the fact never justifies itself
+        self.assertEqual(
+            sum(1 for l in lines if l.strip().startswith("path(n1, n3)")), 1)
+
+    def test_explain_aggregate_shows_group(self):
+        engine = run_program(AggregationTests.SPEND)
+        lines = explain(engine, "total", ("alice", 180))
+        self.assertIn("sum over 2 distinct values", "\n".join(lines))
+
+
+class RetractionTests(unittest.TestCase):
+    def test_core_engine_rejects_retraction(self):
+        with self.assertRaises(SafetyError) as cm:
+            run_program("edge(a, b)~.")
+        self.assertIn("incremental.py", str(cm.exception))
+
+    def test_apply_mixed_update_script(self):
+        inc = IncrementalEngine(load("08-dred-graph.dl"))
+        stats = inc.apply("edge(n3, n4)~.  edge(n2, n9).")
+        self.assertEqual(stats["deleted"], 1)
+        self.assertEqual(stats["inserted"], 1)
+        self.assertIn(("n1", "n9"), inc.rels["path"])
+        self.assertNotIn(("n3", "n4"), inc.rels["path"])
+
+    def test_insert_refuses_retractions(self):
+        inc = IncrementalEngine(load("08-dred-graph.dl"))
+        with self.assertRaises(DatalogError):
+            inc.insert("edge(a, b)~.")
+
+    def test_retraction_round_trips_through_str(self):
+        clause = parse("edge(a, b)~.")[0]
+        self.assertTrue(clause.retract)
+        self.assertEqual(str(clause), "edge(a, b)~.")
+
+
+class TablingTests(unittest.TestCase):
+    def test_left_recursion_terminates(self):
+        engine = TabledEngine(parse(load("13-left-recursive.dl")))
+        answers = engine.query(query_atom("ancestor(abe, X)"))
+        self.assertEqual({a[1] for a in answers},
+                         {"ann", "bob", "carl", "dee"})
+
+    def test_bound_query_tables_are_the_magic_set(self):
+        engine = TabledEngine(parse(load("02-reachability.dl")))
+        engine.query(query_atom("path(n5, X)"))
+        path_tables = {key[1][0] for key in engine.tables
+                       if key[0] == "path"}
+        # only subgoals reachable from n5 — never n1..n4 or the n9 branch
+        self.assertEqual(path_tables, {"n5", "n6", "n7", "n8"})
+
+    def test_rejects_negation(self):
+        with self.assertRaises(DatalogError):
+            TabledEngine(parse(load("03-tweety.dl")))
+
+
+class ConformanceTests(unittest.TestCase):
+    """One semantics, many algorithms: every applicable strategy must
+    return identical answers.  (AbcDatalog's shared-suite pattern.)"""
+
+    CASES = [
+        ("ancestor", load("01-family.dl"), "ancestor(abe, X)"),
+        ("reachability", load("02-reachability.dl"), "path(n5, X)"),
+        ("same-generation", load("04-same-generation.dl"), "sg(cal, Y)"),
+        ("even-odd", load("02-even-odd.dl"), "even(n1, X)"),
+        ("tweety", load("03-tweety.dl"), "flies(X)"),   # negation: no tabling
+    ]
+
+    def test_all_strategies_agree(self):
+        for name, text, q in self.CASES:
+            atom = query_atom(q)
+            clauses = parse(text)
+            reference = set(match_answers(
+                atom, run_program(text).rels.get(atom.pred, ())))
+            with self.subTest(case=name, engine="naive"):
+                eng = Engine(Program(parse(text)), naive=True)
+                eng.run()
+                self.assertEqual(
+                    set(match_answers(atom, eng.rels.get(atom.pred, ()))),
+                    reference)
+            with self.subTest(case=name, engine="magic"):
+                _e, answers = magic_query(clauses, atom)
+                self.assertEqual(answers, reference)
+            if not any(l.negated for c in clauses for l in c.body):
+                with self.subTest(case=name, engine="tabled"):
+                    self.assertEqual(
+                        TabledEngine(parse(text)).query(atom), reference)
+
+
+class GoldenFileTests(unittest.TestCase):
+    """cases/<name>/{program.dl, queries, expected} — add a test without
+    writing Python (see cases/README.md)."""
+
+    def test_golden_cases(self):
+        case_root = os.path.join(HERE, "cases")
+        names = sorted(d for d in os.listdir(case_root)
+                       if os.path.isdir(os.path.join(case_root, d)))
+        self.assertTrue(names, "no golden cases found")
+        for name in names:
+            with self.subTest(case=name):
+                base = os.path.join(case_root, name)
+                with open(os.path.join(base, "program.dl")) as fh:
+                    engine = run_program(fh.read())
+                lines = []
+                with open(os.path.join(base, "queries")) as fh:
+                    for q in fh:
+                        q = q.strip()
+                        if not q or q.startswith("%"):
+                            continue
+                        atom = query_atom(q.rstrip("."))
+                        for tup in sorted(
+                                match_answers(atom,
+                                              engine.rels.get(atom.pred, ())),
+                                key=_sort_key):
+                            lines.append(format_fact(atom.pred, tup))
+                with open(os.path.join(base, "expected")) as fh:
+                    expected = [l for l in fh.read().splitlines() if l]
+                self.assertEqual(lines, expected)
 
 
 class SubsumptionTests(unittest.TestCase):

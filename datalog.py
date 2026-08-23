@@ -126,10 +126,13 @@ class Literal:
 class Rule:
     head: Atom
     body: tuple  # tuple of Literal; empty tuple => fact
-    weight: object = None  # numeric fact annotation `@ w`; facts only
+    weight: object = None   # numeric fact annotation `@ w`; facts only
+    retract: bool = False   # `fact~.` — an update for incremental.py
 
     def __str__(self):
         if not self.body:
+            if self.retract:
+                return "%s~." % self.head
             if self.weight is not None:
                 return "%s @ %s." % (self.head, self.weight)
             return "%s." % self.head
@@ -170,6 +173,7 @@ _TOKEN = re.compile(
     | (?P<comment>[%\#][^\n]*)
     | (?P<implies>:-)
     | (?P<lparen>\() | (?P<rparen>\)) | (?P<comma>,) | (?P<at>@)
+    | (?P<retract>~)
     | (?P<number>-?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?)
     | (?P<dot>\.)
     | (?P<string>"[^"\n]*"|'[^'\n]*')
@@ -244,11 +248,15 @@ class _Parser:
         head = self._parse_atom()
         body = ()
         weight = None
+        retract = False
         kind = self._peek()[0]
         if kind == "at":
             self._next()
             tok = self._expect("number")
             weight = _num(tok[1])
+        elif kind == "retract":
+            self._next()
+            retract = True
         elif kind == "implies":
             self._next()
             lits = [self._parse_literal()]
@@ -257,7 +265,7 @@ class _Parser:
                 lits.append(self._parse_literal())
             body = tuple(lits)
         self._expect("dot")
-        return Rule(head, body, weight)
+        return Rule(head, body, weight, retract)
 
     def _parse_literal(self):
         kind, value, _line = self._peek()
@@ -313,6 +321,22 @@ def parse(text):
 # Validation: arity consistency, groundness of facts, rule safety
 # ---------------------------------------------------------------------------
 
+AGGREGATES = {"count", "sum", "min", "max"}
+
+
+def _aggregate_of(atom):
+    """The (index, functor, variable) of an aggregate term like sum(V) in
+    a rule head, or None.  At most one aggregate per head."""
+    found = None
+    for i, a in enumerate(atom.args):
+        if isinstance(a, Struct) and a.functor in AGGREGATES \
+                and len(a.args) == 1 and isinstance(a.args[0], Var):
+            if found is not None:
+                raise SafetyError("at most one aggregate per head: %s" % atom)
+            found = (i, a.functor, a.args[0])
+    return found
+
+
 def validate(clauses, arity=None):
     """Check arities, ground facts, and safety.  Returns {pred: arity}.
     An `arity` seed map lets a caller check new clauses against an
@@ -331,32 +355,42 @@ def validate(clauses, arity=None):
             raise SafetyError(
                 "predicate %s used with arity %d and %d" % (atom.pred, len(atom.args), n))
 
-    def check_no_structs(atom, rule):
-        for a in atom.args:
-            if isinstance(a, Struct):
-                raise SafetyError(
-                    "function symbols are not Datalog: term %s in %s.  "
-                    "Datalog bans compound terms so that bottom-up "
-                    "evaluation always terminates; for Horn clauses with "
-                    "function symbols use the top-down engine (prolog.py)."
-                    % (a, rule))
+    def check_term(a, rule):
+        if isinstance(a, Struct):
+            raise SafetyError(
+                "function symbols are not Datalog: term %s in %s.  "
+                "Datalog bans compound terms so that bottom-up "
+                "evaluation always terminates; for Horn clauses with "
+                "function symbols use the top-down engine (prolog.py)."
+                % (a, rule))
 
     for rule in clauses:
         check_arity(rule.head)
-        check_no_structs(rule.head, rule)
+        # heads may carry one aggregate term, e.g. total(P, sum(A)); any
+        # other compound term is the function-symbol boundary
+        agg = _aggregate_of(rule.head)
+        for i, a in enumerate(rule.head.args):
+            if not (agg and i == agg[0]):
+                check_term(a, rule)
+        if agg and not rule.body:
+            raise SafetyError("an aggregate needs a rule body: %s" % rule)
         if rule.weight is not None and rule.body:
             raise SafetyError("only facts may carry an @ weight: %s" % rule)
         for lit in rule.body:
             check_arity(lit.atom)
-            check_no_structs(lit.atom, rule)
+            for a in lit.atom.args:
+                check_term(a, rule)
         if not rule.body:
             if any(isinstance(a, Var) for a in rule.head.args):
                 raise SafetyError("fact is not ground: %s" % rule)
             continue
         positive_vars = {a.name for lit in rule.body if not lit.negated
                          for a in lit.atom.args if isinstance(a, Var)}
-        for a in rule.head.args:
-            if isinstance(a, Var) and a.name not in positive_vars:
+        head_vars = [a for a in rule.head.args if isinstance(a, Var)]
+        if agg:
+            head_vars.append(agg[2])   # the aggregated variable
+        for a in head_vars:
+            if a.name not in positive_vars:
                 raise SafetyError(
                     "unsafe rule: head variable %s is not bound by a positive "
                     "body literal in: %s" % (a, rule))
@@ -430,9 +464,9 @@ def _tarjan(nodes, edges):
     return scc
 
 
-def _find_cycle(u, v, edges, sccs):
-    """Given a negative edge u -> v inside one SCC, return a cycle
-    [(from, to, negated), ...] from u back to u through v."""
+def _find_cycle(u, v, edges, sccs, first_kind):
+    """Given a strict edge u -> v inside one SCC, return a cycle
+    [(from, to, kind), ...] from u back to u through v."""
     sid = sccs[u]
     adj = defaultdict(list)
     for a, b, neg in edges:
@@ -451,17 +485,17 @@ def _find_cycle(u, v, edges, sccs):
     path = []
     n = u
     while prev[n] is not None:
-        p, neg = prev[n]
-        path.append((p, n, neg))
+        p, kind = prev[n]
+        path.append((p, n, kind))
         n = p
     path.reverse()
-    return [(u, v, True)] + path
+    return [(u, v, first_kind)] + path
 
 
 def _format_cycle(cycle):
     parts = [cycle[0][0]]
-    for _u, v, neg in cycle:
-        parts.append(" --not--> " if neg else " --> ")
+    for _u, v, kind in cycle:
+        parts.append(" --> " if kind == "+" else " --%s--> " % kind)
         parts.append(v)
     return "".join(parts)
 
@@ -474,20 +508,30 @@ def stratify(clauses):
     """
     rules = [r for r in clauses if r.body]
     idb = {r.head.pred for r in rules}
-    edges = set()  # (head_pred, body_pred, negated): head depends on body
+    # Edges are labelled: "+" ordinary, "not" through negation, "agg"
+    # into an aggregating rule.  Negation and aggregation both demand
+    # "finish that relation completely before I look" — so both are
+    # strict, and both are forbidden inside a cycle.
+    edges = set()  # (head_pred, body_pred, kind): head depends on body
     for r in rules:
+        aggregating = _aggregate_of(r.head) is not None
         for lit in r.body:
             if lit.atom.pred in idb:
-                edges.add((r.head.pred, lit.atom.pred, lit.negated))
+                kind = ("not" if lit.negated
+                        else "agg" if aggregating else "+")
+                edges.add((r.head.pred, lit.atom.pred, kind))
 
     sccs = _tarjan(idb, edges)
-    for (u, v, neg) in sorted(edges):
-        if neg and sccs.get(u) == sccs.get(v):
-            cycle = _find_cycle(u, v, edges, sccs)
+    for (u, v, kind) in sorted(edges):
+        if kind != "+" and sccs.get(u) == sccs.get(v):
+            cycle = _find_cycle(u, v, edges, sccs, kind)
+            what = ("aggregation" if any(k == "agg" for _a, _b, k in cycle)
+                    else "negation")
             raise StratificationError(
-                "program is not stratifiable — negation occurs inside a "
+                "program is not stratifiable — %s occurs inside a "
                 "recursive cycle: %s.  No stratum assignment exists, so the "
-                "program has no stratified model." % _format_cycle(cycle),
+                "program has no stratified model." % (what,
+                                                     _format_cycle(cycle)),
                 cycle=cycle)
 
     # Assign stratum numbers by relaxation: a predicate must sit at least
@@ -500,8 +544,8 @@ def stratify(clauses):
     changed = True
     while changed:
         changed = False
-        for (u, v, neg) in edges:
-            need = stratum[v] + (1 if neg else 0)
+        for (u, v, kind) in edges:
+            need = stratum[v] + (0 if kind == "+" else 1)
             if stratum[u] < need:
                 stratum[u] = need
                 changed = True
@@ -540,6 +584,13 @@ def _match(args, tup, subst):
 
 class Program:
     def __init__(self, clauses):
+        for c in clauses:
+            if c.retract:
+                raise SafetyError(
+                    "retraction (%s) is an update, not a statement — a "
+                    "static program simply wouldn't assert the fact.  "
+                    "Apply it to a live materialisation via incremental.py."
+                    % c)
         self.arity = validate(clauses)
         self.facts = [r for r in clauses if not r.body]
         self.rules = [r for r in clauses if r.body]
@@ -557,15 +608,22 @@ class Engine:
     nothing.  Strata are computed once, then processed in order, so by
     the time a negated literal is consulted its relation is finished."""
 
-    def __init__(self, program):
+    def __init__(self, program, naive=False):
         self.program = program
+        self.naive = naive            # True: skip the delta discipline
         self.rels = defaultdict(set)  # pred -> set of ground tuples
         self.stats = []               # per-stratum iteration statistics
+        # derivation-order stamps: base facts 0, then one tick per
+        # absorbed round — --explain uses these to build well-founded
+        # derivation trees (a fact's premises always carry lower stamps)
+        self.first_seen = {}
+        self._stamp = 0
 
     def run(self):
         for fact in self.program.facts:
-            self.rels[fact.head.pred].add(
-                tuple(a.value for a in fact.head.args))
+            tup = tuple(a.value for a in fact.head.args)
+            self.rels[fact.head.pred].add(tup)
+            self.first_seen.setdefault((fact.head.pred, tup), 0)
         by_stratum = defaultdict(list)
         for rule in self.program.rules:
             by_stratum[self.program.strata[rule.head.pred]].append(rule)
@@ -577,11 +635,14 @@ class Engine:
         preds = {r.head.pred for r in rules}
         stat = {"stratum": level, "preds": sorted(preds), "iterations": []}
         self.stats.append(stat)
+        if self.naive:
+            self._eval_stratum_naive(rules, stat)
+            return
 
         # Round 1: evaluate every rule of the stratum against the full db.
         delta = defaultdict(set)
         for rule in rules:
-            for tup in self._eval_rule(rule):
+            for tup in self._produce(rule):
                 if tup not in self.rels[rule.head.pred]:
                     delta[rule.head.pred].add(tup)
         self._absorb(delta, stat)
@@ -611,28 +672,57 @@ class Engine:
             delta = new_delta
             self._absorb(delta, stat)
 
+    def _eval_stratum_naive(self, rules, stat):
+        """Naive evaluation: every rule against the whole database, every
+        round, until nothing new appears — no delta discipline, so every
+        already-known fact is re-derived every round.  Deliberately
+        wasteful: run --naive --trace beside the default to watch
+        semi-naive earn its name (Lesson 2)."""
+        stat["produced"] = []   # total tuples derived per round
+        while True:
+            delta = defaultdict(set)
+            produced = 0
+            for rule in rules:
+                for tup in self._produce(rule):
+                    produced += 1
+                    if tup not in self.rels[rule.head.pred]:
+                        delta[rule.head.pred].add(tup)
+            stat["produced"].append(produced)
+            self._absorb(delta, stat)
+            if not delta:
+                return
+
+    def _produce(self, rule):
+        """All head tuples one rule derives right now (aggregate-aware)."""
+        if _aggregate_of(rule.head):
+            return self._eval_aggregate(rule)
+        return self._eval_rule(rule)
+
     def _absorb(self, delta, stat):
+        self._stamp += 1
         for pred, tuples in delta.items():
             self.rels[pred] |= tuples
+            for t in tuples:
+                self.first_seen.setdefault((pred, t), self._stamp)
         stat["iterations"].append(
             {p: len(ts) for p, ts in delta.items() if ts})
 
-    def _eval_rule(self, rule, delta_occ=None, delta=None):
-        """Yield head tuples derivable from one rule.
-
-        If delta_occ is given, the positive literal at that body index reads
-        from `delta` instead of the full relations (semi-naive evaluation).
-        Negated literals are evaluated last, against fully computed lower
-        strata; safety guarantees they are ground by then.
-        """
+    def _rule_substitutions(self, rule, delta_occ=None, delta=None,
+                            seed=None):
+        """Every substitution satisfying the rule body (positives joined
+        first — they bind; negatives filter afterwards, against fully
+        computed lower strata).  If delta_occ is given, the positive
+        literal at that body index reads from `delta` instead of the
+        full relations — the semi-naive restriction.  A `seed`
+        substitution pre-binds variables (--explain uses this)."""
         # Positives first (they bind variables), negatives filter afterwards.
         ordered = sorted(range(len(rule.body)),
                          key=lambda i: rule.body[i].negated)
-        substs = [{}]
+        substs = [dict(seed) if seed else {}]
         for i in ordered:
             lit = rule.body[i]
             if not substs:
-                return
+                return []
             if lit.negated:
                 rel = self.rels.get(lit.atom.pred, _EMPTY)
                 substs = [s for s in substs
@@ -650,8 +740,42 @@ class Engine:
                         if m is not None:
                             new.append(m)
                 substs = new
-        for s in substs:
+        return substs
+
+    def _eval_rule(self, rule, delta_occ=None, delta=None):
+        """Yield head tuples derivable from one rule."""
+        for s in self._rule_substitutions(rule, delta_occ, delta):
             yield self._instantiate(rule.head, s)
+
+    def _eval_aggregate(self, rule):
+        """Aggregate rules — total(P, sum(A)) :- charge(P, C, A). — group
+        their body solutions by the plain head arguments and fold the
+        aggregate over each group's distinct values.  Stratification has
+        already guaranteed the body relations are complete (aggregation
+        edges are strict, like negation), so one evaluation suffices."""
+        idx, func, var = _aggregate_of(rule.head)
+        groups = defaultdict(set)
+        for s in self._rule_substitutions(rule):
+            key = tuple(a.value if isinstance(a, Const) else s[a.name]
+                        for j, a in enumerate(rule.head.args) if j != idx)
+            groups[key].add(s[var.name])
+        for key, values in groups.items():
+            try:
+                if func == "count":
+                    agg = len(values)
+                elif func == "sum":
+                    agg = sum(values)
+                elif func == "min":
+                    agg = min(values)
+                else:
+                    agg = max(values)
+            except TypeError:
+                raise DatalogError(
+                    "cannot %s over mixed or non-numeric values in: %s"
+                    % (func, rule))
+            out = list(key)
+            out.insert(idx, agg)
+            yield tuple(out)
 
     @staticmethod
     def _instantiate(atom, subst):
@@ -704,16 +828,20 @@ def _print_strata(program):
 
 
 def _print_stats(engine):
-    print("Semi-naive evaluation:")
+    print("Naive evaluation:" if engine.naive else "Semi-naive evaluation:")
     for stat in engine.stats:
         print("  stratum %d (%s):" % (stat["stratum"], ", ".join(stat["preds"])))
+        produced = stat.get("produced")
         for n, round_ in enumerate(stat["iterations"], 1):
+            extra = ""
+            if produced and n <= len(produced):
+                extra = "   (%d tuples derived)" % produced[n - 1]
             if round_:
                 deltas = ", ".join("+%d %s" % (c, p)
                                    for p, c in sorted(round_.items()))
-                print("    round %d: %s" % (n, deltas))
+                print("    round %d: %s%s" % (n, deltas, extra))
             else:
-                print("    round %d: no new facts — fixpoint" % n)
+                print("    round %d: no new facts — fixpoint%s" % (n, extra))
 
 
 def _atom_sort_key(atom):
@@ -798,6 +926,102 @@ def _print_answers(atom, tuples, suffix=""):
     print("   (%d answer%s)" % (len(answers), "" if len(answers) == 1 else "s"))
 
 
+# ---------------------------------------------------------------------------
+# --explain: derivation trees
+# ---------------------------------------------------------------------------
+# Ask the engine WHY it believes a fact.  The trick that keeps the tree
+# well-founded: every fact carries a derivation-order stamp (Engine
+# first_seen), and its first derivation necessarily used premises with
+# strictly smaller stamps — so searching for a rule instance whose
+# positive premises all precede the fact always succeeds and can never
+# justify a fact by itself.
+
+def _derivation_of(engine, pred, tup):
+    """A (rule, premises) justification for a derived fact, where every
+    positive premise strictly precedes it in derivation order; None for
+    base facts.  premises is a list of (literal, ground_tuple)."""
+    stamp = engine.first_seen.get((pred, tup), 0)
+    for rule in engine.program.rules:
+        if rule.head.pred != pred:
+            continue
+        if _aggregate_of(rule.head):
+            group = _aggregate_group(engine, rule, tup)
+            if group is not None:
+                return rule, group
+            continue
+        seed = _match(rule.head.args, tup, {})
+        if seed is None:
+            continue
+        for s in engine._rule_substitutions(rule, seed=seed):
+            premises = [(lit, engine._instantiate(lit.atom, s))
+                        for lit in rule.body]
+            if all(engine.first_seen.get((lit.atom.pred, p), 0) < stamp
+                   for lit, p in premises if not lit.negated):
+                return rule, premises
+    return None
+
+
+def _aggregate_group(engine, rule, tup):
+    """For an aggregate-rule head tuple, the group's contributing values,
+    presented as a pseudo-premise list."""
+    idx, func, var = _aggregate_of(rule.head)
+    key = tuple(v for j, v in enumerate(tup) if j != idx)
+    values = set()
+    for s in engine._rule_substitutions(rule):
+        k = tuple(a.value if isinstance(a, Const) else s[a.name]
+                  for j, a in enumerate(rule.head.args) if j != idx)
+        if k == key:
+            values.add(s[var.name])
+    if not values:
+        return None
+    return [("aggregate", "%s over %d distinct value%s of %s: {%s}"
+             % (func, len(values), "" if len(values) == 1 else "s", var,
+                ", ".join(str(v) for v in sorted(values, key=lambda x:
+                                                 (0, x) if isinstance(x, (int, float))
+                                                 else (1, str(x))))))]
+
+
+def explain(engine, pred, tup, indent=0, shown=None, lines=None):
+    """Build an indented derivation tree for one fact; returns the lines."""
+    lines = [] if lines is None else lines
+    shown = set() if shown is None else shown
+    pad = "  " * indent
+    label = format_atom(pred, tup)
+    if (pred, tup) in shown:
+        lines.append("%s%s   (derivation shown above)" % (pad, label))
+        return lines
+    derivation = _derivation_of(engine, pred, tup)
+    if derivation is None:
+        lines.append("%s%s   (base fact)" % (pad, label))
+        return lines
+    shown.add((pred, tup))
+    rule, premises = derivation
+    lines.append("%s%s   [via %s]" % (pad, label, rule))
+    for item in premises:
+        if item[0] == "aggregate":
+            lines.append("%s  = %s" % (pad, item[1]))
+        elif item[0].negated:
+            lines.append("%s  not %s   (absent from its completed stratum)"
+                         % (pad, format_atom(item[0].atom.pred, item[1])))
+        else:
+            explain(engine, item[0].atom.pred, item[1], indent + 1,
+                    shown, lines)
+    return lines
+
+
+def _run_explain(q, engine):
+    atom = _parse_query_atom(q, engine.program.arity)
+    matches = sorted(match_answers(atom, engine.rels.get(atom.pred, ())),
+                     key=_sort_key)
+    print("?- explain %s" % atom)
+    if not matches:
+        print("   (no matching facts)")
+        return
+    for tup in matches:
+        for line in explain(engine, atom.pred, tup):
+            print("   " + line)
+
+
 def _run_query(q, engine):
     atom = _parse_query_atom(q, engine.program.arity)
     _print_answers(atom, match_answers(atom, engine.rels.get(atom.pred, ())))
@@ -852,6 +1076,14 @@ def main(argv=None):
                          "program and report all stable models (exhaustive "
                          "search, small programs only) and the well-founded "
                          "three-valued model")
+    ap.add_argument("--naive", action="store_true",
+                    help="evaluate naively (no delta discipline); with "
+                         "--trace, prints tuples-derived per round so the "
+                         "semi-naive comparison is measurable")
+    ap.add_argument("-e", "--explain", action="append", default=[],
+                    metavar="ATOM",
+                    help="print a derivation tree for every fact matching "
+                         "the atom (repeatable)")
     ap.add_argument("-M", "--magic", action="store_true",
                     help="answer each -q query via the magic-sets rewriting "
                          "(goal-directed: only facts relevant to the query's "
@@ -905,7 +1137,7 @@ def main(argv=None):
         print("error: %s" % exc, file=sys.stderr)
         return 1
 
-    engine = Engine(program)
+    engine = Engine(program, naive=args.naive)
     if args.trace:
         _print_strata(program)
         print()
@@ -914,10 +1146,16 @@ def main(argv=None):
         _print_stats(engine)
         print()
 
-    if args.query:
+    if args.query or args.explain:
         for q in args.query:
             try:
                 _run_query(q, engine)
+            except DatalogError as exc:
+                print("error: %s" % exc, file=sys.stderr)
+                return 1
+        for q in args.explain:
+            try:
+                _run_explain(q, engine)
             except DatalogError as exc:
                 print("error: %s" % exc, file=sys.stderr)
                 return 1

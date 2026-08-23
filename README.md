@@ -33,7 +33,7 @@ programming), RDFox (knowledge graphs), or Feldera (incremental).
 ## Quick start
 
 ```sh
-python3 tests.py                                       # 67 tests
+python3 tests.py                                       # 86 tests
 python3 datalog.py programs/01-family.dl                  # evaluate a program
 python3 datalog.py --trace programs/02-reachability.dl    # + strata, per-round deltas
 python3 datalog.py -q 'eats_in_cafe(X)' programs/05-cafe-foodary.dl
@@ -44,6 +44,9 @@ python3 semiring.py --semiring why programs/06-routes.dl      # why-provenance
 python3 incremental.py                                     # DRed demo
 python3 prolog.py programs/09-peano.pl -q 'add(X, Y, s(s(zero)))'  # Horn clauses
 python3 subsumption.py programs/10-family-ontology.dl      # classify an ontology
+python3 datalog.py programs/12-spending.dl                 # aggregation
+python3 datalog.py --explain 'path(n1, n4)' programs/02-reachability.dl  # why?
+python3 tabling.py programs/13-left-recursive.dl -q 'ancestor(abe, X)'   # tabled
 ```
 
 No dependencies; Python 3.9+.
@@ -67,9 +70,14 @@ the current research threads:
 10. [Horn clauses: the boundary Datalog lives on](lessons/09-horn-clauses.md)
 11. [KL-ONE and subsumption: reasoning about definitions](lessons/10-kl-one-subsumption.md)
 12. [Under the hood: how this engine is built](lessons/11-under-the-hood.md) — a guided tour of the implementation itself
+13. [Aggregation: counting without contradiction](lessons/12-aggregation.md)
+14. [Tabling: top-down without the cliff](lessons/13-tabling.md) — and why magic sets was tabling all along
 
 Every lesson ends with an "is this real, or just academic?" note tying
-its technique to the systems that ship it.
+its technique to the systems that ship it. Instructors: `ASSIGNMENT.md`
+is a ready-to-assign "build your own Datalog" project graded by
+differential testing against this repo, and `cases/` lets anyone add a
+test without writing Python.
 
 The classic teaching programs ship as runnable files in `programs/` —
 family/ancestor, same-generation, transitive closure, mutual recursion
@@ -83,7 +91,16 @@ the test suite.
 - **Semi-naive evaluation** — each stratum runs to fixpoint, but after
   the first round rules are re-joined only against the previous round's
   *new* facts (the delta), substituted into each recursive body position
-  in turn. `--trace` shows the deltas shrinking round by round.
+  in turn. `--trace` shows the deltas shrinking round by round, and
+  `--naive` switches the discipline off so the comparison is measurable.
+- **Aggregation** — `total(P, sum(A)) :- charge(P, C, A).` with
+  `sum`/`count`/`min`/`max`; the other head arguments are the implicit
+  GROUP BY. Aggregation edges are strict in the stratification graph
+  (an aggregate must see its whole group), so aggregation-in-a-cycle is
+  rejected with the same cycle diagnosis as negation.
+- **Derivation trees** (`--explain 'path(a, d)'`) — ask the engine *why*
+  it believes a fact: a well-founded proof tree built from
+  derivation-order stamps, down to base facts.
 - **Stratified negation** — `not p(...)` is allowed when the program can
   be partitioned into strata so no predicate depends on its own negation.
   Programs with negation inside a recursive cycle are rejected with the
@@ -110,8 +127,13 @@ the test suite.
   detected and explained.
 - **Incremental maintenance** (`incremental.py`) — insertions resume
   semi-naive from a delta; deletions run DRed (over-delete, then
-  re-derive survivors). Every repair is verified against from-scratch
+  re-derive survivors). Update scripts mix both: plain facts insert,
+  `fact~.` retracts. Every repair is verified against from-scratch
   recomputation in the tests.
+- **Tabled evaluation** (`tabling.py`) — top-down with a table per
+  subgoal (iterative QSQR): goal-directed like Prolog, terminates like
+  Datalog, and handles the left recursion SLD cannot. Its `-t` flag
+  prints the tables so you can check they equal the magic sets.
 - **Horn clauses beyond Datalog** (`prolog.py`) — a top-down SLD
   interpreter with function symbols, unification (occurs check included),
   negation as failure, and an honest depth bound. The core engine rejects
@@ -140,6 +162,32 @@ of the graph:
 ```
 [magic] 10 IDB facts derived vs 35 under full evaluation
 ```
+
+## Deliberately missing
+
+Some absences are design decisions, and saying why teaches more than
+quietly lacking them would:
+
+- **Arithmetic and comparisons** (`X + 1`, `X < Y`). A built-in isn't a
+  relation you can enumerate — `less_than` has infinitely many rows — so
+  it must be *evaluated* at the exact moment its operands become bound.
+  That entangles correctness with join order, which this engine keeps
+  deliberately naive, and expressions force terms to become trees (the
+  function-symbol boundary again, from the inside). The principled
+  extension route is *semantic attachments*: a handler that answers
+  ground goals like `lt(3, 7)` on demand, registered alongside the pure
+  relations. Building one is a good exercise; see also c-cube/datalog's
+  design, which documents each such predicate with its own help string.
+- **Indexes and join planning.** Every join is a nested loop on purpose:
+  the algorithms stay one-screen readable, and the gap to Soufflé's
+  compiled indexed joins is Lesson 11's honest-limits discussion, not an
+  accident.
+- **A REPL and packaging.** Files and flags keep every example
+  reproducible from the shell, and zero packaging means the whole thing
+  is `git clone` + `python3`.
+
+Aggregation used to be on this list; Lesson 12 is what it looks like to
+promote an omission into a feature without breaking the design.
 
 ## The café paradox
 
@@ -187,13 +235,20 @@ semiring.py     semiring-valued evaluation (costs, counts, provenance,
                 probabilities)
 incremental.py  insertions + DRed deletions over a live materialisation
 prolog.py       top-down SLD resolution with function symbols
+tabling.py      tabled top-down evaluation (iterative QSQR)
 subsumption.py  KL-ONE-style EL classifier, compiled to Datalog
 programs/       the classic teaching programs, numbered by lesson
-                (01-family.dl ... 10-family-ontology.dl), plus the café
+                (01-family.dl ... 13-left-recursive.dl), plus the café
                 paradox
-lessons/        getting started + lessons 0–11, following the field's
+lessons/        getting started + lessons 0–13, following the field's
                 history from 1977 to the current research threads
-tests.py        67 tests — every shipped program is exercised
+cases/          golden test cases — add one without writing Python
+benchmarks/     scaled input generators (chain/tree/clique/grid)
+ASSIGNMENT.md   a build-your-own-Datalog course project, graded by
+                differential testing against this repo
+tests.py        86 tests — every shipped program is exercised, and a
+                conformance suite runs every query through every
+                applicable evaluation strategy
 ```
 
 The code itself is part of the course: comments explain the algorithms

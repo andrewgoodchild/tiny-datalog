@@ -1,0 +1,16 @@
+% Same-generation — the classic magic-sets benchmark.  cal and dee are
+% cousins: their parents (ann, bob) are siblings, so they are in the same
+% generation.
+%
+%   python3 datalog.py programs/04-same-generation.dl
+%   python3 datalog.py --magic --trace -q 'sg(cal, Y)' programs/04-same-generation.dl
+
+person(pam). person(ann). person(bob). person(cal). person(dee).
+
+parent(ann, pam).      % parent(Child, Parent)
+parent(bob, pam).
+parent(cal, ann).
+parent(dee, bob).
+
+sg(X, X) :- person(X).
+sg(X, Y) :- parent(X, XP), parent(Y, YP), sg(XP, YP).

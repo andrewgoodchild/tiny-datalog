@@ -37,7 +37,8 @@ from __future__ import annotations
 from collections import defaultdict
 
 from datalog import (Atom, Const, Engine, Literal, Program, Rule, Var,
-                     check_query_atom, match_answers, validate)
+                     _aggregate_of, check_query_atom, match_answers,
+                     validate)
 
 
 def _adorned_name(pred, adorn):
@@ -55,8 +56,13 @@ def magic_transform(clauses, query):
     """
     check_query_atom(query, validate(clauses))
     idb = {c.head.pred for c in clauses if c.body}
-    if query.pred not in idb:
-        return list(clauses), query.pred  # EDB query: nothing to specialise
+    # Aggregate-headed predicates are never specialised: an aggregate
+    # needs its whole group, so demand restriction would change answers.
+    # Like negated subgoals, they are computed in full.
+    agg_preds = {c.head.pred for c in clauses
+                 if c.body and _aggregate_of(c.head)}
+    if query.pred not in idb or query.pred in agg_preds:
+        return list(clauses), query.pred  # evaluate in full
 
     defs = defaultdict(list)  # IDB pred -> its clauses (rules AND facts)
     edb_facts = []
@@ -102,7 +108,10 @@ def magic_transform(clauses, query):
                     if lit.atom.pred in idb:
                         full_needed.add(lit.atom.pred)
                     continue
-                if lit.atom.pred in idb:
+                if lit.atom.pred in agg_preds:
+                    prefix.append(lit)   # aggregate: keep original name
+                    full_needed.add(lit.atom.pred)
+                elif lit.atom.pred in idb:
                     # Adorn the subgoal from what is bound *right now*.
                     sub = "".join(
                         "b" if isinstance(a, Const) or a.name in bound_vars
@@ -122,6 +131,7 @@ def magic_transform(clauses, query):
                 else:
                     prefix.append(lit)  # EDB literal: kept as-is
                 # A positive literal, once joined, binds all its variables
+                # (aggregate heads included: their tuples are ordinary)
                 # for everything to its right — the evaluator's own order.
                 bound_vars |= {a.name for a in lit.atom.args
                                if isinstance(a, Var)}

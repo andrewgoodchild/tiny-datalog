@@ -6,7 +6,7 @@ install beyond Python 3.9+.
 ```sh
 git clone <this repo>
 cd datalog
-python3 tests.py                     # 67 tests, should all pass
+python3 tests.py                     # 86 tests, should all pass
 python3 datalog.py programs/02-reachability.dl
 ```
 
@@ -37,6 +37,10 @@ input facts). The other modes:
 | `python3 datalog.py --magic -q '...' prog.dl` | answer the query *goal-directedly* (magic sets) |
 | `python3 datalog.py --trace prog.dl` | show strata and per-round derivation counts |
 | `python3 datalog.py --models prog.dl` | stable models + well-founded model (small programs) |
+| `python3 datalog.py --naive --trace prog.dl` | naive evaluation with per-round derivation counts |
+| `python3 datalog.py --explain 'path(a, d)' prog.dl` | print a derivation tree — *why* is this fact true? |
+| `python3 tabling.py prog.dl -q 'goal(X)' -t` | tabled top-down evaluation (handles left recursion) |
+| `python3 incremental.py prog.dl -u 'f(a)~. f(b).'` | apply retractions/insertions to a live materialisation |
 | `python3 semiring.py --semiring minplus prog.dl` | evaluate over a semiring (costs, counts, provenance, probabilities) |
 | `python3 incremental.py` | demo: repair derived facts on insert/delete instead of recomputing |
 | `python3 prolog.py prog.pl -q 'goal(X)'` | top-down Horn clauses *with* function symbols |
@@ -85,3 +89,5 @@ The lessons build up the whole repository feature by feature:
 9. [Horn clauses: the boundary Datalog lives on](09-horn-clauses.md)
 10. [KL-ONE and subsumption: reasoning about definitions](10-kl-one-subsumption.md)
 11. [Under the hood: how this engine is built](11-under-the-hood.md)
+12. [Aggregation: counting without contradiction](12-aggregation.md)
+13. [Tabling: top-down without the cliff](13-tabling.md)

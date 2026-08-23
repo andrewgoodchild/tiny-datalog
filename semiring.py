@@ -40,8 +40,8 @@ from __future__ import annotations
 import argparse
 import sys
 
-from datalog import (Const, DatalogError, _match, _sort_key, format_atom,
-                     parse, validate)
+from datalog import (Const, DatalogError, _aggregate_of, _match, _sort_key,
+                     format_atom, parse, validate)
 
 
 # ---------------------------------------------------------------------------
@@ -208,6 +208,11 @@ class SemiringEngine:
         self.sr = semiring
         self.arity = validate(clauses)
         for r in clauses:
+            if _aggregate_of(r.head):
+                raise DatalogError(
+                    "semiring evaluation does not compose with head "
+                    "aggregation (a semiring already IS the aggregation "
+                    "— see lessons 6 and 12): %s" % r)
             for lit in r.body:
                 if lit.negated:
                     raise DatalogError(

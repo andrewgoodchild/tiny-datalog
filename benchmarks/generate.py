@@ -1,0 +1,69 @@
+#!/usr/bin/env python3
+"""Generate scaled benchmark programs, so the course's asymptotic claims
+become curves you can measure instead of take on faith.
+
+    python3 benchmarks/generate.py chain 100 > chain100.dl
+    python3 datalog.py --trace chain100.dl          # semi-naive deltas
+    python3 datalog.py --naive --trace chain100.dl  # naive rederivation
+    python3 datalog.py --magic --trace -q 'path(n1, X)' chain100.dl
+
+Shapes:
+    chain N    n1 -> n2 -> ... -> nN          (deep recursion, N rounds)
+    tree N     complete binary tree, N nodes  (log-depth recursion)
+    clique N   every ordered pair             (dense joins; keep N small!)
+    grid N     N x N lattice, right/down      (many alternative paths)
+
+Every program ships with the transitive-closure rules; add your own
+queries.  Suggested experiment (Lesson 2): plot rounds and tuples
+derived against N for chain vs tree, naive vs semi-naive vs magic.
+"""
+
+import argparse
+import sys
+
+
+def chain(n):
+    return [("n%d" % i, "n%d" % (i + 1)) for i in range(1, n)]
+
+
+def tree(n):
+    return [("n%d" % (i // 2), "n%d" % i) for i in range(2, n + 1)]
+
+
+def clique(n):
+    return [("n%d" % i, "n%d" % j)
+            for i in range(1, n + 1) for j in range(1, n + 1) if i != j]
+
+
+def grid(n):
+    edges = []
+    for r in range(n):
+        for c in range(n):
+            if c + 1 < n:
+                edges.append(("n%d_%d" % (r, c), "n%d_%d" % (r, c + 1)))
+            if r + 1 < n:
+                edges.append(("n%d_%d" % (r, c), "n%d_%d" % (r + 1, c)))
+    return edges
+
+
+SHAPES = {"chain": chain, "tree": tree, "clique": clique, "grid": grid}
+
+
+def main(argv=None):
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("shape", choices=sorted(SHAPES))
+    ap.add_argument("n", type=int, help="size parameter")
+    args = ap.parse_args(argv)
+
+    edges = SHAPES[args.shape](args.n)
+    print("%% generated: %s %d  (%d edges)" % (args.shape, args.n, len(edges)))
+    for a, b in edges:
+        print("edge(%s, %s)." % (a, b))
+    print()
+    print("path(X, Y) :- edge(X, Y).")
+    print("path(X, Z) :- edge(X, Y), path(Y, Z).")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

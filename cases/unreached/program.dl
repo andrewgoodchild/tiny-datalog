@@ -1,0 +1,5 @@
+node(a). node(b). node(c). node(d).
+edge(a, b). edge(b, c).
+reach(a).
+reach(Y) :- reach(X), edge(X, Y).
+unreached(X) :- node(X), not reach(X).

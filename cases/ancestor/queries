@@ -1,0 +1,3 @@
+% who descends from abe, and who leads to dana?
+ancestor(abe, X)
+ancestor(X, dana)

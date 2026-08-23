@@ -31,7 +31,8 @@ from __future__ import annotations
 
 from collections import defaultdict
 
-from datalog import Const, DatalogError, _match, _sort_key, validate
+from datalog import (Const, DatalogError, _aggregate_of, _match, _sort_key,
+                     validate)
 
 
 def _instantiate_atom(atom, subst):
@@ -55,6 +56,12 @@ def ground_program(clauses):
     search below therefore only needs subsets of this envelope.
     """
     validate(clauses)
+    for r in clauses:
+        if r.body and _aggregate_of(r.head):
+            raise DatalogError(
+                "stable-model and well-founded semantics for aggregates "
+                "are beyond this module (and still debated in the "
+                "literature): %s" % r)
     facts = {(r.head.pred, tuple(a.value for a in r.head.args))
              for r in clauses if not r.body}
     rules = [r for r in clauses if r.body]

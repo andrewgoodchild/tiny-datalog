@@ -111,7 +111,10 @@ what changed" idea grew into today's incremental-computation industry
    Write `has_part(X, Y)` at any depth, and count rounds with `--trace`
    for a chain of 6 parts.
 3. Predict which of the three `path` variants takes the fewest rounds on
-   a 16-node chain, then verify.
+   a 16-node chain, then verify (`python3 benchmarks/generate.py chain 16`
+   makes the input; compare `--trace` with and without `--naive` while
+   you're there — the "tuples derived" column is naive evaluation paying
+   for its lack of a delta).
 
 Next: [negation](03-negation.md) — where "not" turns out to be the hard
 part of the whole subject.

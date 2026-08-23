@@ -125,10 +125,10 @@ vendors all hire for exactly this understanding.
 
 ## Exercises
 
-1. Add a `--naive` flag to `Engine` that skips the delta discipline, and
-   print per-round derived-fact counts for both modes on
-   `programs/02-reachability.dl`. How do the counts differ, and why is
-   the final result identical?
+1. Run `--naive --trace` beside the default on
+   `programs/02-reachability.dl` and explain both number columns. Then
+   read `_eval_stratum_naive` and name precisely what the semi-naive
+   loop has that it lacks.
 2. Add a comparison built-in (`X != Y`) to rule bodies: parser, safety
    rule (both operands must be bound — why?), and evaluation. Note how
    Lesson 1's `sibling` bug becomes fixable.
@@ -138,3 +138,6 @@ vendors all hire for exactly this understanding.
 4. Read `magic.py` end to end and hand-simulate the rewriting of
    `programs/01-family.dl` for `ancestor(bob, X)`. Check yourself
    against `--magic --trace`.
+
+Next: [aggregation](12-aggregation.md) and [tabling](13-tabling.md) —
+two extensions built on everything above.

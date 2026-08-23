@@ -1,0 +1,6 @@
+ancestor(abe, ann).
+ancestor(abe, bob).
+ancestor(abe, carl).
+ancestor(abe, dana).
+ancestor(abe, dana).
+ancestor(ann, dana).

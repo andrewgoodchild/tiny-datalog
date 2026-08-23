@@ -1,0 +1,22 @@
+% Aggregation: one aggregate term per rule head; the remaining head
+% arguments are the implicit GROUP BY.
+%
+%   python3 datalog.py programs/12-spending.dl
+%   python3 datalog.py --explain 'total(alice, 180)' programs/12-spending.dl
+
+charge(alice, groceries, 120).
+charge(alice, transport, 60).
+charge(bob,   groceries, 90).
+charge(bob,   rent,      900).
+
+total(P, sum(A))     :- charge(P, C, A).
+howmany(P, count(C)) :- charge(P, C, A).
+cheapest(P, min(A))  :- charge(P, C, A).
+biggest(P, max(A))   :- charge(P, C, A).
+
+% Aggregating a recursive relation is fine — the aggregate simply sits
+% in a higher stratum, like negation would:
+knows(alice, bob).  knows(bob, carol).  knows(carol, dana).
+connected(X, Y) :- knows(X, Y).
+connected(X, Z) :- knows(X, Y), connected(Y, Z).
+reach(P, count(Q)) :- connected(P, Q).

@@ -33,22 +33,25 @@ API
 
 from __future__ import annotations
 
+import argparse
 import os
 import sys
 from collections import defaultdict
 
-from datalog import (DatalogError, Engine, Program, format_fact, parse,
-                     validate)
+from datalog import (DatalogError, Engine, Program, _aggregate_of,
+                     format_fact, parse, validate)
 
 
 class IncrementalEngine:
     def __init__(self, text):
         clauses = parse(text)
         for r in clauses:
-            if any(lit.negated for lit in r.body):
+            if any(lit.negated for lit in r.body) or _aggregate_of(r.head):
                 raise DatalogError(
-                    "incremental maintenance supports positive programs "
-                    "only (negated literal in: %s)" % r)
+                    "incremental maintenance supports positive, "
+                    "aggregate-free programs only (negation and "
+                    "aggregation are non-monotone; maintaining them is "
+                    "where the modern theory earns its keep): %s" % r)
         self.program = Program(clauses)
         self.engine = Engine(self.program)
         self.engine.run()
@@ -59,13 +62,12 @@ class IncrementalEngine:
 
     # -- helpers ------------------------------------------------------------
 
-    def _parse_facts(self, text):
-        """Parse and validate incoming facts against the loaded program.
+    def _facts_of(self, clauses):
+        """Validate incoming fact clauses against the loaded program.
         validate() (seeded with the program's arity map) enforces the
         same invariants Program enforces at load time — ground,
         function-free, arity-consistent — so the materialisation can
         never be corrupted through this door."""
-        clauses = parse(text)
         for c in clauses:
             if c.body:
                 raise DatalogError("expected facts only, got a rule: %s" % c)
@@ -110,9 +112,38 @@ class IncrementalEngine:
 
     def insert(self, facts_text):
         """Add base facts; repair derived relations by delta propagation."""
+        clauses = parse(facts_text)
+        if any(c.retract for c in clauses):
+            raise DatalogError(
+                "insert() received a retraction — use delete() or apply()")
+        return self._insert_facts(self._facts_of(clauses))
+
+    def delete(self, facts_text):
+        """Remove base facts (a trailing `~` is allowed but optional
+        here); repair derived relations with DRed."""
+        return self._delete_facts(self._facts_of(parse(facts_text)))
+
+    def apply(self, script):
+        """Apply a mixed update script in one call: plain facts insert,
+        `fact~.` retracts.  Deletions run first, then insertions;
+        returns the combined stats.
+
+            inc.apply("edge(n3, n4)~.  edge(n2, n9).")
+        """
+        clauses = parse(script)
+        stats = {}
+        deletes = [c for c in clauses if c.retract]
+        inserts = [c for c in clauses if not c.retract]
+        if deletes:
+            stats.update(self._delete_facts(self._facts_of(deletes)))
+        if inserts:
+            stats.update(self._insert_facts(self._facts_of(inserts)))
+        return stats
+
+    def _insert_facts(self, facts):
         delta = defaultdict(set)
         inserted = 0
-        for pred, tup in self._parse_facts(facts_text):
+        for pred, tup in facts:
             self.base.add((pred, tup))
             if tup not in self.rels[pred]:
                 self.rels[pred].add(tup)
@@ -121,9 +152,7 @@ class IncrementalEngine:
         derived = self._propagate(delta)
         return {"inserted": inserted, "derived": len(derived)}
 
-    def delete(self, facts_text):
-        """Remove base facts; repair derived relations with DRed."""
-        facts = self._parse_facts(facts_text)
+    def _delete_facts(self, facts):
         for f in facts:
             if f not in self.base:
                 raise DatalogError(
@@ -221,5 +250,43 @@ def _demo():
     print("Repaired state verified equal to a from-scratch recomputation.")
 
 
+def main(argv=None):
+    ap = argparse.ArgumentParser(
+        prog="incremental.py",
+        description="Materialise a program, then repair it under updates "
+                    "instead of recomputing.  Update scripts mix inserts "
+                    "(plain facts) and retractions (`fact~.`).")
+    ap.add_argument("file", nargs="?",
+                    help="program to materialise; omit to run the "
+                         "built-in DRed demo")
+    ap.add_argument("-u", "--update", action="append", default=[],
+                    metavar="SCRIPT",
+                    help="update script applied in order, e.g. "
+                         "'edge(n3, n4)~. edge(n2, n9).' (repeatable)")
+    ap.add_argument("-p", "--print", dest="show", action="store_true",
+                    help="print derived relations after the updates")
+    args = ap.parse_args(argv)
+
+    if not args.file:
+        return _demo()
+    try:
+        with open(args.file) as fh:
+            inc = IncrementalEngine(fh.read())
+        print("materialised: %d facts" % inc.total_facts())
+        for script in args.update:
+            stats = inc.apply(script)
+            print("%s\n  -> %r" % (script.strip(), stats))
+    except DatalogError as exc:
+        print("error: %s" % exc, file=sys.stderr)
+        return 1
+    if args.show:
+        from datalog import _sort_key, format_fact
+        print()
+        for pred in sorted(inc.program.idb):
+            for tup in sorted(inc.rels.get(pred, ()), key=_sort_key):
+                print(format_fact(pred, tup))
+    return 0
+
+
 if __name__ == "__main__":
-    sys.exit(_demo())
+    sys.exit(main())
