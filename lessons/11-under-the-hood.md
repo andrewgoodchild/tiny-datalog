@@ -14,6 +14,7 @@ paraphrase.
 | `incremental.py` | insertion propagation + DRed | Lesson 8 |
 | `prolog.py` | unification + SLD resolution | Lesson 9 |
 | `subsumption.py` | EL normalisation, compiled to Datalog | Lesson 10 |
+| `tabling.py` | tabled top-down evaluation (iterative QSQR) | Lesson 13 |
 
 ## The core, in one pass (`datalog.py`)
 
@@ -101,6 +102,12 @@ logic* (EL concept definitions) into Datalog: normalisation mints fresh
 names for nested expressions, and the entire reasoning calculus becomes
 five ordinary rules. When a problem's inference rules are monotone, "compile
 it to Datalog" is a general-purpose trick — worth remembering.
+
+**`tabling.py` is memoisation applied to resolution.** A dictionary
+from call patterns to answer sets, a prover that reads tables instead
+of descending, and an outer loop that re-runs everything until no table
+grows. Compare its `_pattern` function with magic.py's adornments —
+same idea, computed at run time instead of compile time.
 
 ## Honest limits, and where the real engines differ
 

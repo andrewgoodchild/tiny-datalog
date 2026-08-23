@@ -85,7 +85,7 @@ professor emeritus at Imperial College London, still writing on
 computational logic), and the field itself was convened by **Hervé
 Gallaire** and **Jack Minker**, whose 1977 workshop and 1978 book *Logic
 and Data Bases* made "logic meets databases" a discipline. Gallaire went
-on to senior research leadership at Xerox and is retired in France.
+on to senior research leadership at Xerox and later retired.
 Minker spent his career at the University of Maryland and was equally
 renowned outside computer science as a human-rights advocate for
 imprisoned Soviet scientists; he died in 2021.
@@ -96,9 +96,9 @@ from Prolog — is generally credited to **David Maier**, who coined
 figures: author of *The Theory of Relational Databases* (1983),
 co-author with **David S. Warren** of *Computing with Logic* (1988), a
 builder of the GemStone object database and of stream-processing
-systems. After Stony Brook and the Oregon Graduate Institute he held the
-Maseeh Chair of Emerging Technologies at Portland State University in
-Oregon, where he is now professor emeritus. In 2018 he co-wrote, with
+systems. After Stony Brook and the Oregon Graduate Institute he moved
+to Portland State University in Oregon, where he is the Maseeh Professor
+of Emerging Technologies. In 2018 he co-wrote, with
 Warren and colleagues, the retrospective *"Datalog: Concepts, History,
 and Outlook"* — the definitive account of the language's life, by the
 people who lived it. Warren, for his part, built XSB — the tabling
@@ -186,6 +186,7 @@ Everything else is core data-industry machinery wearing lesson numbers.
 | 1993 → 2023 | DRed → differential dataflow → DBSP | Lesson 8 · `incremental.py` |
 | 1965–1972 | Horn clauses, resolution, Prolog | Lesson 9 · `prolog.py` |
 | 1978 → today | KL-ONE → description logics → OWL / SNOMED | Lesson 10 · `subsumption.py` |
+| 1990s → today | recursive aggregation; SLG tabling (XSB) | Lessons 12–13 · `tabling.py` |
 
 The repository is small on purpose — every algorithm named above is
 implemented in readable standard-library Python, and every example in

@@ -7,12 +7,14 @@ techniques of the deductive-database literature, small enough to read in
 an afternoon, with a test suite that doubles as a tour of the classic
 example programs.
 
-Around the core engine, four satellite modules reach from the classical
+Around the core engine, six satellite modules reach from the classical
 canon to the field's modern research threads: **semiring-valued
 evaluation** (shortest paths, derivation counting, why-provenance),
-**probabilistic facts** (Viterbi), **incremental maintenance** (DRed),
-and a **top-down Horn-clause interpreter** marking the boundary Datalog
-lives on.
+**probabilistic facts** (Viterbi), **incremental maintenance** (DRed,
+with `fact~.` retraction), a **top-down Horn-clause interpreter**
+marking the boundary Datalog lives on, **tabled evaluation** (the
+run-time twin of magic sets), and a **KL-ONE-style concept classifier**
+that compiles description logic back into Datalog.
 
 Never met Datalog? Start with
 [lesson 0](lessons/00-what-is-datalog.md): what it is, the field's

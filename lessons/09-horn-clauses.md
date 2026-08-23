@@ -2,8 +2,8 @@
 
 Every rule in this repository is a **Horn clause** — a formula with at
 most one positive literal, `b₁ ∧ … ∧ bₙ → h`. Datalog is Horn-clause
-logic with one thing confiscated: **function symbols**. This closing
-lesson gives them back, to show exactly what the confiscation bought.
+logic with one thing confiscated: **function symbols**. This lesson
+gives them back, to show exactly what the confiscation bought.
 
 ## The boundary, stated by the engine
 
