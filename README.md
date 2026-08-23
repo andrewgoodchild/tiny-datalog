@@ -91,15 +91,35 @@ Never met Datalog? Start with
 history from resolution to CodeQL and DBSP, and where each technique
 ships today.
 
-## What it answers
+## What you can ask it
 
-| Question | Command | In the literature |
+Clone it and every row below runs — no dependencies, no install step,
+Python 3.9+. This table is the quick start and the table of contents at
+once: a question, the command that answers it, and the lesson that
+builds it.
+
+```sh
+git clone https://github.com/<you>/tiny-datalog && cd tiny-datalog
+python3 tests.py        # 115 tests, ~0.6s
+```
+
+| Question | Command | Lesson |
 |---|---|---|
-| Why did you conclude that? | `datalog.py --explain 'f(a)'` | derivation trees, down to base facts |
-| Which facts does it rest on? | `semiring.py --semiring why` | minimal why-provenance witnesses |
-| Is this rule set consistent? | `datalog.py --models` | stable models + well-founded model |
-| Where exactly is the circularity? | any run | stratification error naming the cycle |
-| What follows from these definitions? | `subsumption.py` | EL concept classification |
+| What follows from these facts and rules? | `datalog.py programs/01-family.dl` | 1 |
+| What's reachable, at any depth? | `datalog.py --trace programs/02-reachability.dl` | 2 |
+| What holds *unless* something else does? | `datalog.py programs/03-tweety.dl` | 3 |
+| Answer just this query — don't compute everything | `datalog.py --magic -q 'path(n5, X)' programs/02-reachability.dl` | 4 |
+| Is this rule set self-contradictory? | `datalog.py --models programs/00-eligibility-paradox.dl` | 5 |
+| Why did you conclude that? | `datalog.py --explain 'eligible(bob)' programs/00-eligibility.dl` | 11 |
+| Which facts does the conclusion rest on? | `semiring.py -s why programs/06-routes.dl` | 6 |
+| What's the cheapest route? How many ways? | `semiring.py -s minplus programs/06-routes.dl` | 6 |
+| How likely is it? | `semiring.py -s viterbi programs/07-prob-reach.dl` | 7 |
+| The data changed — what changed in the answers? | `incremental.py programs/08-dred-graph.dl -u 'edge(n3, n4)~.'` | 8 |
+| How many, how much, largest? | `datalog.py programs/12-spending.dl` | 12 |
+| Answer a goal top-down, even left-recursive | `tabling.py programs/13-left-recursive.dl -q 'ancestor(abe, X)'` | 13 |
+| What if I allow function symbols — and lose termination? | `prolog.py programs/09-peano.pl -q 'add(X, Y, s(s(zero)))'` | 9 |
+| What do these definitions entail about each other? | `subsumption.py programs/10-family-ontology.dl` | 10 |
+| Are these two queries the same query? | `containment.py programs/14-minimise.dl` | 14 |
 
 Provenance, in full:
 
@@ -112,29 +132,6 @@ Three independent derivations, each a minimal set of base facts. Remove
 one fact from a witness and that witness fails; remove all three and the
 conclusion goes away. That is an audit trail computed rather than
 narrated.
-
-## Quick start
-
-```sh
-python3 tests.py                                          # 115 tests, ~0.6s
-python3 datalog.py -q 'eligible(X)' programs/00-eligibility.dl
-python3 datalog.py --explain 'eligible(bob)' programs/00-eligibility.dl
-python3 datalog.py programs/01-family.dl                  # evaluate a program
-python3 datalog.py --trace programs/02-reachability.dl    # + strata, per-round deltas
-python3 datalog.py -q 'eats_in_cafe(X)' programs/05-cafe-foodary.dl
-python3 datalog.py --magic -q 'path(n5, X)' programs/02-reachability.dl
-python3 datalog.py --models programs/05-cafe-paradox.dl
-python3 datalog.py programs/12-spending.dl                     # aggregation
-python3 semiring.py --semiring minplus programs/06-routes.dl   # shortest paths
-python3 incremental.py                                         # DRed demo
-python3 prolog.py programs/09-peano.pl -q 'add(X, Y, s(s(zero)))'
-python3 subsumption.py programs/10-family-ontology.dl          # classify an ontology
-python3 tabling.py programs/13-left-recursive.dl -q 'ancestor(abe, X)'
-python3 containment.py programs/14-minimise.dl                 # minimise queries
-```
-
-No dependencies; Python 3.9+. No packaging, no REPL, no install step —
-`git clone` and run.
 
 ## Claims you can check
 
@@ -307,37 +304,6 @@ quietly lacking them would:
 Aggregation used to be on this list;
 [lesson 12](lessons/12-aggregation.md) is what it looks like to promote
 an omission into a feature without breaking the design.
-
-## The café paradox
-
-The flagship example is the **café paradox** — the barber paradox in
-catering form, and a stand-in for any eligibility rule that quietly
-refers to its own outcome. A town's policy: anyone who does *not* live
-in a household that cooks its own meals may eat free in the café. The
-café is operated by one of the households, and Bob — a member of that
-household — is assigned to cook the café's meals. Where does Bob eat?
-
-Three encodings, three verdicts:
-
-- **`programs/05-cafe-paradox.dl`** reads "a household cooks its own
-  meals" as being about the meals its members actually eat. The
-  stratified engine rejects the cycle, and `--models` shows the
-  rejection is semantically earned: **no stable model exists** — the
-  ground core is the `p :- not p` shape — while the well-founded model
-  settles everyone else and leaves *exactly Bob's three atoms
-  undefined*. Note the distinction: unstratifiable alone doesn't mean
-  paradoxical. `win(X) :- move(X, Y), not win(Y)` is unstratifiable yet
-  has perfectly good stable models. "No stable model" is the real thing.
-- **`programs/05-cafe-constraint.dl`** reads the argument directly. The
-  program stratifies, and the paradox surfaces in the *data*, as an
-  integrity check naming him and only him: `violation(bob).` The rule is
-  fine; the situation it was applied to is not.
-- **`programs/05-cafe-foodary.dl`** is the resolution: the café's food
-  is delivered from another town, the cycle disappears, and
-  `eats_in_cafe(bob)` holds.
-
-Full walk-through in
-[lesson 5](lessons/05-beyond-stratification.md).
 
 ## Layout
 
