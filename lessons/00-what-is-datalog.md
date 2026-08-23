@@ -166,7 +166,7 @@ varies. The honest map, one line per lesson:
 | 7 | Viterbi, probabilistic | Viterbi decodes every phone call; neurosymbolic AI (Scallop) is the research-to-startup frontier |
 | 8 | incremental, DRed | Materialize, Feldera, Snowflake dynamic tables; RDFox incremental reasoning — a live hiring market |
 | 9 | Horn clauses, SLD | Prolog's industrial niches (Watson's parser); constrained-Horn-clause verification at cloud providers |
-| 10 | subsumption | SNOMED CT inside electronic health records; OWL reasoners serving enterprise knowledge graphs |
+| 10 | subsumption | the EL family under ELK/Snorocket, classifying SNOMED CT for health records; OWL reasoners in enterprise knowledge graphs |
 | 11 | engine internals | the kernels of Soufflé, RDFox, RelationalAI — what their teams hire for |
 | 12 | aggregation | GROUP BY is the warehouse workload; recursive aggregation is the current competitive frontier |
 | 13 | tabling | XSB, three decades in production; SWI-Prolog ships tabling; memoisation, generalised |

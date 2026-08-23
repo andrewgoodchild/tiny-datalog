@@ -749,16 +749,25 @@ class Engine:
 
     def _eval_aggregate(self, rule):
         """Aggregate rules — total(P, sum(A)) :- charge(P, C, A). — group
-        their body solutions by the plain head arguments and fold the
-        aggregate over each group's distinct values.  Stratification has
-        already guaranteed the body relations are complete (aggregation
-        edges are strict, like negation), so one evaluation suffices."""
+        the body's distinct *solutions* by the plain head arguments and
+        fold the aggregate over each group.  Set semantics applies to
+        solutions (rows), not to the aggregated values: two different
+        charges of 50 sum to 100, and count gives the same answer
+        whichever bound variable you name — matching SQL and Soufflé.
+        Stratification has already guaranteed the body relations are
+        complete (aggregation edges are strict, like negation), so one
+        evaluation suffices."""
         idx, func, var = _aggregate_of(rule.head)
-        groups = defaultdict(set)
+        groups = defaultdict(list)
+        seen = set()
         for s in self._rule_substitutions(rule):
+            witness = tuple(sorted(s.items()))
+            if witness in seen:
+                continue
+            seen.add(witness)
             key = tuple(a.value if isinstance(a, Const) else s[a.name]
                         for j, a in enumerate(rule.head.args) if j != idx)
-            groups[key].add(s[var.name])
+            groups[key].append(s[var.name])
         for key, values in groups.items():
             try:
                 if func == "count":
@@ -962,23 +971,30 @@ def _derivation_of(engine, pred, tup):
 
 
 def _aggregate_group(engine, rule, tup):
-    """For an aggregate-rule head tuple, the group's contributing values,
-    presented as a pseudo-premise list."""
+    """For an aggregate-rule head tuple, the group's contributing values
+    (one per distinct body solution), presented as a pseudo-premise."""
     idx, func, var = _aggregate_of(rule.head)
     key = tuple(v for j, v in enumerate(tup) if j != idx)
-    values = set()
+    values = []
+    seen = set()
     for s in engine._rule_substitutions(rule):
+        witness = tuple(sorted(s.items()))
+        if witness in seen:
+            continue
+        seen.add(witness)
         k = tuple(a.value if isinstance(a, Const) else s[a.name]
                   for j, a in enumerate(rule.head.args) if j != idx)
         if k == key:
-            values.add(s[var.name])
+            values.append(s[var.name])
     if not values:
         return None
-    return [("aggregate", "%s over %d distinct value%s of %s: {%s}"
+    shown = ", ".join(str(v) for v in
+                      sorted(values, key=lambda x:
+                             (0, x) if isinstance(x, (int, float))
+                             else (1, str(x))))
+    return [("aggregate", "%s over %d body solution%s of %s: [%s]"
              % (func, len(values), "" if len(values) == 1 else "s", var,
-                ", ".join(str(v) for v in sorted(values, key=lambda x:
-                                                 (0, x) if isinstance(x, (int, float))
-                                                 else (1, str(x))))))]
+                shown))]
 
 
 def explain(engine, pred, tup, indent=0, shown=None, lines=None):

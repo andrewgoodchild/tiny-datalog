@@ -72,6 +72,39 @@ negation is possible but subtle, and it's where the research literature
 lives.
 
 
+## What it costs — measure it, don't assume it
+
+The fact counts above are real, but they are not the whole story, and
+the repository ships the generator that shows why. On a 150-node chain
+(`python3 benchmarks/generate.py chain 150 > chain150.dl`), the same
+rewriting on the same program lands in two very different places:
+
+| query | facts derived | time |
+|---|---|---|
+| *(full evaluation, no query)* | 11,175 | 0.62s |
+| `--magic -q 'path(n140, X)'` | **66** | **0.05s** |
+| `--magic -q 'path(n1, X)'` | **11,325** | **2.19s** |
+
+Ask from near the chain's end and demand stays local: 170× fewer facts,
+12× faster. Ask from the start and demand propagates the entire chain —
+`magic#path#bf` fills with all 150 nodes — so the rewritten program
+derives *more* facts than the original (the magic facts themselves) and
+every specialised rule now carries a guard literal that each join must
+scan. Result: 3.5× slower than not bothering.
+
+The rule to take away is about demand, not about the technique being
+good or bad: **magic sets pays in proportion to how much the query's
+bindings prune the search.** When demand approaches the whole relation,
+the guards are pure overhead. This engine's nested-loop joins amplify
+that overhead — an indexed join would make the bad case closer to
+break-even — but indexing changes the size of the penalty, not its
+existence. Real systems apply magic sets selectively for exactly this
+reason.
+
+(Note when reproducing: `--magic --trace` computes a full-evaluation
+baseline just to print its comparison line, so time the query *without*
+`--trace`.)
+
 ## Exercises
 
 1. For the ancestor program of Lesson 1 (`programs/01-family.dl`),
@@ -79,8 +112,12 @@ lives.
    How many facts does each derive?
 2. Write down, by hand, the rewriting for `ancestor(X, dana)` (adornment
    `fb`). Then check yourself against `--magic --trace`.
-3. When does magic *not* help? Try `-q 'path(X, Y)'` (nothing bound) and
-   explain the counts you see.
+3. When does magic *not* help? Two cases, and they fail for different
+   reasons — find both. (a) `-q 'path(X, Y)'` with nothing bound:
+   explain the counts. (b) On chain-150, `-q 'path(n1, X)'` is bound but
+   still loses — time it against plain evaluation and say what the
+   binding failed to buy. Then find the crossover: how far along the
+   chain must the query start before magic wins on wall-clock?
 
 Next: [beyond stratification](05-beyond-stratification.md) — what a
 program means when no stratification exists, and the café paradox.

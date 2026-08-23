@@ -12,9 +12,12 @@ be an instance of D — a statement about definitions, not about any
 particular database.
 
 This module implements subsumption for the EL concept language —
-conjunction and existential restriction, the fragment that classifies
-SNOMED CT's 350,000 medical concepts in practice — by the standard
-completion-rule calculus.  The twist that earns it a place in this
+conjunction and existential restriction — by the standard
+completion-rule calculus.  EL is the tractable core that the
+SNOMED-scale reasoners (ELK, Snorocket) are built on; they implement
+its extensions (EL++/ELH: top, bottom, role hierarchies, right
+identities), which SNOMED CT actually requires and this module does
+not.  See "Where this stops", below.  The twist that earns it a place in this
 repository: after normalisation, the completion rules are *literally a
 positive Datalog program*, and this module simply compiles the ontology
 to facts + five rules and hands them to the engine from datalog.py.
@@ -39,6 +42,18 @@ Normalisation introduces fresh names (gen_1, gen_2, ...) for nested
 complex expressions — one inclusion per fresh name, direction chosen by
 which side of ⊑ the expression sits on.  This is a conservative
 extension: subsumptions among the *named* concepts are unchanged.
+
+Where this stops
+----------------
+Plain EL, and nothing beyond it.  There is no ⊤ (so no "every concept
+is subsumed by Thing"), no ⊥ or disjointness (so no unsatisfiable
+concepts — this classifier cannot tell you a definition is
+contradictory), no role hierarchies (`subrole/2` is rejected rather
+than ignored), no role chains or right identities, no nominals, no
+datatypes, and no ABox: it reasons about definitions only, never about
+individuals.  The completion-rule *method* extends to all of that —
+that is exactly how EL++ reasoners are built — but these five rules
+are complete only for what is listed above.
 """
 
 from __future__ import annotations

@@ -44,6 +44,23 @@ path this round must use a path discovered last round; anything else was
 already found. The shrinking `+9, +8, +7...` counts in the trace are the
 deltas.
 
+You can measure what that saves rather than take it on trust. Generate
+a 100-node chain and run it both ways:
+
+```sh
+python3 benchmarks/generate.py chain 100 > chain100.dl
+python3 datalog.py chain100.dl            # semi-naive: 0.23s
+python3 datalog.py --naive chain100.dl    # naive:     10.6s
+```
+
+**46× on a hundred nodes**, and the gap widens with depth: naive
+evaluation redoes every derivation in every round, so its total work
+grows with rounds × relation size while semi-naive's grows with the
+relation. Add `--trace` to either run to watch the mechanism —
+semi-naive prints shrinking deltas, naive prints a "tuples derived"
+count that climbs while the deltas shrink. That climbing number is
+wasted work, quantified.
+
 This one idea — track what changed, derive only its consequences — is the
 ancestor of modern incremental view maintenance (Differential Dataflow,
 DBSP).

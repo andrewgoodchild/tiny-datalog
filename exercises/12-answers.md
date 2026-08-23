@@ -46,11 +46,13 @@ counting in place of negation.
 
 ```
 total(bob, 990)   [via total(P, sum(A)) :- charge(P, C, A).]
-  = sum over 2 distinct values of A: {90, 900}
+  = sum over 2 body solutions of A: [90, 900]
 ```
 
-Instead of premises, the tree shows the *group*: an aggregate fact
-isn't supported by any single body fact — remove either charge and the
+Instead of premises, the tree shows the *group* — one entry per body
+solution, in a list rather than a set, because two solutions
+contributing equal values are two contributions. An aggregate fact
+isn't supported by any single body fact: remove either charge and the
 conclusion doesn't weaken, it *changes*. That non-monotonicity is
 exactly why aggregation lives a stratum up, and why its explanation is
-a set, not a chain.
+a collection, not a chain.

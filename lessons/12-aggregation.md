@@ -23,13 +23,22 @@ total(alice, 180).      howmany(alice, 2).
 total(bob, 990).        howmany(bob, 2).
 ```
 
-Two semantic decisions worth knowing (both documented choices, both
-teachable):
+Two semantic decisions worth knowing:
 
-- Aggregation is over the **distinct** (group, value) pairs — Datalog is
-  a set language, so two charges of 50 for the same person sum to 50.
-  Real systems that want bag semantics carry multiplicities in the data
-  (an id column) or in the algebra (Lesson 6's semirings).
+- Aggregation ranges over the **distinct body solutions**, not distinct
+  values. Two different charges of 50 sum to 100, because they are two
+  rows. This is worth stating precisely, because there is a tempting
+  wrong answer: "Datalog is a set language, so 50 and 50 collapse."
+  Sets do apply — to the body's *solutions*, which are already distinct
+  — and collapsing the values on top of that is an extra projection,
+  not a consequence. The tell that it's wrong: under value-collapsing,
+  `count(C)` and `count(A)` give different answers for the same rule
+  over the same rows, and an aggregate whose result depends on which
+  functionally-determined variable you happen to name cannot be
+  defended. SQL, Soufflé, LogicBlox and DDlog all aggregate over
+  solutions; so does this engine. (If you *want* distinct values, that
+  is SQL's `SUM(DISTINCT A)` — a different, explicitly-requested
+  operation.)
 - A group with no body solutions produces *no* fact — `count` never
   returns 0, because there is no group to attach it to.
 

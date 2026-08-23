@@ -109,6 +109,18 @@ of descending, and an outer loop that re-runs everything until no table
 grows. Compare its `_pattern` function with magic.py's adornments —
 same idea, computed at run time instead of compile time.
 
+## A detail worth stealing: names that cannot collide
+
+`magic.py` mints predicate names like `magic#path#bf` and `path#bf`.
+The `#` is not decoration — the tokenizer's identifier rule
+(`[a-z][A-Za-z0-9_]*`) *cannot produce* it, so no user program can
+write a predicate that clashes with a generated one. Collision-freedom
+by construction, rather than by hoping nobody names a relation
+`magic_path`. `subsumption.py` takes the opposite route for its
+`gen_N` names — they are ordinary identifiers, so it keeps a reserved
+list and rejects clashes explicitly. Two valid designs; the first is
+cheaper when the target syntax gives you a spare character.
+
 ## Honest limits, and where the real engines differ
 
 Joins are nested loops with no indexes (Soufflé compiles to indexed
@@ -117,6 +129,14 @@ models are found by exhaustive search over the candidate envelope
 (clingo uses conflict-driven learning). Everything is batch (Feldera
 maintains incrementally). Each simplification was chosen so the
 algorithm's *idea* fits on one screen.
+
+The nested-loop choice has a visible consequence worth knowing about:
+it makes magic sets' guard literals relatively expensive, which is part
+of why a poorly-pruning magic query can run *slower* than plain
+evaluation (Lesson 4 measures this). An engine's optimisations are not
+independent of each other — indexing changes which rewritings pay off,
+which is exactly the kind of interaction a readable implementation lets
+you observe rather than take on faith.
 
 
 ## Exercises

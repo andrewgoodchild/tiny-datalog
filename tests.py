@@ -5,6 +5,7 @@ classic example programs, and the satellite modules (semiring.py,
 incremental.py, prolog.py)."""
 
 import os
+import random
 import subprocess
 import sys
 import tempfile
@@ -615,11 +616,26 @@ class AggregationTests(unittest.TestCase):
             run_program("p(a, 1). q(count(X)) :- q(Y), p(X, N).")
         self.assertIn("aggregation", str(cm.exception))
 
-    def test_distinct_value_semantics(self):
-        # the same (group, value) via two different join paths counts once
+    def test_aggregates_range_over_solutions_not_values(self):
+        # SQL semantics: two DIFFERENT charges of 50 both count (rows are
+        # distinct solutions), and count is independent of which bound
+        # variable is named
         engine = run_program("""
             charge(alice, a, 50).  charge(alice, b, 50).
             spent(P, sum(A)) :- charge(P, C, A).
+            rows_c(P, count(C)) :- charge(P, C, A).
+            rows_a(P, count(A)) :- charge(P, C, A).
+        """)
+        self.assertEqual(engine.rels["spent"], {("alice", 100)})
+        self.assertEqual(engine.rels["rows_c"], engine.rels["rows_a"])
+
+    def test_identical_solutions_still_count_once(self):
+        # the same solution reached through two rule paths is one row
+        engine = run_program("""
+            charge(alice, a, 50).
+            pay(P, C, A) :- charge(P, C, A).
+            pay(P, C, A) :- charge(P, C, A), charge(P, C, A).
+            spent(P, sum(A)) :- pay(P, C, A).
         """)
         self.assertEqual(engine.rels["spent"], {("alice", 50)})
 
@@ -662,7 +678,7 @@ class NaiveAndExplainTests(unittest.TestCase):
     def test_explain_aggregate_shows_group(self):
         engine = run_program(AggregationTests.SPEND)
         lines = explain(engine, "total", ("alice", 180))
-        self.assertIn("sum over 2 distinct values", "\n".join(lines))
+        self.assertIn("sum over 2 body solutions", "\n".join(lines))
 
 
 class RetractionTests(unittest.TestCase):
@@ -741,6 +757,138 @@ class ConformanceTests(unittest.TestCase):
                 with self.subTest(case=name, engine="tabled"):
                     self.assertEqual(
                         TabledEngine(parse(text)).query(atom), reference)
+
+
+class DifferentialFuzzTests(unittest.TestCase):
+    """Randomised differential testing: generate stratified programs by
+    construction, then demand that every applicable strategy agrees.
+
+    The conformance suite pins five hand-written cases; this pins the
+    *property* they were sampling.  Seeded, so a failure is replayable;
+    the iteration count is CI-sized by default and raisable for a real
+    soak:
+
+        TINY_DATALOG_FUZZ=5000 python3 tests.py DifferentialFuzzTests
+    """
+
+    DOMAIN = ["a", "b", "c", "d"]
+    VARS = ["X", "Y", "Z"]
+    EDB = [("p", 2), ("q", 2), ("r", 1)]
+
+    @staticmethod
+    def iterations(default):
+        return int(os.environ.get("TINY_DATALOG_FUZZ", default))
+
+    def _facts(self, rng):
+        out = []
+        for name, arity in self.EDB:
+            for _ in range(rng.randint(0, 5)):
+                args = [rng.choice(self.DOMAIN) for _ in range(arity)]
+                out.append("%s(%s)." % (name, ", ".join(args)))
+        return out
+
+    def _rule(self, rng, head, arity, positive_pool, negative_pool):
+        """A safe rule: head and negated variables are always bound by a
+        positive literal, which is what validate() demands."""
+        body, bound = [], []
+        for _ in range(rng.randint(1, 2)):
+            name, ar = rng.choice(positive_pool)
+            args = []
+            for _ in range(ar):
+                if rng.random() < 0.15:
+                    args.append(rng.choice(self.DOMAIN))
+                else:
+                    v = rng.choice(self.VARS)
+                    args.append(v)
+                    bound.append(v)
+            body.append("%s(%s)" % (name, ", ".join(args)))
+        bound = sorted(set(bound))
+        if negative_pool and bound and rng.random() < 0.4:
+            name, ar = rng.choice(negative_pool)
+            args = [rng.choice(bound) for _ in range(ar)]
+            body.append("not %s(%s)" % (name, ", ".join(args)))
+        head_args = [rng.choice(bound) if bound and rng.random() < 0.8
+                     else rng.choice(self.DOMAIN) for _ in range(arity)]
+        return "%s(%s) :- %s." % (head, ", ".join(head_args),
+                                  ", ".join(body))
+
+    def _program(self, rng, negation=True):
+        """Stratified by construction: negation only ever points at a
+        strictly lower stratum, recursion only within one."""
+        s1 = [("s1", rng.choice([1, 2]))]
+        s2 = [("t1", rng.choice([1, 2]))]
+        rules = []
+        for name, arity in s1:
+            for _ in range(rng.randint(1, 2)):
+                rules.append(self._rule(rng, name, arity, self.EDB + s1,
+                                        self.EDB if negation else []))
+        for name, arity in s2:
+            for _ in range(rng.randint(1, 2)):
+                rules.append(self._rule(
+                    rng, name, arity, self.EDB + s1 + s2,
+                    (self.EDB + s1) if negation else []))
+        return "\n".join(self._facts(rng) + rules), s1 + s2
+
+    def _query(self, rng, idb):
+        name, arity = rng.choice(idb)
+        args = [rng.choice(self.DOMAIN) if rng.random() < 0.5 else "X%d" % i
+                for i in range(arity)]
+        return query_atom("%s(%s)" % (name, ", ".join(args)))
+
+    def test_all_strategies_agree_on_random_programs(self):
+        rng = random.Random(20260823)
+        for i in range(self.iterations(400)):
+            negation = rng.random() < 0.6
+            text, idb = self._program(rng, negation)
+            atom = self._query(rng, idb)
+            with self.subTest(iteration=i, program=text, query=str(atom)):
+                reference = run_program(text)
+                ref_answers = set(match_answers(
+                    atom, reference.rels.get(atom.pred, ())))
+
+                naive = Engine(Program(parse(text)), naive=True)
+                naive.run()
+                self.assertEqual(
+                    {p: set(ts) for p, ts in naive.rels.items() if ts},
+                    {p: set(ts) for p, ts in reference.rels.items() if ts})
+
+                _m, magic_answers = magic_query(parse(text), atom)
+                self.assertEqual(magic_answers, ref_answers)
+
+                if not negation:
+                    self.assertEqual(
+                        TabledEngine(parse(text)).query(atom), ref_answers)
+
+    def test_incremental_matches_recompute_under_random_updates(self):
+        rng = random.Random(20260824)
+        for i in range(self.iterations(40)):
+            text, _idb = self._program(rng, negation=False)
+            clauses = parse(text)
+            rules = [c for c in clauses if c.body]
+            base = {(c.head.pred, tuple(a.value for a in c.head.args))
+                    for c in clauses if not c.body}
+            inc = IncrementalEngine(text)
+            for step in range(rng.randint(3, 10)):
+                name, arity = rng.choice(self.EDB)
+                tup = tuple(rng.choice(self.DOMAIN) for _ in range(arity))
+                fact = format_fact(name, tup)
+                deleting = (name, tup) in base and rng.random() < 0.5
+                with self.subTest(iteration=i, step=step, program=text,
+                                  op=("delete" if deleting else "insert"),
+                                  fact=fact):
+                    if deleting:
+                        inc.delete(fact)
+                        base.discard((name, tup))
+                    else:
+                        inc.insert(fact)
+                        base.add((name, tup))
+                    fresh = Engine(Program(list(rules)))
+                    for pred, t in base:
+                        fresh.rels[pred].add(t)
+                    fresh.run()
+                    self.assertEqual(
+                        {p: set(ts) for p, ts in inc.rels.items() if ts},
+                        {p: set(ts) for p, ts in fresh.rels.items() if ts})
 
 
 class GoldenFileTests(unittest.TestCase):

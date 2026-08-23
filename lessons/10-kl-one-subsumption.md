@@ -39,9 +39,10 @@ different logic.
 
 The fragment this lesson implements is **EL**: conjunction (`and`) and
 existential restriction (`some`), nothing else. Subsumption in EL is
-polynomial — and EL is no toy: it is the OWL 2 EL profile, and it
-classifies SNOMED CT, the ~350,000-concept clinical terminology, in
-production, daily.
+polynomial — and EL is no toy: it is the tractable core underneath the
+OWL 2 EL profile, the family that reasoners like ELK and Snorocket
+scale to SNOMED CT, the ~350,000-concept clinical terminology used in
+health records worldwide.
 
 ## The punchline: subsumption compiles to Datalog
 
@@ -99,6 +100,29 @@ that industrial EL reasoners (ELK, Snorocket) implement with exactly the
 optimisations this course already taught: saturation is semi-naive
 fixpoint, and goal-directed subsumption checks are magic sets.
 
+
+## Where this classifier stops
+
+Every other module in this course says where it runs out; here is this
+one's boundary, and it matters because the gap to a *real* medical
+classifier is exactly one letter of the alphabet.
+
+What ships is plain **EL**. Missing: **⊤** (no universal concept), **⊥
+and disjointness** (so this classifier can never tell you a definition
+is unsatisfiable — a significant thing for a knowledge base to be
+unable to say), **role hierarchies** (`subrole(has_part, has_component)`
+is rejected, loudly, rather than silently ignored), **role chains and
+right identities**, nominals, datatypes — and there is no ABox at all:
+this reasons about definitions, never about individuals.
+
+SNOMED CT genuinely needs the role hierarchy and right identities
+(that's how "a fracture of the femur is a fracture of a bone" and
+part-whole propagation work), so it needs **ELH with right identities**
+— which is precisely what ELK and Snorocket implement, and precisely
+what this file does not. What generalises is the *method*: EL++
+reasoners are more completion rules of the same shape, over a richer
+normal form. Adding ⊥ alone is a genuinely tractable exercise; adding
+role chains is a research-grade one.
 
 ## Exercises
 
