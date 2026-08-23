@@ -142,6 +142,20 @@ class SemiNaiveTests(unittest.TestCase):
 class ClassicExamplesTests(unittest.TestCase):
     """The canonical example programs of the Datalog literature."""
 
+    def test_eligibility_policy(self):
+        # the README's opening example: negation as an exemption, and a
+        # derivation tree that names the fact doing the discriminating
+        engine = run_program(load("00-eligibility.dl"))
+        self.assertEqual(engine.rels["eligible"],
+                         {("bob",), ("cyril",), ("edith",)})
+        self.assertNotIn(("dana",), engine.rels["eligible"])  # employed
+        self.assertEqual(engine.rels["qualifying_household"],
+                         {("oak_house",), ("elm_house",)})
+        tree = "\n".join(explain(engine, "eligible", ("bob",)))
+        self.assertIn("qualifying_household(oak_house)", tree)
+        self.assertIn("receives_pension(cyril)   (base fact)", tree)
+        self.assertIn("not employed(bob)", tree)
+
     def test_family_and_ancestor(self):
         text = load("01-family.dl")
         engine = run_program(text)

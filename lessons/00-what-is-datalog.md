@@ -34,6 +34,12 @@ If you know SQL: Datalog is roughly "SELECT–JOIN plus real recursion,
 minus the ceremony." If you know Prolog: Datalog is Prolog without
 function symbols, evaluated bottom-up, with termination guaranteed.
 
+For a program that looks like actual work rather than a textbook
+figure, read `programs/00-eligibility.dl` — a benefits policy with an
+exemption clause, which the engine can both evaluate and *justify*
+(`--explain 'eligible(bob)'`). You will be able to write it yourself
+after lesson 3, and to explain how `--explain` works after lesson 11.
+
 ## A short history, in five acts
 
 **Roots (1965–1977).** Automated reasoning begins in earnest with

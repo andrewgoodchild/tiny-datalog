@@ -9,20 +9,35 @@ A logic engine does all three. This one does it in ~3,000 lines of
 dependency-free Python you can read in an afternoon — plus a 14-lesson
 course that builds up to it.
 
-**Why does it believe that?**
+**Why does it believe that?** Here is the policy — the shape every
+benefits rule, access-control list and compliance check is made of:
 
-```
-$ python3 datalog.py --explain 'path(n1, n4)' programs/02-reachability.dl
-?- explain path(n1, n4)
-   path(n1, n4)   [via path(X, Z) :- edge(X, Y), path(Y, Z).]
-     edge(n1, n2)   (base fact)
-     path(n2, n4)   [via path(X, Z) :- edge(X, Y), path(Y, Z).]
-       edge(n2, n3)   (base fact)
-       path(n3, n4)   [via path(X, Y) :- edge(X, Y).]
-         edge(n3, n4)   (base fact)
+```prolog
+% programs/00-eligibility.dl
+qualifying_household(H) :- member(P, H), receives_pension(P).
+qualifying_household(H) :- member(P, H), carer(P, Q), receives_pension(Q).
+eligible(P) :- member(P, H), qualifying_household(H), not employed(P).
 ```
 
-**Is the policy even coherent?**
+```
+$ python3 datalog.py --explain 'eligible(bob)' programs/00-eligibility.dl
+?- explain eligible(bob)
+   eligible(bob)   [via eligible(P) :- member(P, H), qualifying_household(H), not employed(P).]
+     member(bob, oak_house)   (base fact)
+     qualifying_household(oak_house)   [via qualifying_household(H) :- member(P, H), receives_pension(P).]
+       member(cyril, oak_house)   (base fact)
+       receives_pension(cyril)   (base fact)
+     not employed(bob)   (absent from its completed stratum)
+```
+
+Bob qualifies through his housemate's pension, and the negative
+condition that had to hold is stated as explicitly as the positive ones.
+Dana, in a household that also qualifies but employed, is simply absent
+from `eligible` — the rule discriminates, and the tree shows exactly
+which fact does the discriminating.
+
+**Is the policy even coherent?** Push the same shape of rule one step
+further — make the benefit's condition depend on who claims it — and:
 
 ```
 $ python3 datalog.py programs/05-cafe-paradox.dl
@@ -68,11 +83,12 @@ narrated.
 ## Quick start
 
 ```sh
-python3 tests.py                                          # 105 tests, ~0.5s
+python3 tests.py                                          # 106 tests, ~0.5s
+python3 datalog.py -q 'eligible(X)' programs/00-eligibility.dl
+python3 datalog.py --explain 'eligible(bob)' programs/00-eligibility.dl
 python3 datalog.py programs/01-family.dl                  # evaluate a program
 python3 datalog.py --trace programs/02-reachability.dl    # + strata, per-round deltas
 python3 datalog.py -q 'eats_in_cafe(X)' programs/05-cafe-foodary.dl
-python3 datalog.py --explain 'path(n1, n4)' programs/02-reachability.dl
 python3 datalog.py --magic -q 'path(n5, X)' programs/02-reachability.dl
 python3 datalog.py --models programs/05-cafe-paradox.dl
 python3 datalog.py programs/12-spending.dl                     # aggregation

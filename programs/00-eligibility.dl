@@ -1,0 +1,26 @@
+% A meal-assistance policy — the shape of rule every benefits system,
+% access-control list and compliance check is made of, and the question
+% they all have to answer: why is this person eligible?
+%
+%   python3 datalog.py -q 'eligible(X)' programs/00-eligibility.dl
+%   python3 datalog.py --explain 'eligible(bob)' programs/00-eligibility.dl
+%
+% The café paradox (programs/05-cafe-*.dl) is this same policy shape
+% pushed until it contradicts itself.
+
+member(bob,   oak_house).
+member(cyril, oak_house).
+member(dana,  elm_house).
+member(edith, elm_house).
+
+receives_pension(cyril).
+employed(dana).
+carer(edith, cyril).          % edith cares for cyril, in the other house
+
+% A household qualifies if one of its members draws a pension ...
+qualifying_household(H) :- member(P, H), receives_pension(P).
+% ... or if a member is the carer of someone who does.
+qualifying_household(H) :- member(P, H), carer(P, Q), receives_pension(Q).
+
+% Anyone in a qualifying household may claim, unless they are employed.
+eligible(P) :- member(P, H), qualifying_household(H), not employed(P).
