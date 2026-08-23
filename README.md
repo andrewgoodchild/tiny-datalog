@@ -79,6 +79,49 @@ Well-founded model (three-valued):
   undefined: claiming(oak_house).  eligible(bob).  eligible(cyril).  qualifying_household(oak_house).
 ```
 
+**So how do you write rules that behave?** The engine gives you a
+three-way verdict, and each answer tells you something different about
+your policy rather than about your syntax.
+
+| `--models` says | your policy is | what to do |
+|---|---|---|
+| exactly one stable model | determinate | nothing — this is the goal |
+| no stable model | self-contradictory | a condition reads its own outcome; break the loop |
+| several stable models | underspecified | consistent, but you owe it a tie-break |
+
+The paradox above is the middle row. The fix is a policy decision, not
+a syntax trick: the double-dipping check has to read a **register**
+maintained elsewhere rather than this program's own output.
+
+```prolog
+% programs/00-eligibility-stable.dl
+claim_on_record(elm_house).        % an input, never this program's output
+qualifying_household(H) :- member(P, H), receives_pension(P),
+                           not claim_on_record(H).
+eligible(P) :- member(P, H), qualifying_household(H), not employed(P).
+```
+
+That stratifies, and the general rule falls out of it: **negating a
+base fact is free; negating a derived predicate is what forces an
+order.** The loop closed in the broken version not because it used
+negation twice but because one of the negations read something the
+program was still computing.
+
+The third row is the interesting one. "Only one member of a household
+may claim" is not contradictory — it is simply silent about *which*:
+
+```
+$ python3 datalog.py --models programs/00-eligibility-choice.dl
+Stable models: 2
+  model 1: eligible(bob).  other_claimant(cyril).  qualifying_household(oak_house).
+  model 2: eligible(cyril).  other_claimant(bob).  qualifying_household(oak_house).
+```
+
+Two lawful ways to run the scheme. The engine won't choose — the choice
+is a policy question (oldest? lowest income? first to apply?) — but it
+found the fork, named both branches, and told you a rule is missing.
+That is a far more useful failure than a system that quietly picks one.
+
 All three answers are *derived*, not described — which is what makes
 them checkable, cheap, and identical on every run. That is the case for
 knowing this material: LLMs generate, logic engines guarantee, and the
@@ -100,7 +143,7 @@ builds it.
 
 ```sh
 git clone https://github.com/<you>/tiny-datalog && cd tiny-datalog
-python3 tests.py        # 115 tests, ~0.6s
+python3 tests.py        # 116 tests, ~0.6s
 ```
 
 | Question | Command | Lesson |
@@ -325,7 +368,7 @@ lessons/        getting started + lessons 0–14
 exercises/      worked answers, verified by the test suite
 cases/          golden test cases — add one without writing Python
 benchmarks/     scaled input generators (chain/tree/clique/grid)
-tests.py        115 tests: every shipped program and exercise answer is
+tests.py        116 tests: every shipped program and exercise answer is
                 executed, a conformance suite runs every query through
                 every applicable strategy, and a seeded fuzzer checks
                 the same property on random programs
@@ -347,7 +390,7 @@ Line counts are `wc -l`, so you can check them:
 | **whole toolkit, nine files** | **3,292** |
 
 Of those 3,292 lines: 2,043 are code, 787 are commentary, 462 are
-blank. `tests.py` adds a further 1,230, which is the ratio the project
+blank. `tests.py` adds a further 1,249, which is the ratio the project
 is actually built on — roughly one line of test for every 2.7 lines of
 toolkit, and every shipped program, exercise answer and README command
 is executed by it.

@@ -175,6 +175,25 @@ class ClassicExamplesTests(unittest.TestCase):
             ("eligible", ("cyril",)),
         })
 
+    def test_eligibility_stable_and_underspecified(self):
+        # the README's three-way verdict: one model, none, or several
+        stable = run_program(load("00-eligibility-stable.dl"))
+        self.assertEqual(stable.rels["eligible"], {("bob",), ("cyril",)})
+        # elm_house is excluded by the register, not by the rules looping
+        self.assertEqual(stable.rels["qualifying_household"],
+                         {("oak_house",)})
+        # negating only base facts forces no stratum boundary
+        self.assertEqual(set(stable.program.strata.values()), {1})
+
+        choice = parse(load("00-eligibility-choice.dl"))
+        with self.assertRaises(StratificationError):
+            run_program(load("00-eligibility-choice.dl"))
+        models = stable_models(choice)
+        self.assertEqual(len(models), 2)
+        claimants = sorted(sorted(a[1][0] for a in m
+                                  if a[0] == "eligible") for m in models)
+        self.assertEqual(claimants, [["bob"], ["cyril"]])
+
     def test_family_and_ancestor(self):
         text = load("01-family.dl")
         engine = run_program(text)

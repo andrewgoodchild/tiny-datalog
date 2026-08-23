@@ -1,0 +1,29 @@
+% A third outcome, between "determinate" and "contradictory": a policy
+% that is merely UNDERSPECIFIED.
+%
+%   python3 datalog.py programs/00-eligibility-choice.dl     (rejected)
+%   python3 datalog.py --models programs/00-eligibility-choice.dl
+%
+% The rule says "only one member of a household may claim" without
+% saying which one.  That is not a contradiction — there are two
+% perfectly consistent ways to settle it — so unlike the paradox
+% program this one has stable models: TWO of them, one per candidate.
+%
+% The engine cannot choose for you, and should not: the choice is a
+% policy question (oldest? lowest income? first to apply?).  What it
+% can do is tell you the choice exists and enumerate the options, which
+% is exactly the signal that a tie-break rule is missing.
+
+member(bob,   oak_house).
+member(cyril, oak_house).
+
+receives_pension(cyril).
+
+distinct(bob, cyril).
+distinct(cyril, bob).
+
+qualifying_household(H) :- member(P, H), receives_pension(P).
+
+other_claimant(P) :- member(P, H), member(Q, H), eligible(Q), distinct(P, Q).
+
+eligible(P) :- member(P, H), qualifying_household(H), not other_claimant(P).
