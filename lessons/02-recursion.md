@@ -65,6 +65,61 @@ This one idea — track what changed, derive only its consequences — is the
 ancestor of modern incremental view maintenance (Differential Dataflow,
 DBSP).
 
+## The same rules, on data you can't eyeball
+
+`programs/02-reachability.dl` is a ten-node chain, which is good for
+watching the machinery and bad for believing it matters.
+`programs/00-supply-chain.dl` is the same two rules over a software
+dependency graph: 160 packages, 292 dependency edges, 12 of them
+services you deploy.
+
+```prolog
+uses(X, Y) :- depends(X, Y).
+uses(X, Z) :- depends(X, Y), uses(Y, Z).
+exposed(S, C) :- service(S), uses(S, L), vulnerable(L, C).
+```
+
+Two numbers make the case for recursion better than any chain does.
+The 292 edges you *stated* imply **8,457** `uses` facts — the closure
+is 29× the input — and the question "which services are exposed to this
+CVE" is answered in the closure, not in the input. Four of the twelve
+services are exposed, and nothing you can see in the file tells you
+which four.
+
+Now watch the deltas, because they do something the chain cannot:
+
+```sh
+$ python3 datalog.py --trace programs/00-supply-chain.dl
+    round  1: +292 uses
+    round  2: +475 uses
+    round  3: +661 uses,  +3 exposed
+    round  4: +838 uses,  +1 exposed
+    round  5: +898 uses
+    round  6: +908 uses          <- the frontier peaks here
+    round  7: +838 uses
+    ...
+    round 17: +4 uses
+    round 18: no new facts — fixpoint
+```
+
+On a chain the delta shrinks every round, because there is exactly one
+new path length to find. On a real graph the frontier **expands first
+and then collapses** — paths of length 6 are far more numerous than
+paths of length 1 or length 16. That shape is what semi-naive is
+exploiting: at round 6 it joins against 908 new facts instead of
+re-deriving all 8,457 known ones.
+
+The cost of not doing that is measurable:
+
+```sh
+$ python3 datalog.py --naive --trace programs/00-supply-chain.dl
+```
+
+Naive evaluation derives **166,171** tuples to arrive at the same 8,766
+facts — nineteen times the work, all of it rediscovering things it
+already knew. That ratio is the entire argument for the delta
+discipline, and it grows with the graph.
+
 ## Shapes of recursion
 
 **Right- vs left- vs non-linear.** These all compute transitive closure:

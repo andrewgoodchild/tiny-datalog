@@ -59,6 +59,25 @@ whose provenance mentions the deleted fact." If you *kept* provenance,
 you could delete more surgically — that observation, pushed all the way,
 is counting-based maintenance and eventually DBSP.
 
+## The case that makes it obvious
+
+`programs/00-supply-chain.dl` (Lesson 2) is where this stops being an
+optimisation. The materialisation is 8,766 facts over a dependency
+graph, and the world changes in exactly one way: a CVE is published.
+
+```python
+>>> inc = IncrementalEngine(open("programs/00-supply-chain.dl").read())
+>>> inc.insert("vulnerable(pkg40, cve_2026_0002).")
+{'inserted': 1, 'derived': 12}
+```
+
+Twelve new facts, 0.03 seconds, against 0.81 to rebuild — and the new
+CVE turns out to reach *every* service, which nobody predicted by
+looking. This is the shape of the real workload: the rules never
+change, the graph rarely changes, and the vulnerability feed changes
+daily. Recomputing a closure from scratch because one fact arrived is
+the thing incremental maintenance exists to stop.
+
 ## Why this is the road to DBSP
 
 DRed's weakness is recomputation in phase 2, and the deeper issue is that
