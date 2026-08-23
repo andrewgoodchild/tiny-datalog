@@ -1,0 +1,16 @@
+% Lesson 12 — runnable answer (exercise 1): average from sum and count.
+% The engine cannot divide for you — arithmetic over derived values is a
+% built-in, and built-ins are deliberately missing (see the README) —
+% so the answer is the honest one: derive both components.
+%   python3 datalog.py exercises/12-answers.dl
+
+charge(alice, groceries, 120).
+charge(alice, transport, 60).
+charge(bob,   groceries, 90).
+charge(bob,   rent,      900).
+
+spend_sum(P, sum(A))     :- charge(P, C, A).
+spend_count(P, count(C)) :- charge(P, C, A).
+
+% average(P) = S / N, computed by whoever consumes these two relations.
+average_parts(P, S, N) :- spend_sum(P, S), spend_count(P, N).

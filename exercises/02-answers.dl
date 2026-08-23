@@ -1,0 +1,23 @@
+% Lesson 2 — runnable answers (exercises 1 and 2).
+%   python3 datalog.py --trace exercises/02-answers.dl
+
+% Exercise 1: same_component over an UNdirected reading of directed
+% edges — first symmetrise, then take the closure.
+edge(a, b).  edge(c, b).  edge(d, e).
+
+link(X, Y) :- edge(X, Y).
+link(X, Y) :- edge(Y, X).
+
+same_component(X, Y) :- link(X, Y).
+same_component(X, Z) :- same_component(X, Y), link(Y, Z).
+
+% Exercise 2: bill of materials, chain of 6 parts.  --trace shows the
+% has_part rounds: one per containment depth (5 rounds of new facts).
+contains(bike, frame).
+contains(frame, tube).
+contains(tube, joint).
+contains(joint, weld).
+contains(weld, bead).
+
+has_part(X, Y) :- contains(X, Y).
+has_part(X, Z) :- contains(X, Y), has_part(Y, Z).

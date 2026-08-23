@@ -1,0 +1,24 @@
+% Lesson 3 — runnable answers (exercises 1 and 2).
+%   python3 datalog.py --trace exercises/03-answers.dl
+
+% Exercise 1: has_no_children over the lesson-1 family.  The universe
+% (person) must be derived first — negation needs a domain to range over.
+parent(abe, bob).
+parent(abe, ann).
+parent(bob, carl).
+parent(ann, dana).
+
+person(X) :- parent(X, Y).
+person(Y) :- parent(X, Y).
+is_parent(X) :- parent(X, Y).
+has_no_children(X) :- person(X), not is_parent(X).
+
+% Exercise 2: nodes on no cycle.  on_cycle needs the closure first;
+% --trace shows the strata: path/on_cycle below, off_cycle above.
+node(a). node(b). node(c). node(d).
+edge2(a, b).  edge2(b, c).  edge2(c, a).  edge2(c, d).
+
+path(X, Y) :- edge2(X, Y).
+path(X, Z) :- edge2(X, Y), path(Y, Z).
+on_cycle(X) :- path(X, X).
+off_cycle(X) :- node(X), not on_cycle(X).

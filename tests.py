@@ -5,6 +5,9 @@ classic example programs, and the satellite modules (semiring.py,
 incremental.py, prolog.py)."""
 
 import os
+import subprocess
+import sys
+import tempfile
 import unittest
 
 from datalog import (
@@ -769,6 +772,163 @@ class GoldenFileTests(unittest.TestCase):
                 with open(os.path.join(base, "expected")) as fh:
                     expected = [l for l in fh.read().splitlines() if l]
                 self.assertEqual(lines, expected)
+
+
+class ExerciseTests(unittest.TestCase):
+    """Every runnable exercise answer, executed — so exercises/ cannot
+    rot.  Numbers asserted here are the numbers quoted in the answer
+    files."""
+
+    @staticmethod
+    def ex(name):
+        with open(os.path.join(HERE, "exercises", name)) as fh:
+            return fh.read()
+
+    def test_lesson1_cousins_and_aunts(self):
+        engine = run_program(self.ex("01-answers.dl"))
+        self.assertIn(("carl", "dana"), engine.rels["cousin"])   # real cousins
+        self.assertIn(("carl", "carl"), engine.rels["cousin"])   # the documented bug
+        self.assertIn(("ann", "carl"), engine.rels["aunt_or_uncle"])
+        self.assertIn(("bob", "carl"), engine.rels["aunt_or_uncle"])  # ditto
+
+    def test_lesson2_component_and_bom(self):
+        engine = run_program(self.ex("02-answers.dl"))
+        self.assertIn(("a", "c"), engine.rels["same_component"])
+        self.assertNotIn(("a", "d"), engine.rels["same_component"])
+        self.assertEqual(len(engine.rels["has_part"]), 15)
+        rounds_with_parts = [r for r in engine.stats[0]["iterations"]
+                             if "has_part" in r]
+        self.assertEqual(len(rounds_with_parts), 5)
+
+    def test_lesson2_chain16_round_counts(self):
+        edges = "".join("edge(n%d, n%d)." % (i, i + 1) for i in range(1, 16))
+        base = "path(X, Y) :- edge(X, Y)."
+        linear = run_program(edges + base
+                             + "path(X, Z) :- edge(X, Y), path(Y, Z).")
+        nonlin = run_program(edges + base
+                             + "path(X, Z) :- path(X, Y), path(Y, Z).")
+        self.assertEqual(len(linear.stats[0]["iterations"]), 16)
+        self.assertEqual(len(nonlin.stats[0]["iterations"]), 6)
+
+    def test_lesson3_childless_and_cycles(self):
+        engine = run_program(self.ex("03-answers.dl"))
+        self.assertEqual(engine.rels["has_no_children"],
+                         {("carl",), ("dana",)})
+        self.assertEqual(engine.rels["off_cycle"], {("d",)})
+        self.assertEqual(max(engine.program.strata.values()), 2)
+
+    def test_lesson4_magic_counts(self):
+        clauses = parse(load("01-family.dl"))
+        full = run_program(load("01-family.dl"))
+        full_total = sum(len(full.rels[p]) for p in full.program.idb)
+        m, _a = magic_query(clauses, query_atom("ancestor(abe, X)"))
+        m_total = sum(len(m.rels.get(p, ())) for p in m.program.idb)
+        self.assertEqual((m_total, full_total), (11, 14))
+
+    def test_lesson5_win_chain_unique_model(self):
+        models = stable_models(parse(
+            "move(a,b). move(b,c). move(c,d). "
+            "win(X) :- move(X, Y), not win(Y)."))
+        self.assertEqual(len(models), 1)
+        self.assertEqual({a for a in models[0] if a[0] == "win"},
+                         {("win", ("a",)), ("win", ("c",))})
+
+    def test_lesson6_modified_routes(self):
+        text = self.ex("06-answers.dl")
+        self.assertEqual(
+            run_semiring(text, "minplus").value("path", ("a", "e")), 6)
+        self.assertEqual(
+            run_semiring(text, "count").value("path", ("a", "e")), 4)
+        self.assertEqual(
+            len(run_semiring(text, "why").value("path", ("a", "e"))), 4)
+
+    def test_lesson7_exact_probability_script(self):
+        r = subprocess.run(
+            [sys.executable, os.path.join(HERE, "exercises",
+                                          "07-exact-prob.py")],
+            capture_output=True, text=True, cwd=HERE)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("0.934450", r.stdout)
+        self.assertIn("exact >= Viterbi: True", r.stdout)
+
+    def test_lesson8_diamond_overdelete(self):
+        inc = IncrementalEngine(self.ex("08-answers.dl"))
+        stats = inc.delete("edge(s, m1).")
+        self.assertEqual((stats["over_deleted"], stats["rederived"],
+                          stats["net_removed"]), (6, 4, 2))
+
+    def test_lesson9_mult_and_finite_failure(self):
+        engine = prolog.load(load("09-peano.pl"))
+        answers, _ = engine.query(
+            query_atom("mult(s(s(zero)), s(s(zero)), X)"), max_solutions=1)
+        self.assertEqual(str(answers[0]["X"]), "s(s(s(s(zero))))")
+        answers, _ = engine.query(
+            query_atom("mult(X, s(s(zero)), s(s(s(s(zero)))))"),
+            max_solutions=1)
+        self.assertEqual(str(answers[0]["X"]), "s(s(zero))")
+        answers, incomplete = engine.query(query_atom("lt(X, zero)"))
+        self.assertEqual(answers, [])
+        self.assertFalse(incomplete)   # finite failure, not a timeout
+
+    def test_lesson10_grandmother_and_dad(self):
+        ont = subsumption.load(self.ex("10-answers.dl"))
+        self.assertEqual(ont.direct_subsumers()["grandmother"], {"mother"})
+        self.assertIn(("dad", "father"), ont.equivalences())
+
+    def test_lesson11_magic_bob_counts(self):
+        m, _a = magic_query(parse(load("01-family.dl")),
+                            query_atom("ancestor(bob, X)"))
+        total = sum(len(m.rels.get(p, ())) for p in m.program.idb)
+        self.assertEqual(total, 3)   # 2 magic facts + 1 answer fact
+        self.assertEqual(m.rels["magic#ancestor#bf"], {("bob",), ("carl",)})
+
+    def test_lesson12_average_parts(self):
+        engine = run_program(self.ex("12-answers.dl"))
+        self.assertEqual(engine.rels["average_parts"],
+                         {("alice", 180, 2), ("bob", 990, 2)})
+
+    def test_lesson13_duality(self):
+        te = TabledEngine(parse(load("01-family.dl")))
+        te.query(query_atom("ancestor(bob, X)"))
+        table_patterns = {key[1][0] for key in te.tables
+                          if key[0] == "ancestor"}
+        m, _a = magic_query(parse(load("01-family.dl")),
+                            query_atom("ancestor(bob, X)"))
+        magic_starts = {t[0] for t in m.rels["magic#ancestor#bf"]}
+        self.assertEqual(table_patterns, magic_starts)
+
+
+class CLITests(unittest.TestCase):
+    """Run datalog.py as a real subprocess.  The script-vs-import module
+    duality is where the double-import trap lives (datalog.py aliases
+    itself into sys.modules to prevent it); these tests pin the fix."""
+
+    @staticmethod
+    def cli(*args):
+        return subprocess.run(
+            [sys.executable, os.path.join(HERE, "datalog.py")] + list(args),
+            capture_output=True, text=True, cwd=HERE)
+
+    def test_magic_cli_specialises_bound_queries(self):
+        r = self.cli("--magic", "--trace", "-q", "ancestor(abe, X)",
+                     "programs/01-family.dl")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("ancestor#bf", r.stdout)
+        self.assertNotIn("ancestor#ff", r.stdout)
+
+    def test_models_cli_with_constants_in_rule_bodies(self):
+        # a constant inside a rule body crosses the module boundary in
+        # _match; under the double-import bug this crashed
+        with tempfile.NamedTemporaryFile(
+                "w", suffix=".dl", delete=False) as fh:
+            fh.write("p(a). p(b). q(X) :- p(X), p(a), not r(X).")
+            path = fh.name
+        try:
+            r = self.cli("--models", path)
+            self.assertEqual(r.returncode, 0, r.stderr)
+            self.assertIn("Stable models: 1", r.stdout)
+        finally:
+            os.unlink(path)
 
 
 class SubsumptionTests(unittest.TestCase):

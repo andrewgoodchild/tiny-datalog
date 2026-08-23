@@ -35,7 +35,7 @@ programming), RDFox (knowledge graphs), or Feldera (incremental).
 ## Quick start
 
 ```sh
-python3 tests.py                                       # 86 tests
+python3 tests.py                                       # 102 tests
 python3 datalog.py programs/01-family.dl                  # evaluate a program
 python3 datalog.py --trace programs/02-reachability.dl    # + strata, per-round deltas
 python3 datalog.py -q 'eats_in_cafe(X)' programs/05-cafe-foodary.dl
@@ -76,10 +76,11 @@ the current research threads:
 14. [Tabling: top-down without the cliff](lessons/13-tabling.md) — and why magic sets was tabling all along
 
 Lesson 0 closes with a technique-by-technique map of where each
-lesson's idea ships commercially. Instructors: `ASSIGNMENT.md`
-is a ready-to-assign "build your own Datalog" project graded by
-differential testing against this repo, and `cases/` lets anyone add a
-test without writing Python.
+lesson's idea ships commercially. Every lesson ends with exercises, and
+every exercise has a worked answer in `exercises/` — runnable where the
+answer is a program, and machine-verified by the test suite so the
+answers cannot rot. `cases/` lets anyone add a test without writing
+Python.
 
 The classic teaching programs ship as runnable files in `programs/` —
 family/ancestor, same-generation, transitive closure, mutual recursion
@@ -145,25 +146,6 @@ the test suite.
   implemented as a compiler: the ontology is normalised and emitted as a
   plain Datalog program (`--emit` shows it), so classification runs on
   the same engine as everything else.
-
-## Magic sets in one look
-
-For `path(n5, X)` on `programs/02-reachability.dl` the rewriting is:
-
-```prolog
-path#bf(X, Y)     :- magic#path#bf(X), edge(X, Y).
-magic#path#bf(Y)  :- magic#path#bf(X), edge(X, Y).
-path#bf(X, Z)     :- magic#path#bf(X), edge(X, Y), path#bf(Y, Z).
-magic#path#bf(n5).
-```
-
-`magic#path#bf` collects exactly the start points the query demands, and
-every `path` rule is guarded by it, so evaluation never explores the rest
-of the graph:
-
-```
-[magic] 10 IDB facts derived vs 35 under full evaluation
-```
 
 ## Deliberately missing
 
@@ -244,13 +226,13 @@ programs/       the classic teaching programs, numbered by lesson
                 paradox
 lessons/        getting started + lessons 0–13, following the field's
                 history from 1977 to the current research threads
+exercises/      worked answers for every lesson's exercises, verified
+                by the test suite
 cases/          golden test cases — add one without writing Python
 benchmarks/     scaled input generators (chain/tree/clique/grid)
-ASSIGNMENT.md   a build-your-own-Datalog course project, graded by
-                differential testing against this repo
-tests.py        86 tests — every shipped program is exercised, and a
-                conformance suite runs every query through every
-                applicable evaluation strategy
+tests.py        102 tests — every shipped program and exercise answer
+                is executed, and a conformance suite runs every query
+                through every applicable evaluation strategy
 ```
 
 The code itself is part of the course: comments explain the algorithms

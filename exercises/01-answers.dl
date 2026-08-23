@@ -1,0 +1,20 @@
+% Lesson 1 — runnable answers (exercises 1 and 2).
+%   python3 datalog.py exercises/01-answers.dl
+
+parent(abe, bob).
+parent(abe, ann).
+parent(bob, carl).
+parent(ann, dana).
+
+sibling(X, Y) :- parent(P, X), parent(P, Y).
+
+% Exercise 1: cousins = children of siblings.  And yes, it inherits the
+% sibling bug twice over: everyone with a grandparent is their own
+% cousin (via sibling(P, P)), and siblings are each other's cousins.
+cousin(X, Y) :- parent(PX, X), parent(PY, Y), sibling(PX, PY).
+
+% Exercise 2: aunt_or_uncle = a sibling of a parent.  Without a
+% disequality built-in we cannot exclude the parent themselves, so every
+% parent with a sibling-set (including themselves!) appears — the same
+% root cause, honestly surfaced.
+aunt_or_uncle(A, N) :- parent(P, N), sibling(P, A).

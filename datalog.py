@@ -1175,4 +1175,10 @@ def main(argv=None):
 
 
 if __name__ == "__main__":
+    # Running as a script makes this module `__main__`, while the
+    # satellite modules import it as `datalog`.  Without this aliasing,
+    # Python loads a SECOND copy of the module, and isinstance checks
+    # between the two copies' AST classes quietly fail — the classic
+    # double-import trap (it made every CLI magic query look unbound).
+    sys.modules["datalog"] = sys.modules["__main__"]
     sys.exit(main())

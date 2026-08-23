@@ -1,0 +1,23 @@
+% Lesson 10 — runnable answers (exercises 1 and 4): the family ontology
+% plus grandmother (exercise 1) and a syntactically different definition
+% that the classifier discovers is equivalent to father (exercise 4).
+%   python3 subsumption.py exercises/10-answers.dl
+
+role(has_child).
+
+isa(man, person).
+isa(woman, person).
+
+define(parent,      and(person, some(has_child, person))).
+define(father,      and(man,    some(has_child, person))).
+define(mother,      and(woman,  some(has_child, person))).
+define(grandfather, and(man,    some(has_child, parent))).
+
+% Exercise 1: predicted classification — grandmother ⊑ mother (directly),
+% hence also woman, parent, person.
+define(grandmother, and(woman, some(has_child, parent))).
+
+% Exercise 4: definitionally different, semantically identical to father:
+% "a person who is a man, with a child who is a person" — the classifier
+% reports dad ≡ father.
+define(dad, and(person, and(man, some(has_child, person)))).

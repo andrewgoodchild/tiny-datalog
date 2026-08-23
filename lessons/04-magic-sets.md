@@ -77,7 +77,7 @@ lives.
 1. For the ancestor program of Lesson 1 (`programs/01-family.dl`),
    compare `-q 'ancestor(abe, X)'` with and without `--magic --trace`.
    How many facts does each derive?
-2. Write down, by hand, the rewriting for `ancestor(X, dee)` (adornment
+2. Write down, by hand, the rewriting for `ancestor(X, dana)` (adornment
    `fb`). Then check yourself against `--magic --trace`.
 3. When does magic *not* help? Try `-q 'path(X, Y)'` (nothing bound) and
    explain the counts you see.
