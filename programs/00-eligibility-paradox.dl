@@ -1,0 +1,26 @@
+% The eligibility policy of 00-eligibility.dl, with one clause added —
+% and the clause is one a real scheme would want.
+%
+%   python3 datalog.py programs/00-eligibility-paradox.dl
+%   python3 datalog.py --models programs/00-eligibility-paradox.dl
+%
+% "A household stops qualifying once one of its members is already
+% claiming" is ordinary anti-double-dipping.  But claiming is what
+% eligibility produces, so the condition now refers to its own outcome:
+% eligible -> qualifying_household -> not claiming -> eligible.
+%
+% The engine rejects it and names the loop.  --models then shows the
+% rejection is earned rather than fussy: there is no stable model, and
+% the well-founded model leaves the disputed atoms undefined.
+%
+% This is the cafe paradox (programs/05-cafe-*.dl) in benefits
+% vocabulary — same knot, different costume.
+
+member(bob,   oak_house).
+member(cyril, oak_house).
+
+receives_pension(cyril).
+
+claiming(H)             :- member(P, H), eligible(P).
+qualifying_household(H) :- member(P, H), receives_pension(P), not claiming(H).
+eligible(P)             :- member(P, H), qualifying_household(H), not employed(P).

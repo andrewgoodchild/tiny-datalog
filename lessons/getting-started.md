@@ -6,7 +6,7 @@ install beyond Python 3.9+.
 ```sh
 git clone https://github.com/<you>/tiny-datalog
 cd tiny-datalog
-python3 tests.py                     # 114 tests, should all pass
+python3 tests.py                     # 115 tests, should all pass
 python3 datalog.py programs/02-reachability.dl
 ```
 

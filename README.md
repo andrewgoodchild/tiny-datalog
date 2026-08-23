@@ -44,20 +44,43 @@ Dana, in a household that also qualifies but employed, is simply absent
 from `eligible` — the rule discriminates, and the tree shows exactly
 which fact does the discriminating.
 
-**Is the policy even coherent?** Push the same shape of rule one step
-further — make the benefit's condition depend on who claims it — and:
+**Is the policy even coherent?** Now add a clause any real scheme would
+want — a household stops qualifying once one of its members is already
+claiming, so nobody draws the benefit twice:
+
+```prolog
+% programs/00-eligibility-paradox.dl — the same policy, plus:
+claiming(H) :- member(P, H), eligible(P).
+qualifying_household(H) :- member(P, H), receives_pension(P), not claiming(H).
+```
 
 ```
-$ python3 datalog.py programs/05-cafe-paradox.dl
+$ python3 datalog.py programs/00-eligibility-paradox.dl
 REJECTED: program is not stratifiable — negation occurs inside a recursive
-cycle: eats_in_cafe --not--> household_cooks --> eats_in_cafe.  No stratum
-assignment exists, so the program has no stratified model.
+cycle: qualifying_household --not--> claiming --> eligible -->
+qualifying_household.  No stratum assignment exists, so the program has
+no stratified model.
 (This is a syntactic verdict.  Run with --models for the semantic one:
 stable models and the well-founded model.)
 ```
 
-Both answers are *derived*, not described — which is what makes them
-checkable, cheap, and identical on every run. That is the case for
+Every clause is defensible on its own; together they make eligibility
+depend on its own outcome. And this isn't the engine being fussy —
+`--models` shows there is **no stable model at all**, and that whether
+Bob is eligible comes out *undefined*:
+
+```
+$ python3 datalog.py --models programs/00-eligibility-paradox.dl
+Syntactic check: not stratifiable (qualifying_household --not--> claiming --> eligible --> qualifying_household).
+  (Syntactic only — an unstratifiable program may still have stable models.)
+Stable models: none — no consistent two-valued model exists.
+Well-founded model (three-valued):
+  true:      (EDB facts only)
+  undefined: claiming(oak_house).  eligible(bob).  eligible(cyril).  qualifying_household(oak_house).
+```
+
+All three answers are *derived*, not described — which is what makes
+them checkable, cheap, and identical on every run. That is the case for
 knowing this material: LLMs generate, logic engines guarantee, and the
 interesting systems use each for what it is good at. (The obvious
 pairing: let the model turn a policy document into rules, and let the
@@ -93,7 +116,7 @@ narrated.
 ## Quick start
 
 ```sh
-python3 tests.py                                          # 114 tests, ~0.6s
+python3 tests.py                                          # 115 tests, ~0.6s
 python3 datalog.py -q 'eligible(X)' programs/00-eligibility.dl
 python3 datalog.py --explain 'eligible(bob)' programs/00-eligibility.dl
 python3 datalog.py programs/01-family.dl                  # evaluate a program
@@ -335,7 +358,7 @@ lessons/        getting started + lessons 0–14
 exercises/      worked answers, verified by the test suite
 cases/          golden test cases — add one without writing Python
 benchmarks/     scaled input generators (chain/tree/clique/grid)
-tests.py        114 tests: every shipped program and exercise answer is
+tests.py        115 tests: every shipped program and exercise answer is
                 executed, a conformance suite runs every query through
                 every applicable strategy, and a seeded fuzzer checks
                 the same property on random programs

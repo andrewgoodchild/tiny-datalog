@@ -157,6 +157,24 @@ class ClassicExamplesTests(unittest.TestCase):
         self.assertIn("receives_pension(cyril)   (base fact)", tree)
         self.assertIn("not employed(bob)", tree)
 
+    def test_eligibility_paradox(self):
+        # the README's second demo: one plausible anti-double-dipping
+        # clause turns the same policy self-referential
+        text = load("00-eligibility-paradox.dl")
+        with self.assertRaises(StratificationError) as cm:
+            run_program(text)
+        message = str(cm.exception)
+        for pred in ("qualifying_household", "claiming", "eligible"):
+            self.assertIn(pred, message)
+        self.assertEqual(stable_models(parse(text)), [])
+        _true, undefined = well_founded(parse(text))
+        self.assertEqual(undefined, {
+            ("claiming", ("oak_house",)),
+            ("qualifying_household", ("oak_house",)),
+            ("eligible", ("bob",)),
+            ("eligible", ("cyril",)),
+        })
+
     def test_family_and_ancestor(self):
         text = load("01-family.dl")
         engine = run_program(text)
