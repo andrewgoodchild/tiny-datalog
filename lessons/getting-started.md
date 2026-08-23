@@ -74,6 +74,10 @@ _, answers = magic_query(parse(open("01-family.dl").read()), query)
 
 ## Where to go next
 
+Hit a word you don't know? [glossary.md](glossary.md) defines every
+technical term the course uses, with the lesson that introduces it.
+
+
 The lessons build up the whole repository feature by feature:
 
 0. [What is Datalog, and why should you care?](00-what-is-datalog.md) —

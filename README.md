@@ -1,43 +1,43 @@
 # tiny-datalog
 
-Ask a language model whether Bob is eligible and it will probably be
-right, and it can talk you through why. The gap isn't capability — it's
-that the explanation is a *separate artifact* from the answer, produced
-by the same process that sometimes invents citations. You can't tell a
-real derivation from a plausible one without checking it yourself.
-
-A logic engine has no gap to fall through: the derivation **is** the
-computation, so it costs nothing to ask for and comes out identical on
-every run. More useful still, you can ask questions about the *policy
-itself* — not about a case — that no amount of reading it will answer.
-
-That trade is what this repository is about. The evaluator is about 800
-lines of dependency-free Python — genuinely an afternoon's read — plus
-eight modules that each add one classical technique, and a 16-lesson
-course that builds the whole thing up from facts and rules.
-
-## A policy, and three things you can't see by reading it
+A policy, written as facts and rules:
 
 ```prolog
-% programs/00-eligibility.dl
+% programs/00-eligibility.dl — a meal-assistance scheme
+member(bob,   oak_house).     member(cyril, oak_house).
+member(dana,  elm_house).     member(edith, elm_house).
+
+receives_pension(cyril).
+employed(dana).
+carer(edith, cyril).          % edith cares for cyril, who lives elsewhere
+
 qualifying_household(H) :- member(P, H), receives_pension(P).
 qualifying_household(H) :- member(P, H), carer(P, Q), receives_pension(Q).
 eligible(P) :- member(P, H), qualifying_household(H), not employed(P).
 ```
 
-`:-` is "if", the comma is "and", capitals are variables — that is most
-of the language. Two ways in: a household qualifies through a member's
-own pension, *or* through a member who cares for a pensioner elsewhere
-(which is how elm_house qualifies, via edith caring for cyril in
-oak_house).
+Seven facts, three rules. `:-` is "if", the comma is "and", capitals are
+variables — that is most of the language.
 
-Small enough to check by eye — which is the point. Everything below is
-something you cannot check by eye, at any size.
+```
+$ python3 datalog.py -q 'eligible(X)' programs/00-eligibility.dl
+?- eligible(X)
+   eligible(bob).
+   eligible(cyril).
+   eligible(edith).
+   (3 answers)
+```
 
-### 1. The policy is ambiguous, and here are both lawful readings
+Bob and Cyril through Cyril's pension, Edith because she cares for him.
+Dana is out — her household qualifies too, but she is employed.
+
+You could have worked that out yourself, and so could a language model.
+Here is what neither of you can do by reading it.
+
+## The policy is ambiguous, and here are both lawful readings
 
 Add the rule every real scheme has — only one member of a household may
-claim — and the program stops having *an* answer:
+claim:
 
 ```prolog
 % programs/00-eligibility-choice.dl
@@ -56,69 +56,34 @@ Well-founded model (three-valued):
   undefined: eligible(bob).  eligible(cyril).  ...
 ```
 
-The rule is silent about *which* member claims, so for oak_house there
-are two lawful ways to run the scheme and the engine names both. Note
-what it does *not* do: elm_house is settled in both models, so
-`eligible(edith)` comes back **true** rather than undefined. The
-ambiguity is localised to the household that actually has one.
+The rule never says *which* member claims, so oak_house has two lawful
+readings and the engine names both. Note what it does not do: elm_house
+is settled either way, so `eligible(edith)` comes back **true** rather
+than undefined. The ambiguity is localised to the household that
+actually has one.
 
-An engine that quietly picked bob would be worse than useless here.
-This one says: your policy has a fork, here is exactly where, and you
-owe it a tie-break rule (oldest? lowest income? first to apply?). That
-is a question about the policy, and no reading of five facts answers
-it.
+An engine that quietly picked Bob would be worse than useless. This one
+says: your policy has a fork, here is exactly where, and you owe it a
+tie-break rule — oldest? lowest income? first to apply? That is a
+question about the policy rather than about a case, and no amount of
+reading seven facts answers it.
 
-### 2. One more plausible clause and it self-destructs
+**One caveat that belongs here, not in a footnote.** `not employed(P)`
+does not mean the person is unemployed. It means the database never
+said they were. That is the closed-world assumption, and in a benefits
+system it is the difference between "we checked" and "we have no
+record" — missing employment data yields a confident `eligible` with an
+immaculate proof tree. [Lesson 15](lessons/15-closed-and-open-worlds.md)
+is about when that assumption is safe and what the alternative costs.
 
-Anti-double-dipping: a household stops qualifying once a member is
-already claiming.
-
-```prolog
-% programs/00-eligibility-paradox.dl
-claiming(H) :- member(P, H), eligible(P).
-qualifying_household(H) :- member(P, H), receives_pension(P), not claiming(H).
-```
-
-```
-$ python3 datalog.py programs/00-eligibility-paradox.dl
-REJECTED: program is not stratifiable — negation occurs inside a recursive
-cycle: qualifying_household --not--> claiming --> eligible -->
-qualifying_household.  No stratum assignment exists, so the program has
-no stratified model.
-```
-
-Every clause is defensible alone; together they make eligibility depend
-on its own outcome. `--models` confirms this is a real defect and not
-fussiness — **no stable model exists at all**, and whether Bob is
-eligible comes out undefined.
-
-### 3. Why any particular answer holds
-
-```
-$ python3 datalog.py --explain 'eligible(bob)' programs/00-eligibility.dl
-?- explain eligible(bob)
-   eligible(bob)   [via eligible(P) :- member(P, H), qualifying_household(H), not employed(P).]
-     member(bob, oak_house)   (base fact)
-     qualifying_household(oak_house)   [via qualifying_household(H) :- member(P, H), receives_pension(P).]
-       member(cyril, oak_house)   (base fact)
-       receives_pension(cyril)   (base fact)
-     not employed(bob)   (absent from its completed stratum)
-```
-
-This is the mechanism rather than the argument — at three rules you
-could reconstruct it yourself. It earns its place on the last line.
-
-**`not employed(bob)` does not mean Bob is unemployed. It means the
-database never said he was employed.** That is the closed-world
-assumption, and in a benefits system it is the difference between "we
-checked" and "we have no record" — missing employment data will produce
-a confident `eligible(bob)` with an immaculate proof tree. The tree
-names its negative premises for exactly that reason: absence of
-evidence is the assumption you most need to see stated, and
-[lesson 15](lessons/15-closed-and-open-worlds.md) is about when it is
-safe to make, and what the alternative costs.
-
-### What the verdicts mean
+Two more things the same command finds. Add anti-double-dipping instead
+— a household stops qualifying once a member claims — and the policy
+self-destructs: **no stable model at all**, because eligibility now
+depends on its own outcome (`00-eligibility-paradox.dl`,
+[lesson 5](lessons/05-beyond-stratification.md)). And
+`--explain 'eligible(bob)'` prints the proof tree any answer came out
+of, negative premises included
+([lesson 1](lessons/01-first-steps.md)).
 
 | `--models` says | your policy is | what to do |
 |---|---|---|
@@ -129,23 +94,21 @@ safe to make, and what the alternative costs.
 Fixing the middle row is a policy decision, not a syntax trick: the
 double-dipping check has to read a **register** maintained elsewhere
 rather than this program's own output
-(`programs/00-eligibility-stable.dl`). The general rule falls out of
+(`programs/00-eligibility-stable.dl`). The rule of thumb falls out of
 it — **negating a base fact is free; negating a derived predicate is
-what forces an order.** The loop closed not because the broken version
-used negation twice, but because one of its negations read something
-the program was still computing.
+what forces an order.**
 
-All three verdicts are *derived*, not described — which is what makes
-them checkable, cheap, and identical on every run. That is the case for
-knowing this material: LLMs generate, logic engines guarantee, and the
-interesting systems use each for what it is good at. (The obvious
-pairing: let the model turn a policy document into rules, and let the
-engine decide what follows from them.)
+All of these verdicts are *derived* rather than described, which is
+what makes them checkable, cheap, and identical on every run. LLMs
+generate, logic engines guarantee; the obvious pairing is to let a
+model turn a policy document into rules and let the engine decide what
+follows from them.
 
-Never met Datalog? Start with
-[lesson 0](lessons/00-what-is-datalog.md) — what it is, the field's
-history from resolution to CodeQL and DBSP, and where each technique
-ships today.
+The evaluator that does this is about 800 lines of dependency-free
+Python — genuinely an afternoon's read — plus eight modules that each
+add one classical technique, and a 16-lesson course that builds the
+whole thing up from facts and rules. Never met Datalog? Start with
+[lesson 0](lessons/00-what-is-datalog.md).
 
 ## What you can ask it
 
@@ -227,26 +190,11 @@ for a real soak.
 
 `lessons/` is a complete course — no prior exposure assumed, every
 example a runnable file, following the field's own history from 1977 to
-the current research threads. Numbers below are the lesson numbers the
-lessons themselves use:
-
-- [Getting started](lessons/getting-started.md) — CLI and syntax
-- [0 · What is Datalog, and why should you care?](lessons/00-what-is-datalog.md) — orientation, history, the LLM-era case
-- [1 · Facts, rules, and queries](lessons/01-first-steps.md)
-- [2 · Recursion and semi-naive evaluation](lessons/02-recursion.md)
-- [3 · Negation and stratification](lessons/03-negation.md)
-- [4 · Magic sets: asking questions efficiently](lessons/04-magic-sets.md)
-- [5 · Beyond stratification: stable models and the café paradox](lessons/05-beyond-stratification.md)
-- [6 · Semirings: provenance and recursive aggregation](lessons/06-semirings.md)
-- [7 · Probabilistic Datalog, honestly](lessons/07-probabilistic.md)
-- [8 · Incremental maintenance: don't recompute the world](lessons/08-incremental.md)
-- [9 · Horn clauses: the boundary Datalog lives on](lessons/09-horn-clauses.md)
-- [10 · KL-ONE and subsumption: reasoning about definitions](lessons/10-kl-one-subsumption.md)
-- [11 · Under the hood: how this engine is built](lessons/11-under-the-hood.md)
-- [12 · Aggregation: counting without contradiction](lessons/12-aggregation.md)
-- [13 · Tabling: top-down without the cliff](lessons/13-tabling.md)
-- [14 · Containment: the same search, one level up](lessons/14-containment.md)
-- [15 · Closed and open worlds](lessons/15-closed-and-open-worlds.md) — what absence means, in both directions
+the current research threads. The Lesson column above is the index;
+[lessons/getting-started.md](lessons/getting-started.md) has the titles
+and the reading order, and
+[lessons/glossary.md](lessons/glossary.md) defines every technical term
+the course uses.
 
 Every lesson ends with exercises, and every exercise has a worked answer
 in `exercises/` — runnable where the answer is a program, and executed
@@ -255,71 +203,11 @@ regression test without writing Python.
 
 ## Where these techniques ship
 
-| Technique | Lesson | In production |
-|---|---|---|
-| Semi-naive evaluation | 2 | every deductive database |
-| Stratified negation | 3 | Soufflé, CodeQL, RDFox |
-| Magic sets | 4 | Soufflé's transform, LogicBlox demand transformation |
-| Stable models | 5 | clingo — configuration, scheduling |
-| Provenance semirings | 6 | data lineage, Soufflé's provenance debugger |
-| Incremental maintenance | 8 | Differential Dataflow, DBSP, Feldera, Materialize |
-| Tabling | 13 | XSB, SWI-Prolog |
-| EL classification | 10 | ELK, Snorocket, SNOMED CT tooling |
-| Containment & minimisation | 14 | every SQL optimiser's rewrite stage |
-
 Static analysis at scale (CodeQL, Soufflé) is Datalog. Knowledge graphs
 (RDFox) are Datalog. Incremental view maintenance (Feldera) is the 1993
-DRed paper with thirty years of engineering on top. Lesson 0 has the
-lesson-by-lesson map.
-
-## Features
-
-- **Semi-naive evaluation** — each stratum runs to fixpoint; after round
-  one, rules re-join only against the previous round's new facts,
-  substituted into each recursive body position in turn. `--trace` shows
-  the deltas shrinking; `--naive` switches the discipline off so the
-  comparison is measurable.
-- **Stratified negation** — `not p(...)` is allowed when the program
-  partitions into strata so no predicate depends on its own negation.
-  Violations are rejected with the offending cycle spelled out.
-- **Derivation trees** (`--explain`) — a proof tree built from
-  derivation-order stamps, so a fact can never justify itself.
-- **Magic sets** (`--magic`) — adornments, magic predicates, and
-  left-to-right sideways information passing, so bottom-up evaluation
-  derives only what a top-down engine would have visited. Negated
-  subgoals are not specialised, which keeps the rewriting stratified
-  whenever the original program is.
-- **Semantic analysis** (`--models`) — grounds small programs and
-  reports every stable model (exhaustive Gelfond–Lifschitz check) plus
-  the well-founded three-valued model (Van Gelder's alternating
-  fixpoint). Stratifiability is only syntactic; this is where the
-  semantic verdict lives.
-- **Aggregation** — `total(P, sum(A)) :- charge(P, C, A).` with
-  `sum`/`count`/`min`/`max`; other head arguments are the implicit GROUP
-  BY, and aggregates range over distinct body *solutions*, as in SQL and
-  Soufflé. Aggregation edges are strict in the stratification graph, so
-  aggregation-in-a-cycle is rejected with the same cycle diagnosis as
-  negation.
-- **Semiring evaluation** (`semiring.py`) — one program computes
-  reachability, shortest paths, derivation counts, why-provenance
-  witnesses, or best-derivation probabilities, by swapping the (plus,
-  times) algebra. Divergence is detected and explained.
-- **Incremental maintenance** (`incremental.py`) — insertions resume
-  semi-naive from a delta; deletions run DRed (over-delete, then
-  re-derive survivors). `fact~.` retracts. Every repair is verified
-  against from-scratch recomputation, including under fuzzing.
-- **Tabled evaluation** (`tabling.py`) — top-down with a table per
-  subgoal (iterative QSQR): goal-directed like Prolog, terminating like
-  Datalog, and it handles the left recursion SLD cannot. `-t` prints the
-  tables so you can check they equal the magic sets.
-- **Horn clauses beyond Datalog** (`prolog.py`) — top-down SLD with
-  function symbols, unification (occurs check included), negation as
-  failure, and an honest depth bound. The core engine rejects function
-  symbols with an error that states the boundary.
-- **Concept subsumption** (`subsumption.py`) — a KL-ONE-style classifier
-  for the EL description logic, implemented as a compiler: the ontology
-  is normalised and emitted as plain Datalog (`--emit` shows it), so
-  classification runs on the same engine as everything else.
+DRed paper with thirty years of engineering on top.
+[Lesson 0](lessons/00-what-is-datalog.md) maps every technique in the
+course to where it ships.
 
 ## What this is not
 
@@ -378,7 +266,7 @@ tabling.py      tabled top-down evaluation (iterative QSQR)
 subsumption.py  KL-ONE-style EL classifier, compiled to Datalog
 containment.py  query containment and minimisation by homomorphism
 programs/       the classic teaching programs, numbered by lesson
-lessons/        getting started + lessons 0–15
+lessons/        getting started, glossary, and lessons 0–15
 exercises/      worked answers, verified by the test suite
 cases/          golden test cases — add one without writing Python
 benchmarks/     scaled input generators (chain/tree/clique/grid)
