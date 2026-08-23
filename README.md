@@ -1,4 +1,4 @@
-# datalog
+# tiny-datalog
 
 Classical Datalog in readable standard-library Python: parser, safety
 checks, **semi-naive evaluation**, **stratified negation**, **magic
