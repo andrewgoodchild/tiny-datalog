@@ -1,9 +1,40 @@
 # tiny-datalog
 
-A policy, written as facts and rules:
+**A logic engine small enough to read in an afternoon, and a course
+that builds it up from nothing.**
+
+Ask a language model whether Bob qualifies for a benefit and it will
+probably be right, and it will explain itself convincingly. But that
+explanation is a *separate artifact* from the answer — written by the
+same process that sometimes invents citations — so you can't tell a
+real derivation from a plausible one without checking it yourself.
+
+Worse, there are questions about a set of rules that no amount of
+reading them answers. Is this policy self-contradictory? Does it have
+more than one lawful outcome? Which fact is actually doing the work?
+
+A logic engine answers those — not by being cleverer, but by *deriving*
+instead of describing. The explanation is the computation that produced
+the answer, so it cannot disagree with it, it costs nothing to ask for,
+and it comes out identical every time.
+
+Here is what that looks like, on an example small enough to check by
+hand.
+
+## A worked example
+
+A council runs a meal-assistance scheme. You can claim if you live in a
+household where someone draws a pension — and caring for a pensioner
+counts too, even one who lives elsewhere — **unless** you are employed.
+
+Four people in two households: Bob and Cyril share oak_house, Dana and
+Edith share elm_house. Cyril draws a pension. Dana has a job. Edith is
+Cyril's carer, across the two houses.
+
+Written out, that is seven facts and three rules:
 
 ```prolog
-% programs/00-eligibility.dl — a meal-assistance scheme
+% programs/00-eligibility.dl
 member(bob,   oak_house).     member(cyril, oak_house).
 member(dana,  elm_house).     member(edith, elm_house).
 
@@ -16,8 +47,11 @@ qualifying_household(H) :- member(P, H), carer(P, Q), receives_pension(Q).
 eligible(P) :- member(P, H), qualifying_household(H), not employed(P).
 ```
 
-Seven facts, three rules. `:-` is "if", the comma is "and", capitals are
-variables — that is most of the language.
+If you have never seen Datalog: `:-` means "if", the comma means "and",
+and capital letters are variables standing for "anyone" or "any
+household". So the last rule reads *P is eligible if P is a member of
+household H, and H qualifies, and P is not employed.* That is most of
+the language already.
 
 ```
 $ python3 datalog.py -q 'eligible(X)' programs/00-eligibility.dl
@@ -28,8 +62,9 @@ $ python3 datalog.py -q 'eligible(X)' programs/00-eligibility.dl
    (3 answers)
 ```
 
-Bob and Cyril through Cyril's pension, Edith because she cares for him.
-Dana is out — her household qualifies too, but she is employed.
+Bob and Cyril through Cyril's pension; Edith because she cares for him.
+Dana is out — her household qualifies through Edith, but Dana has a
+job.
 
 You could have worked that out yourself, and so could a language model.
 Here is what neither of you can do by reading it.
@@ -46,6 +81,12 @@ eligible(P) :- member(P, H), qualifying_household(H),
                not employed(P), not other_claimant(P).
 ```
 
+Now ask the engine not "who is eligible?" but "does this policy even
+have an answer?" A **stable model** is a complete, self-consistent way
+the world could be given these rules — every conclusion supported, no
+conclusion contradicted. A policy you can actually operate has exactly
+one.
+
 ```
 $ python3 datalog.py --models programs/00-eligibility-choice.dl
 Stable models: 2
@@ -56,11 +97,13 @@ Well-founded model (three-valued):
   undefined: eligible(bob).  eligible(cyril).  ...
 ```
 
-The rule never says *which* member claims, so oak_house has two lawful
-readings and the engine names both. Note what it does not do: elm_house
-is settled either way, so `eligible(edith)` comes back **true** rather
-than undefined. The ambiguity is localised to the household that
-actually has one.
+This one has **two**. The rule never says *which* member claims, so for
+oak_house either answer is defensible and the engine spells out both.
+The second block is the *well-founded model*, which reports the same
+finding a different way: it marks what is settled regardless of how you
+resolve the fork. `eligible(edith)` is **true** in it, because
+elm_house was never in doubt — only Bob and Cyril are undefined. The
+ambiguity is localised to the household that actually has one.
 
 An engine that quietly picked Bob would be worse than useless. This one
 says: your policy has a fork, here is exactly where, and you owe it a
@@ -104,11 +147,18 @@ generate, logic engines guarantee; the obvious pairing is to let a
 model turn a policy document into rules and let the engine decide what
 follows from them.
 
-The evaluator that does this is about 800 lines of dependency-free
-Python — genuinely an afternoon's read — plus eight modules that each
-add one classical technique, and a 16-lesson course that builds the
-whole thing up from facts and rules. Never met Datalog? Start with
-[lesson 0](lessons/00-what-is-datalog.md).
+## What's in here
+
+The evaluator that answers all of the above is about 800 lines of
+dependency-free Python — genuinely an afternoon's read — surrounded by
+eight modules that each add one classical technique, and a 16-lesson
+course that builds the whole thing up from facts and rules.
+
+If Datalog is new to you, read
+[lesson 0](lessons/00-what-is-datalog.md) first: what it is, where it
+came from, and why sound inference is worth more rather than less in
+the age of language models. If a term here is unfamiliar,
+[the glossary](lessons/glossary.md) defines every one the course uses.
 
 ## What you can ask it
 
