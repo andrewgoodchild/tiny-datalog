@@ -3,7 +3,100 @@
 **A logic engine small enough to read in an afternoon, and a course
 that builds it up from nothing.**
 
-Here is a question you cannot answer by reading your own data.
+## What is Datalog?
+
+A query language where you write down facts and rules, and the engine
+works out everything that follows.
+
+```prolog
+depends(billing, auth).          % facts: things you know
+depends(auth, crypto).
+
+uses(X, Y) :- depends(X, Y).                  % a rule: "uses if depends"
+uses(X, Z) :- depends(X, Y), uses(Y, Z).      % ...transitively, at any depth
+```
+
+`:-` means "if", the comma means "and", capitals are variables. Ask it
+what `billing` uses and it answers `auth` and `crypto` — the second
+never stated, only implied.
+
+Three properties define it:
+
+- **Declarative.** You say what follows from what. You never say how to
+  compute it, in what order, or when to stop.
+- **Recursive.** Rules may refer to themselves, so "at any depth"
+  questions — reachability, inheritance, containment, dependency — are
+  native rather than bolted on.
+- **Terminating.** Every Datalog program finishes. Always. That is a
+  theorem, not a convention, and it is bought by one deliberate
+  restriction ([lesson 9](lessons/09-horn-clauses.md) shows exactly
+  which).
+
+It is roughly SQL's SELECT–JOIN plus real recursion and minus the
+ceremony, and it is what CodeQL, Datomic, RDFox and Soufflé are
+underneath.
+
+## Why Datalog matters in a post-LLM world
+
+Not for the reason science fiction taught us. The trope — feed the
+machine a paradox and watch it seize — assumes the machine is a
+deductive system, where a contradiction propagates until something
+breaks. A language model has no propagation. A contradiction is just
+more text, and it glides straight past. You cannot crash it with a
+paradox because there is no inference engine in there to crash.
+
+Nor because models are bad at logic. They are conspicuously good at it,
+and for an unglamorous reason: logic puzzles are cheap to check, which
+makes them excellent reinforcement-learning targets, so the labs have
+trained on them heavily. Hand a frontier model a classic paradox and it
+will handle it — I tested exactly that on this repository's own example
+and it got everything right. Ask one to compute graph reachability *by
+writing code* and it scores in the high nineties.
+
+The reason is verification, which is what formal methods have always
+been for.
+
+A model gives you an answer and an explanation, and the explanation is
+a separate artifact from the answer — fluent, plausible, and produced
+by the same process that sometimes invents citations. You cannot
+distinguish a real derivation from a convincing one by reading it. An
+engine gives you an answer whose derivation *is* the computation, so it
+cannot disagree with the result, and it either produces one or refuses.
+
+There is a sharper version of this. When the engine says *no stable
+model exists*, that is a property of your rules — it would hold for
+rules nobody has ever written down. When a model says the same thing,
+it may be reasoning, or it may be that your problem resembles something
+in its training data. Both produce identical transcripts, and one test
+cannot tell you which you are relying on. The classic paradoxes are the
+*worst* possible probe, because they are the most written-about objects
+in logic.
+
+So the useful arrangement is not model *or* engine. The evidence
+supports a division of labour: reasoning in natural-language tokens
+degrades steeply with problem size, while the same models writing code
+that runs against data on disk barely degrade at all ([the numbers are
+below](#should-you-just-ask-a-model-instead)). **The model's job is to
+write the rules; the engine's job is to run them and check them.**
+
+That makes this repository's features look different than they did
+before. Each is a check you would want on machine-written rules:
+
+| The rules might be... | Caught by |
+|---|---|
+| circular — a condition depending on its own outcome | stratification, which names the cycle |
+| self-contradictory | `--models` → *no stable model* |
+| silently ambiguous | `--models` → *several stable models* |
+| redundant — one rule subsuming another | `containment.py` |
+| unsound — an unbound variable | safety validation |
+| correct, but needing sign-off | `--explain` → the derivation, not an argument |
+
+The limit is worth stating plainly: an engine checks *coherence*, not
+intent. A rule set can pass every check above and still be the wrong
+policy. What formal methods buy you is not correctness — it is making
+the remaining judgement cheap enough for a human to actually make.
+
+## A worked example
 
 You deploy 12 services. They sit on 160 packages joined by 292
 dependency edges — each one individually boring, all of them together
@@ -14,8 +107,6 @@ The 292 edges you wrote down imply **8,457** reachability facts. The
 answer is in those, not in the edges, and being 95% right means
 shipping a service you believed was clean.
 
-Three rules compute it:
-
 ```prolog
 % programs/00-supply-chain.dl
 uses(X, Y) :- depends(X, Y).
@@ -23,10 +114,6 @@ uses(X, Z) :- depends(X, Y), uses(Y, Z).      % ... at any depth
 
 exposed(S, C) :- service(S), uses(S, L), vulnerable(L, C).
 ```
-
-`:-` means "if", the comma means "and", capitals are variables. The
-second rule is the whole trick: a package uses whatever its
-dependencies use, applied over and over until nothing new appears.
 
 ```
 $ python3 datalog.py -q 'exposed(S, C)' programs/00-supply-chain.dl
@@ -56,9 +143,9 @@ $ python3 datalog.py --explain 'exposed(pkg4, cve_2026_0001)' programs/00-supply
      vulnerable(pkg21, cve_2026_0001)   (base fact)
 ```
 
-pkg4 → pkg13 → pkg21. That is not an explanation *about* the answer,
-it is the derivation the answer came out of — so it cannot be
-plausible-but-wrong, and it is what you paste into the ticket.
+pkg4 → pkg13 → pkg21. Not an explanation *about* the answer — the
+derivation the answer came out of, which is what you paste into the
+ticket.
 
 **"Another CVE just dropped. Do I rerun everything?"**
 
@@ -69,55 +156,10 @@ No. The engine keeps the 8,457 facts and repairs them:
 {'inserted': 1, 'derived': 12}        # 0.03s, against 0.81s to rebuild
 ```
 
-Twelve new facts, and this CVE turns out to reach **all twelve
-services** — which, again, nobody predicted by looking.
-
 **"Is my policy even coherent?"** A different question again, and the
-engine answers it: given rules that refer to their own conclusions, it
-will tell you they have no consistent answer, or that they have several
-and you have not said which one you meant. That is
+engine answers it — that is
 [lesson 5](lessons/05-beyond-stratification.md), worked through on a
 benefits policy in `programs/00-eligibility.dl`.
-
-## Should you just ask a model instead?
-
-For seven facts, yes. For this, the evidence is unusually clear, and it
-does not say what a Datalog partisan would want it to say.
-
-**The problem class is provably outside what a transformer does in
-context.** Directed graph reachability is NL-complete and Horn-clause
-satisfiability — which is what evaluating these rules *is* — is
-P-complete. [Merrill and Sabharwal (ICLR 2024)](https://arxiv.org/abs/2310.07923)
-prove that transformers with a linear number of chain-of-thought steps
-cannot solve either, naming both explicitly. You would need roughly
-O(n²) reasoning tokens to walk the graph.
-
-**Measured, that shows up as a monotone slide.**
-[GraphGym (2026)](https://arxiv.org/abs/2608.12391) ran 202 graph tasks
-at n = 10 / 100 / 1,000 / 10,000. Reasoning in natural language:
-**66.7 → 38.8 → 19.8 → 10.4** exact match. On pure transitive chains
-with surface cues stripped out,
-[NLGraph](https://arxiv.org/abs/2305.10037) found chain-of-thought
-connectivity at **40.8% — below the 50% coin flip**. And when default
-negation sits inside a recursive cycle — the case
-[lesson 5](lessons/05-beyond-stratification.md) is about —
-[ASPBench (2025)](https://arxiv.org/abs/2507.19749) finds every model
-plateaus near 0.60 regardless of size or reasoning training.
-
-**But here is the finding that actually matters, and it argues for a
-pairing rather than a winner.** In that same GraphGym sweep, models
-that *wrote code and ran it against the graph on disk* scored
-**77.7 → 74.3 → 71.4 → 46.3** — the size-scaling cliff mostly
-disappears. Much of the apparent reasoning failure is really that a
-model cannot reliably transcribe a graph out of its own context window:
-extraction accuracy from an in-context serialisation measured 54.5%.
-
-So the honest conclusion is not that models cannot reason. It is that
-**this computation belongs outside the context window**, and the model's
-job is to write the rules, not to run them. Which is the pairing this
-repository is built for: let a model turn a policy document into
-Datalog, and let the engine decide what follows from it — exactly,
-repeatably, with the derivation attached.
 
 ## What's in here
 
