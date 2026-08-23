@@ -73,8 +73,8 @@ the current research threads:
 13. [Aggregation: counting without contradiction](lessons/12-aggregation.md)
 14. [Tabling: top-down without the cliff](lessons/13-tabling.md) — and why magic sets was tabling all along
 
-Every lesson ends with an "is this real, or just academic?" note tying
-its technique to the systems that ship it. Instructors: `ASSIGNMENT.md`
+Lesson 0 closes with a technique-by-technique map of where each
+lesson's idea ships commercially. Instructors: `ASSIGNMENT.md`
 is a ready-to-assign "build your own Datalog" project graded by
 differential testing against this repo, and `cases/` lets anyone add a
 test without writing Python.

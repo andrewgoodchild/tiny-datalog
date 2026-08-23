@@ -71,17 +71,6 @@ resolution, which computes the well-founded semantics of Lesson 5;
 building it is how XSB earned its place in the history told in
 Lesson 0.
 
-## Is this real, or just academic?
-
-Tabling is the engine inside XSB, which has run commercial workloads
-for three decades (Flora-2/ErgoAI compliance reasoning is built on it),
-and SWI-Prolog ships tabling today precisely because untabled Prolog's
-termination folklore kept burning users. The subgoal-table idea is also
-just memoisation — the same move as dynamic programming and every
-`@cache` decorator, applied to logic — so the pattern transfers far
-beyond logic programming. And QSQ, tabling's set-at-a-time cousin, ran
-inside LogicBlox's commercial engine. Goal-directed with termination is
-the combination industry actually wants; this lesson is how it's built.
 
 ## Exercises
 

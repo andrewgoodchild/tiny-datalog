@@ -99,18 +99,6 @@ that industrial EL reasoners (ELK, Snorocket) implement with exactly the
 optimisations this course already taught: saturation is semi-naive
 fixpoint, and goal-directed subsumption checks are magic sets.
 
-## Is this real, or just academic?
-
-As real as medicine: **SNOMED CT** underlies electronic health records
-in dozens of countries, and every query like "find all patients with a
-disorder of the heart" is a subsumption check — hypertensive heart
-disease qualifies because the classifier proved it ⊑ heart disorder.
-The Gene Ontology and hundreds of biomedical ontologies work the same
-way. The broader DL family became **OWL**, the W3C ontology standard,
-with industrial reasoners (RDFox, GraphDB, Stardog) serving enterprise
-knowledge graphs — and the OWL 2 RL profile is implemented, in several
-of them, by compilation to Datalog rules, the same move this lesson
-made. KL-ONE itself is gone; its idea runs in every hospital.
 
 ## Exercises
 

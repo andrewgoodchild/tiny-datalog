@@ -69,15 +69,6 @@ the *fixpoint*. That's different from Prolog, which starts from a query
 and searches top-down (and can loop forever; Datalog cannot — see the
 next lesson).
 
-## Is this real, or just academic?
-
-This lesson is the least academic thing in computing: a rule body is a
-relational join, and joins are what every database on earth sells.
-`grandparent(X, Z) :- parent(X, Y), parent(Y, Z).` is `SELECT ... FROM
-parent p1 JOIN parent p2 ON p1.child = p2.parent` with the ceremony
-removed. The Datalog spelling itself ships commercially too: Datomic and
-XTDB use it as their query language, and every CodeQL security query on
-GitHub starts life as exactly this kind of conjunctive pattern.
 
 ## Exercises
 

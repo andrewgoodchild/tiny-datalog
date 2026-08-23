@@ -58,17 +58,6 @@ inside shortest-path — is precisely the semiring story of Lesson 6 and
 the current research thread behind it; the two lessons are one idea
 seen from two sides.)
 
-## Is this real, or just academic?
-
-Aggregation is the least optional feature in data systems — GROUP BY is
-most of what warehouses do all day — and *recursive* aggregation is a
-live commercial frontier: shortest paths, PageRank-style scores, and
-bill-of-materials rollups all want aggregates inside recursion, which is
-exactly what RelationalAI's semiring machinery and modern SQL
-extensions compete on. The stratified form this lesson implements is the
-one Soufflé ships today. And the "aggregation = negation" insight is not
-a teaching metaphor: production engines' stratifiers treat them
-identically, which you can now verify by reading ours.
 
 ## Exercises
 

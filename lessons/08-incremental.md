@@ -79,17 +79,6 @@ insertions can retract them — maintenance under stratified negation needs
 per-stratum bookkeeping this teaching module omits. It rejects such
 programs rather than getting them quietly wrong.
 
-## Is this real, or just academic?
-
-This is the hottest commercial corner of the whole course. Incremental
-view maintenance is a product category with venture-funded companies in
-it: Materialize and Feldera sell exactly "your recursive queries, kept
-fresh under change", Snowflake's dynamic tables are the same promise
-inside a warehouse, and RDFox maintains billion-fact materialisations
-incrementally for enterprise knowledge graphs. DRed, this lesson's
-algorithm, is the documented maintenance strategy in several production
-reasoners. If one lesson in this course maps directly onto a current
-hiring market, it is this one.
 
 ## Exercises
 

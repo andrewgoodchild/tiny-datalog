@@ -94,17 +94,6 @@ barber shave the barber? Russell's paradox as a Datalog program — also
 rejected, and here the rejection is hiding something genuinely broken.
 Lesson 5 separates the two cases.
 
-## Is this real, or just academic?
-
-Stratified negation is the exact dialect production engines ship —
-Soufflé and RDFox both enforce stratification, for the same reason this
-engine does. Commercially, negation-as-failure is how rule systems
-express the patterns businesses actually run on: eligibility ("covered
-unless excluded"), access control ("deny unless granted"), compliance
-("flag transactions with no matching invoice"). The Tweety pattern —
-defaults with exceptions — is the backbone of product-configuration and
-policy engines. When a vendor demo says "the rules engine handles
-exceptions," this lesson is what's underneath.
 
 ## Exercises
 

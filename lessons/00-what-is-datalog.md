@@ -150,6 +150,30 @@ The one-line version: **LLMs generate; logic engines guarantee.**
 Systems that need both — and increasingly, that is most interesting
 systems — need people who understand the guarantee side.
 
+## Where each idea earns its living
+
+None of this course is purely academic, but the commercial density
+varies. The honest map, one line per lesson:
+
+| Lesson | Technique | Who ships it |
+|---|---|---|
+| 1 | rules = joins | every RDBMS; the query languages of Datomic and XTDB; CodeQL queries |
+| 2 | recursion, semi-naive | SQL `WITH RECURSIVE`; Soufflé and CodeQL static analysis; the inner loop of every Datalog engine |
+| 3 | stratified negation | Soufflé and RDFox ship exactly this dialect; eligibility, access-control, and compliance rule engines |
+| 4 | magic sets | Soufflé's transform; LogicBlox's demand transformation; the predicate-pushdown instinct in every SQL optimizer |
+| 5 | stable models, WFS | clingo product configurators and schedulers (Siemens); XSB-lineage compliance systems; policy consistency checking |
+| 6 | semirings, provenance | data-lineage and audit tooling; Soufflé's provenance debugger; min-plus routing; RelationalAI's engine |
+| 7 | Viterbi, probabilistic | Viterbi decodes every phone call; neurosymbolic AI (Scallop) is the research-to-startup frontier |
+| 8 | incremental, DRed | Materialize, Feldera, Snowflake dynamic tables; RDFox incremental reasoning — a live hiring market |
+| 9 | Horn clauses, SLD | Prolog's industrial niches (Watson's parser); constrained-Horn-clause verification at cloud providers |
+| 10 | subsumption | SNOMED CT inside electronic health records; OWL reasoners serving enterprise knowledge graphs |
+| 11 | engine internals | the kernels of Soufflé, RDFox, RelationalAI — what their teams hire for |
+| 12 | aggregation | GROUP BY is the warehouse workload; recursive aggregation is the current competitive frontier |
+| 13 | tabling | XSB, three decades in production; SWI-Prolog ships tabling; memoisation, generalised |
+
+The nichest rows are 5 and 7 — real deployments, smaller markets.
+Everything else is core data-industry machinery wearing lesson numbers.
+
 ## How this course follows the history
 
 | Era | Idea | Where here |

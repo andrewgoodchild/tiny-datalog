@@ -111,17 +111,6 @@ models are found by exhaustive search over the candidate envelope
 maintains incrementally). Each simplification was chosen so the
 algorithm's *idea* fits on one screen.
 
-## Is this real, or just academic?
-
-The gap between this code and a production engine is engineering, not
-concept: Soufflé compiles the same semi-naive loop to parallel C++ with
-indexed joins; RDFox does it in memory-optimised C++ with incremental
-maintenance; RelationalAI adds worst-case-optimal joins. Reading this
-repository is a legitimate on-ramp to those codebases — the loop you can
-hold in your head here is the loop you will find there, industrialised.
-Engine internals of this kind are a real, if specialised, employment
-market: database kernels, static-analysis platforms, and knowledge-graph
-vendors all hire for exactly this understanding.
 
 ## Exercises
 

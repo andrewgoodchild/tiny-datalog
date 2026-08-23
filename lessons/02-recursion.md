@@ -90,18 +90,6 @@ pt(V, H2)    :- load(V, P), pt(P, H1), hpt(H1, H2). % v = *p
 `pt` (variable points to heap object) and `hpt` (heap object's field
 points to heap object) feed each other until the analysis stabilizes.
 
-## Is this real, or just academic?
-
-Entirely real. SQL grew `WITH RECURSIVE` precisely because customers
-needed these queries; every graph database's "traverse" is transitive
-closure; and the pointer-analysis example above is not a toy genre —
-Soufflé evaluates exactly such rule systems over millions of program
-facts for static analysis at Oracle and beyond, and GitHub's CodeQL runs
-recursive Datalog over codebases for security scanning as a product.
-Semi-naive evaluation is not a classroom nicety either: it is the inner
-loop of every shipping engine (Soufflé, RDFox, Datomic), and its "track
-what changed" idea grew into today's incremental-computation industry
-(Lesson 8).
 
 ## Exercises
 

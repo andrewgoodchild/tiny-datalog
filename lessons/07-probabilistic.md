@@ -63,17 +63,6 @@ So the honest summary:
 | probability of the best derivation | Viterbi semiring | implemented |
 | total probability of derivability | provenance + model counting | see exercise 3 |
 
-## Is this real, or just academic?
-
-The Viterbi semiring itself is one of the most-executed algorithms in
-history — it decodes the signal in every phone call and modem. The
-probabilistic-Datalog layer above it is younger commercially: its
-ancestors (DeepDive) built knowledge bases used in real
-paleontology and drug-discovery work, and the neurosymbolic wave
-(Scallop and kin) is the research-to-startup frontier where LLM systems
-get their reasoning audited. Honest status: the semiring is in your
-pocket; the full neurosymbolic stack is where the venture money and PhD
-theses currently overlap.
 
 ## Exercises
 

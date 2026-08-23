@@ -71,17 +71,6 @@ included untransformed and computed in full. Specializing *through*
 negation is possible but subtle, and it's where the research literature
 lives.
 
-## Is this real, or just academic?
-
-The specific transformation ships: Soufflé offers a magic-set transform,
-and the LogicBlox engine (now RelationalAI's lineage) built its
-"demand transformation" on this idea. But the broader principle is one
-of the most commercial ideas in data systems: *push what you know about
-the query into the evaluation*. Every SQL optimizer's predicate pushdown,
-every "filter early, join late" rewrite, every distributed engine
-shipping filters to the data — all are the magic-sets instinct wearing
-different clothes. Learn it here in its purest form and you will
-recognise it in every query plan you ever read.
 
 ## Exercises
 

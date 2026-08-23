@@ -99,18 +99,6 @@ modern program verification (Z3's Spacer, CHC-COMP). Different solving
 technology — SMT, interpolation — same clause shape you've been writing
 for nine lessons.
 
-## Is this real, or just academic?
-
-Prolog itself holds real niches (natural-language and rules components —
-IBM's Watson used Prolog for question parsing), but the commercial
-centre of gravity for Horn clauses today is **verification**: constrained
-Horn clauses are the intermediate language of Z3's Spacer and the
-automated-reasoning groups at cloud providers that prove properties of
-access policies, network configurations, and cryptographic code — AWS
-alone runs such checks billions of times a day. Undecidability, this
-lesson's theme, is those teams' daily weather: the whole discipline is
-choosing fragments and bounds so the checks still terminate. Exactly the
-trade Datalog made; they make it again, per problem, for money.
 
 ## Exercises
 

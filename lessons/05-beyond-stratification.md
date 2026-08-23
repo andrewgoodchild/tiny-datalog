@@ -104,18 +104,6 @@ model" or "constraint violated" is a modelling choice. A reasoning system
 worth trusting detects all of this rather than silently picking an
 answer.
 
-## Is this real, or just academic?
-
-The stable-model branch became answer set programming, and ASP earns
-money in exactly the places its "models = solutions" shape fits:
-industrial product configuration (Siemens has run ASP-based
-configurators for years), workforce and transport scheduling, and
-bioinformatics pipelines — clingo is the workhorse. The well-founded
-semantics runs inside XSB-derived compliance and policy systems. And the
-café-paradox skill itself — detecting that a policy is *inconsistent*
-rather than silently picking an answer — is precisely what regulated
-industries pay for in rule-validation tooling. Niche compared to SQL?
-Yes. Academic? The train timetable disagrees.
 
 ## Exercises
 

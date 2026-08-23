@@ -82,17 +82,6 @@ Suciu and colleagues, 2022 onward).
   semirings don't have. Making *that* work is precisely the DBSP insight
   (Lesson 8 discusses it).
 
-## Is this real, or just academic?
-
-Provenance is a compliance product category: data-lineage tooling
-("which sources fed this number?") is what GDPR audits and financial
-regulators demand, and why-provenance is its formal core — Soufflé ships
-a provenance-based debugger for exactly the "why is this fact here?"
-question. The min-plus semiring is how routing actually works, from
-network protocols to logistics. And the semiring framing itself is the
-theory behind RelationalAI's engine and the current push to unify
-recursive queries with analytics (counting, summing) — the liveliest
-theory-to-industry pipeline in the field right now.
 
 ## Exercises
 
