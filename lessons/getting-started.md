@@ -6,7 +6,7 @@ install beyond Python 3.9+.
 ```sh
 git clone https://github.com/<you>/tiny-datalog
 cd tiny-datalog
-python3 tests.py                     # 116 tests, should all pass
+python3 tests.py                     # 119 tests, should all pass
 python3 datalog.py programs/02-reachability.dl
 ```
 
@@ -93,3 +93,4 @@ The lessons build up the whole repository feature by feature:
 12. [Aggregation: counting without contradiction](12-aggregation.md)
 13. [Tabling: top-down without the cliff](13-tabling.md)
 14. [Containment: the same search, one level up](14-containment.md)
+15. [Closed and open worlds](15-closed-and-open-worlds.md)

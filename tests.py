@@ -598,6 +598,39 @@ class PrologTests(unittest.TestCase):
         self.assertEqual(answers, [])
 
 
+class ClosedAndOpenWorldTests(unittest.TestCase):
+    """Lesson 15: the two engines disagree about what absence means, and
+    the disagreement is observable."""
+
+    def test_missing_data_produces_a_confident_wrong_answer(self):
+        engine = run_program(load("15-missing-data.dl"))
+        # dana has no employment record at all
+        self.assertIn(("dana",), engine.rels["eligible_naive"])
+        self.assertNotIn(("dana",), engine.rels["eligible"])
+        self.assertEqual(engine.rels["pending"], {("dana",)})
+        self.assertEqual(engine.rels["eligible"], {("bob",)})
+        # and the wrong answer comes with a full derivation
+        tree = "\n".join(explain(engine, "eligible_naive", ("dana",)))
+        self.assertIn("not employed(dana)", tree)
+
+    def test_closed_world_is_non_monotone(self):
+        base = load("03-tweety.dl")
+        self.assertEqual(run_program(base).rels["flies"], {("tweety",)})
+        # adding a fact REMOVES a conclusion
+        self.assertEqual(
+            run_program(base + "\npenguin(tweety).").rels.get("flies", set()),
+            set())
+
+    def test_open_world_is_monotone(self):
+        base = load("10-family-ontology.dl")
+        before = subsumption.load(base).classify()["father"]
+        after = subsumption.load(base + "\nisa(father, taxpayer).\n"
+                                 ).classify()["father"]
+        # adding an axiom only ever ADDS subsumers
+        self.assertTrue(before < after)
+        self.assertIn("taxpayer", after - before)
+
+
 class QueryValidationTests(unittest.TestCase):
     def test_magic_query_rejects_structs_and_bad_arity(self):
         clauses = parse(load("02-reachability.dl"))

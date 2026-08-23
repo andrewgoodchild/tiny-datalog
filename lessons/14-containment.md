@@ -135,3 +135,7 @@ containment — four different fences, same reason for the fence.
    where does redundancy actually come from in practice? (Think about
    what happens when a view is inlined into another view, and why
    optimisers minimise *after* rewriting rather than before.)
+
+Next: [closed and open worlds](15-closed-and-open-worlds.md) — the two
+reasoners in this repository disagree about what absence means, and
+the disagreement is the last thing the course has to teach.

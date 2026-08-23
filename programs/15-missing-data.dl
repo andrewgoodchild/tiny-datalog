@@ -1,0 +1,40 @@
+% "We have no record" is not "we checked and the answer is no" — and a
+% closed-world engine cannot tell them apart unless you make it.
+%
+%   python3 datalog.py programs/15-missing-data.dl
+%   python3 datalog.py --explain 'eligible_naive(dana)' programs/15-missing-data.dl
+%
+% Three people in a qualifying household.  Cyril has been checked and
+% is employed.  Bob has been checked and is not.  Dana has never been
+% checked at all — her file is simply empty.
+%
+% The naive rule cannot see the difference between Bob and Dana, and
+% will confidently grant Dana the benefit with a perfect derivation
+% tree.  The careful rule demands positive evidence that a check
+% happened, and routes Dana to a third outcome instead of guessing.
+
+member(bob,   oak_house).
+member(cyril, oak_house).
+member(dana,  oak_house).
+
+receives_pension(cyril).
+
+% What we actually know, stated positively.
+employment_checked(bob).
+employment_checked(cyril).
+employed(cyril).
+% ... and nothing at all about dana.
+
+qualifying_household(H) :- member(P, H), receives_pension(P).
+
+% Absence of an employment record read as "not employed".
+eligible_naive(P) :- member(P, H), qualifying_household(H),
+                     not employed(P).
+
+% Absence read as absence: a check must have happened.
+eligible(P) :- member(P, H), qualifying_household(H),
+               employment_checked(P), not employed(P).
+
+% ... and the case the naive rule silently swallowed.
+pending(P) :- member(P, H), qualifying_household(H),
+              not employment_checked(P).

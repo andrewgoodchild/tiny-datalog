@@ -101,6 +101,16 @@ optimisations this course already taught: saturation is semi-naive
 fixpoint, and goal-directed subsumption checks are magic sets.
 
 
+## An assumption you have just changed
+
+Note what the classifier does *not* say. Nothing in the output claims
+`father ⊑ not tall`; unstated simply means unproven. That is the **open
+world assumption**, and it is the opposite of the one `datalog.py` has
+been making for nine lessons. [Lesson 15](15-closed-and-open-worlds.md)
+puts the two side by side, because the difference is observable: add an
+axiom here and conclusions only grow, while adding a fact to a Datalog
+program can take one away.
+
 ## Where this classifier stops
 
 Every other module in this course says where it runs out; here is this

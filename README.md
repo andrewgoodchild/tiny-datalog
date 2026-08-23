@@ -13,7 +13,7 @@ itself* — not about a case — that no amount of reading it will answer.
 
 That trade is what this repository is about. The evaluator is about 800
 lines of dependency-free Python — genuinely an afternoon's read — plus
-eight modules that each add one classical technique, and a 15-lesson
+eight modules that each add one classical technique, and a 16-lesson
 course that builds the whole thing up from facts and rules.
 
 ## A policy, and three things you can't see by reading it
@@ -115,7 +115,8 @@ checked" and "we have no record" — missing employment data will produce
 a confident `eligible(bob)` with an immaculate proof tree. The tree
 names its negative premises for exactly that reason: absence of
 evidence is the assumption you most need to see stated, and
-[lesson 3](lessons/03-negation.md) is about when it is safe to make.
+[lesson 15](lessons/15-closed-and-open-worlds.md) is about when it is
+safe to make, and what the alternative costs.
 
 ### What the verdicts mean
 
@@ -155,7 +156,7 @@ builds it.
 
 ```sh
 git clone https://github.com/<you>/tiny-datalog && cd tiny-datalog
-python3 tests.py        # 116 tests, ~0.6s
+python3 tests.py        # 119 tests, ~0.7s
 ```
 
 | Question | Command | Lesson |
@@ -245,6 +246,7 @@ lessons themselves use:
 - [12 · Aggregation: counting without contradiction](lessons/12-aggregation.md)
 - [13 · Tabling: top-down without the cliff](lessons/13-tabling.md)
 - [14 · Containment: the same search, one level up](lessons/14-containment.md)
+- [15 · Closed and open worlds](lessons/15-closed-and-open-worlds.md) — what absence means, in both directions
 
 Every lesson ends with exercises, and every exercise has a worked answer
 in `exercises/` — runnable where the answer is a program, and executed
@@ -376,11 +378,11 @@ tabling.py      tabled top-down evaluation (iterative QSQR)
 subsumption.py  KL-ONE-style EL classifier, compiled to Datalog
 containment.py  query containment and minimisation by homomorphism
 programs/       the classic teaching programs, numbered by lesson
-lessons/        getting started + lessons 0–14
+lessons/        getting started + lessons 0–15
 exercises/      worked answers, verified by the test suite
 cases/          golden test cases — add one without writing Python
 benchmarks/     scaled input generators (chain/tree/clique/grid)
-tests.py        116 tests: every shipped program and exercise answer is
+tests.py        119 tests: every shipped program and exercise answer is
                 executed, a conformance suite runs every query through
                 every applicable strategy, and a seeded fuzzer checks
                 the same property on random programs
@@ -402,7 +404,7 @@ Line counts are `wc -l`, so you can check them:
 | **whole toolkit, nine files** | **3,292** |
 
 Of those 3,292 lines: 2,043 are code, 787 are commentary, 462 are
-blank. `tests.py` adds a further 1,249, which is the ratio the project
+blank. `tests.py` adds a further 1,288, which is the ratio the project
 is actually built on — roughly one line of test for every 2.7 lines of
 toolkit, and every shipped program, exercise answer and README command
 is executed by it.

@@ -15,7 +15,10 @@ unreached(X) :- node(X), not reach(X).
 ```
 
 `not reach(X)` succeeds when `reach(X)` is *not derivable* — negation as
-failure, a closed-world reading: what I cannot prove, I take to be false.
+failure, a closed-world reading: what I cannot prove, I take to be
+false.  That reading is doing a lot of work, and it is safe only when
+your data is genuinely the authority — [lesson 15](15-closed-and-open-worlds.md)
+is about when it isn't, and what the alternative costs.
 Here `unreached` = {d}.
 
 Two ground rules come with it:
