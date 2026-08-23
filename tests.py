@@ -192,7 +192,13 @@ class ClassicExamplesTests(unittest.TestCase):
         self.assertEqual(len(models), 2)
         claimants = sorted(sorted(a[1][0] for a in m
                                   if a[0] == "eligible") for m in models)
-        self.assertEqual(claimants, [["bob"], ["cyril"]])
+        # the fork is localised: oak_house is contested (bob or cyril),
+        # elm_house is settled, so edith claims in both readings
+        self.assertEqual(claimants, [["bob", "edith"], ["cyril", "edith"]])
+        true, undefined = well_founded(choice)
+        self.assertIn(("eligible", ("edith",)), true)
+        self.assertEqual({a[1][0] for a in undefined if a[0] == "eligible"},
+                         {"bob", "cyril"})
 
     def test_family_and_ancestor(self):
         text = load("01-family.dl")

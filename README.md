@@ -7,18 +7,16 @@ by the same process that sometimes invents citations. You can't tell a
 real derivation from a plausible one without checking it yourself.
 
 A logic engine has no gap to fall through: the derivation **is** the
-computation. Ask why and you get the proof tree the answer came out of,
-identically every time, over a database far larger than a context
-window, at no extra cost — the engine already did the work. Ask whether
-the policy contradicts itself and you get a decision, not an opinion.
+computation, so it costs nothing to ask for and comes out identical on
+every run. More useful still, you can ask questions about the *policy
+itself* — not about a case — that no amount of reading it will answer.
 
 That trade is what this repository is about. The evaluator is about 800
 lines of dependency-free Python — genuinely an afternoon's read — plus
 eight modules that each add one classical technique, and a 15-lesson
 course that builds the whole thing up from facts and rules.
 
-**Why does it believe that?** Here is the policy — the shape every
-benefits rule, access-control list and compliance check is made of:
+## A policy, and three things you can't see by reading it
 
 ```prolog
 % programs/00-eligibility.dl
@@ -26,6 +24,75 @@ qualifying_household(H) :- member(P, H), receives_pension(P).
 qualifying_household(H) :- member(P, H), carer(P, Q), receives_pension(Q).
 eligible(P) :- member(P, H), qualifying_household(H), not employed(P).
 ```
+
+`:-` is "if", the comma is "and", capitals are variables — that is most
+of the language. Two ways in: a household qualifies through a member's
+own pension, *or* through a member who cares for a pensioner elsewhere
+(which is how elm_house qualifies, via edith caring for cyril in
+oak_house).
+
+Small enough to check by eye — which is the point. Everything below is
+something you cannot check by eye, at any size.
+
+### 1. The policy is ambiguous, and here are both lawful readings
+
+Add the rule every real scheme has — only one member of a household may
+claim — and the program stops having *an* answer:
+
+```prolog
+% programs/00-eligibility-choice.dl
+other_claimant(P) :- member(P, H), member(Q, H), eligible(Q), distinct(P, Q).
+eligible(P) :- member(P, H), qualifying_household(H),
+               not employed(P), not other_claimant(P).
+```
+
+```
+$ python3 datalog.py --models programs/00-eligibility-choice.dl
+Stable models: 2
+  model 1: eligible(bob).  eligible(edith).  other_claimant(cyril).  ...
+  model 2: eligible(cyril).  eligible(edith).  other_claimant(bob).  ...
+Well-founded model (three-valued):
+  true:      eligible(edith).  ...
+  undefined: eligible(bob).  eligible(cyril).  ...
+```
+
+The rule is silent about *which* member claims, so for oak_house there
+are two lawful ways to run the scheme and the engine names both. Note
+what it does *not* do: elm_house is settled in both models, so
+`eligible(edith)` comes back **true** rather than undefined. The
+ambiguity is localised to the household that actually has one.
+
+An engine that quietly picked bob would be worse than useless here.
+This one says: your policy has a fork, here is exactly where, and you
+owe it a tie-break rule (oldest? lowest income? first to apply?). That
+is a question about the policy, and no reading of five facts answers
+it.
+
+### 2. One more plausible clause and it self-destructs
+
+Anti-double-dipping: a household stops qualifying once a member is
+already claiming.
+
+```prolog
+% programs/00-eligibility-paradox.dl
+claiming(H) :- member(P, H), eligible(P).
+qualifying_household(H) :- member(P, H), receives_pension(P), not claiming(H).
+```
+
+```
+$ python3 datalog.py programs/00-eligibility-paradox.dl
+REJECTED: program is not stratifiable — negation occurs inside a recursive
+cycle: qualifying_household --not--> claiming --> eligible -->
+qualifying_household.  No stratum assignment exists, so the program has
+no stratified model.
+```
+
+Every clause is defensible alone; together they make eligibility depend
+on its own outcome. `--models` confirms this is a real defect and not
+fussiness — **no stable model exists at all**, and whether Bob is
+eligible comes out undefined.
+
+### 3. Why any particular answer holds
 
 ```
 $ python3 datalog.py --explain 'eligible(bob)' programs/00-eligibility.dl
@@ -38,50 +105,19 @@ $ python3 datalog.py --explain 'eligible(bob)' programs/00-eligibility.dl
      not employed(bob)   (absent from its completed stratum)
 ```
 
-Bob qualifies through his housemate's pension, and the negative
-condition that had to hold is stated as explicitly as the positive ones.
-Dana, in a household that also qualifies but employed, is simply absent
-from `eligible` — the rule discriminates, and the tree shows exactly
-which fact does the discriminating.
+This is the mechanism rather than the argument — at three rules you
+could reconstruct it yourself. It earns its place on the last line.
 
-**Is the policy even coherent?** Now add a clause any real scheme would
-want — a household stops qualifying once one of its members is already
-claiming, so nobody draws the benefit twice:
+**`not employed(bob)` does not mean Bob is unemployed. It means the
+database never said he was employed.** That is the closed-world
+assumption, and in a benefits system it is the difference between "we
+checked" and "we have no record" — missing employment data will produce
+a confident `eligible(bob)` with an immaculate proof tree. The tree
+names its negative premises for exactly that reason: absence of
+evidence is the assumption you most need to see stated, and
+[lesson 3](lessons/03-negation.md) is about when it is safe to make.
 
-```prolog
-% programs/00-eligibility-paradox.dl — the same policy, plus:
-claiming(H) :- member(P, H), eligible(P).
-qualifying_household(H) :- member(P, H), receives_pension(P), not claiming(H).
-```
-
-```
-$ python3 datalog.py programs/00-eligibility-paradox.dl
-REJECTED: program is not stratifiable — negation occurs inside a recursive
-cycle: qualifying_household --not--> claiming --> eligible -->
-qualifying_household.  No stratum assignment exists, so the program has
-no stratified model.
-(This is a syntactic verdict.  Run with --models for the semantic one:
-stable models and the well-founded model.)
-```
-
-Every clause is defensible on its own; together they make eligibility
-depend on its own outcome. And this isn't the engine being fussy —
-`--models` shows there is **no stable model at all**, and that whether
-Bob is eligible comes out *undefined*:
-
-```
-$ python3 datalog.py --models programs/00-eligibility-paradox.dl
-Syntactic check: not stratifiable (qualifying_household --not--> claiming --> eligible --> qualifying_household).
-  (Syntactic only — an unstratifiable program may still have stable models.)
-Stable models: none — no consistent two-valued model exists.
-Well-founded model (three-valued):
-  true:      (EDB facts only)
-  undefined: claiming(oak_house).  eligible(bob).  eligible(cyril).  qualifying_household(oak_house).
-```
-
-**So how do you write rules that behave?** The engine gives you a
-three-way verdict, and each answer tells you something different about
-your policy rather than about your syntax.
+### What the verdicts mean
 
 | `--models` says | your policy is | what to do |
 |---|---|---|
@@ -89,40 +125,16 @@ your policy rather than about your syntax.
 | no stable model | self-contradictory | a condition reads its own outcome; break the loop |
 | several stable models | underspecified | consistent, but you owe it a tie-break |
 
-The paradox above is the middle row. The fix is a policy decision, not
-a syntax trick: the double-dipping check has to read a **register**
-maintained elsewhere rather than this program's own output.
+Fixing the middle row is a policy decision, not a syntax trick: the
+double-dipping check has to read a **register** maintained elsewhere
+rather than this program's own output
+(`programs/00-eligibility-stable.dl`). The general rule falls out of
+it — **negating a base fact is free; negating a derived predicate is
+what forces an order.** The loop closed not because the broken version
+used negation twice, but because one of its negations read something
+the program was still computing.
 
-```prolog
-% programs/00-eligibility-stable.dl
-claim_on_record(elm_house).        % an input, never this program's output
-qualifying_household(H) :- member(P, H), receives_pension(P),
-                           not claim_on_record(H).
-eligible(P) :- member(P, H), qualifying_household(H), not employed(P).
-```
-
-That stratifies, and the general rule falls out of it: **negating a
-base fact is free; negating a derived predicate is what forces an
-order.** The loop closed in the broken version not because it used
-negation twice but because one of the negations read something the
-program was still computing.
-
-The third row is the interesting one. "Only one member of a household
-may claim" is not contradictory — it is simply silent about *which*:
-
-```
-$ python3 datalog.py --models programs/00-eligibility-choice.dl
-Stable models: 2
-  model 1: eligible(bob).  other_claimant(cyril).  qualifying_household(oak_house).
-  model 2: eligible(cyril).  other_claimant(bob).  qualifying_household(oak_house).
-```
-
-Two lawful ways to run the scheme. The engine won't choose — the choice
-is a policy question (oldest? lowest income? first to apply?) — but it
-found the fork, named both branches, and told you a rule is missing.
-That is a far more useful failure than a system that quietly picks one.
-
-All three answers are *derived*, not described — which is what makes
+All three verdicts are *derived*, not described — which is what makes
 them checkable, cheap, and identical on every run. That is the case for
 knowing this material: LLMs generate, logic engines guarantee, and the
 interesting systems use each for what it is good at. (The obvious
