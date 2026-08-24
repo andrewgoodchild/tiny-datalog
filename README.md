@@ -56,28 +56,58 @@ writing code* and it scores in the high nineties.
 The reason is verification, which is what formal methods have always
 been for.
 
-A model gives you an answer and an explanation, and the explanation is
-a separate artifact from the answer — fluent, plausible, and produced
-by the same process that sometimes invents citations. You cannot
-distinguish a real derivation from a convincing one by reading it. An
-engine gives you an answer whose derivation *is* the computation, so it
-cannot disagree with the result, and it either produces one or refuses.
+Start from the hardest version of the objection: a model can just write
+Python. Forty lines with a breadth-first search gets the same answer as
+the example below. If that is the whole task, write the Python.
 
-There is a sharper version of this. When the engine says *no stable
-model exists*, that is a property of your rules — it would hold for
-rules nobody has ever written down. When a model says the same thing,
-it may be reasoning, or it may be that your problem resembles something
-in its training data. Both produce identical transcripts, and one test
-cannot tell you which you are relying on. The classic paradoxes are the
-*worst* possible probe, because they are the most written-about objects
-in logic.
+What you cannot do is ask anything about the Python afterwards.
+**Datalog is a deliberately restricted language, and the restriction
+buys you a set of questions that are decidable about the rules
+themselves:**
 
-So the useful arrangement is not model *or* engine. The evidence
-supports a division of labour: reasoning in natural-language tokens
-degrades steeply with problem size, while the same models writing code
-that runs against data on disk barely degrade at all ([the numbers are
-below](#should-you-just-ask-a-model-instead)). **The model's job is to
-write the rules; the engine's job is to run them and check them.**
+| Question about the generated rules | Datalog | Python |
+|---|---|---|
+| Does it terminate? | yes, by construction | undecidable |
+| Are the rules circular? | decidable — names the cycle | — |
+| Is there exactly one consistent answer? | decidable | not even well-formed |
+| Is this rule redundant given that one? | decidable | undecidable |
+| Are these two rule sets equivalent? | decidable (conjunctive) | undecidable |
+
+A model writing Python hands you an answer you must trust. A model
+writing Datalog hands you an answer *plus* machine-checkable claims
+about the logic that produced it. That is the whole of the difference,
+and it exists because the language gave things up.
+
+Three consequences worth naming:
+
+- **The artifact is reviewable by someone who is not a programmer.**
+  `eligible(P) :- member(P, H), qualifying_household(H), not employed(P).`
+  is nearly the policy sentence. The imperative equivalent is loops and
+  mutable state, which a caseworker or an auditor cannot check. When
+  machine-written rules govern people, who can read them matters more
+  than who can run them.
+- **Termination is a safety property.** If you are going to execute
+  rules a model wrote, "this halts whatever it generated" is worth a
+  great deal, and nothing gives you that for generated code.
+- **Provenance and incremental maintenance come from the semantics**
+  rather than from more generated code you would also have to verify.
+
+And the boundary, stated plainly, because it is narrower than this
+field usually claims for itself. Datalog earns its place when **the
+rules outlive the query** — when they are policy rather than a script,
+when someone must review them, when an auditor will ask why, when the
+data keeps changing, and when *"are these rules even coherent"* is a
+question you need answered before trusting any answer they produce.
+For a one-off question, or anything arithmetic-heavy, or where nobody
+will ask why later, a model and forty lines of Python is the better
+tool. That is most problems.
+
+The evidence supports a division of labour rather than a winner:
+reasoning in natural-language tokens degrades steeply with problem size,
+while the same models writing code that runs against data on disk
+barely degrade at all ([numbers below](#should-you-just-ask-a-model-instead)).
+**The model's job is to write the rules; the engine's job is to run
+them and to check them.**
 
 That makes this repository's features look different than they did
 before. Each is a check you would want on machine-written rules:
@@ -91,10 +121,10 @@ before. Each is a check you would want on machine-written rules:
 | unsound — an unbound variable | safety validation |
 | correct, but needing sign-off | `--explain` → the derivation, not an argument |
 
-The limit is worth stating plainly: an engine checks *coherence*, not
+The limit is worth stating too: an engine checks *coherence*, not
 intent. A rule set can pass every check above and still be the wrong
-policy. What formal methods buy you is not correctness — it is making
-the remaining judgement cheap enough for a human to actually make.
+policy. What formal methods buy is not correctness — it is making the
+remaining judgement cheap enough for a human to actually make.
 
 ## A worked example
 
