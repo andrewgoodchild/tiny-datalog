@@ -183,6 +183,7 @@ much larger territory than the one science fiction warned us about.
 | 1977 | conjunctive-query containment (Chandra–Merlin) | Lesson 14 · `containment.py` |
 | 1978 → today | KL-ONE → description logics → OWL / SNOMED | Lesson 10 · `subsumption.py` |
 | throughout | closed vs open worlds — what absence means | Lesson 15 |
+| the practice | authoring rules others must review | Lesson 16 |
 | 1990s → today | recursive aggregation; SLG tabling (XSB) | Lessons 12–13 · `tabling.py` |
 
 The repository is small on purpose — every algorithm named above is

@@ -98,3 +98,4 @@ The lessons build up the whole repository feature by feature:
 13. [Tabling: top-down without the cliff](13-tabling.md)
 14. [Containment: the same search, one level up](14-containment.md)
 15. [Closed and open worlds](15-closed-and-open-worlds.md)
+16. [Writing rules that survive review](16-writing-rules.md)

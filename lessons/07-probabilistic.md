@@ -1,5 +1,7 @@
 # Lesson 7 — Probabilistic Datalog, honestly
 
+> **Follows on from lesson 6.** Assumes you have met semirings.
+
 Give facts probabilities and you have the on-ramp to neurosymbolic AI:
 a neural network estimates fact confidences, a logic program reasons over
 them. This lesson builds the piece of that which is *actually a
@@ -58,10 +60,34 @@ neural network and be trained end-to-end.
 
 So the honest summary:
 
+So what *is* the total probability? You compute it from the witness
+sets, not from a semiring. `exercises/06-homomorphism.py`'s companion
+does exactly that — enumerate the 2⁵ worlds, keep the ones where s
+reaches t, sum their probabilities:
+
+```
+$ python3 exercises/07-exact-prob.py
+exact P(s reaches t)  = 0.934450   (enumeration over 32 worlds)
+Viterbi (best route)  = 0.810000
+exact >= Viterbi: True
+```
+
+The exact answer must be at least the Viterbi one, because "some route
+works" includes "the best route works". The 0.12 gap is the value of
+the backup paths — precisely the redundancy a single-derivation
+semiring cannot see.
+
+That enumeration is exponential, which is why real systems compute it
+from *provenance* rather than from possible worlds: get the witness
+sets once (lesson 6), then hand them to a weighted model counter. That
+is the architecture Scallop uses, and the reason its provenance is
+differentiable is what lets the whole pipeline sit inside a neural
+network.
+
 | Question | Tool | Status here |
 |---|---|---|
 | probability of the best derivation | Viterbi semiring | implemented |
-| total probability of derivability | provenance + model counting | see exercise 3 |
+| total probability of derivability | witness sets + model counting | worked above |
 
 
 ## Exercises

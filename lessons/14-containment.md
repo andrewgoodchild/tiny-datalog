@@ -1,5 +1,7 @@
 # Lesson 14 — Containment: the same search, one level up
 
+> **Self-contained.** Needs lessons 1–3 only, despite the number.
+
 Every lesson so far asked what a program computes *on this database*.
 An optimiser asks a harder question: what does it compute on **every**
 database? Two queries that agree on your data may disagree on data you

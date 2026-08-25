@@ -51,7 +51,45 @@ or must agree with earlier bindings. A rule body is evaluated by folding
 `_match` over its literals under one growing substitution — which is
 exactly a relational join, done as nested loops.
 
-**Semi-naive is fifteen lines** (`Engine._eval_stratum`). Round one
+**Semi-naive is about twenty lines** (`Engine._eval_stratum`). Here it
+is, so you do not have to open another window:
+
+```python
+    # Round 1: evaluate every rule of the stratum against the full db.
+    delta = defaultdict(set)
+    for rule in rules:
+        for tup in self._produce(rule):
+            if tup not in self.rels[rule.head.pred]:
+                delta[rule.head.pred].add(tup)
+    self._absorb(delta, stat)
+
+    # Recursive rules: a positive body literal names a stratum predicate.
+    recursive = []
+    for rule in rules:
+        occs = [i for i, lit in enumerate(rule.body)
+                if not lit.negated and lit.atom.pred in preds]
+        if occs:
+            recursive.append((rule, occs))
+
+    # Semi-naive rounds: substitute the previous round's delta into each
+    # recursive position in turn; every other literal reads the full
+    # (already-updated) relations, so no new derivation is missed and
+    # nothing is recomputed from only-old facts.
+    while delta:
+        new_delta = defaultdict(set)
+        for rule, occs in recursive:
+            head = rule.head.pred
+            for i in occs:
+                if not delta.get(rule.body[i].atom.pred):
+                    continue
+                for tup in self._eval_rule(rule, delta_occ=i, delta=delta):
+                    if tup not in self.rels[head]:
+                        new_delta[head].add(tup)
+        delta = new_delta
+        self._absorb(delta, stat)
+```
+
+Round one
 evaluates every rule against the full database. After that, each
 recursive rule is re-evaluated once per recursive body position, with
 that position restricted to the previous round's *delta* and every other

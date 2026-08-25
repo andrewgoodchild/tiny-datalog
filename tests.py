@@ -170,6 +170,26 @@ class ClassicExamplesTests(unittest.TestCase):
         after = {s for s, c in inc.rels["exposed"] if c == "cve_2026_0002"}
         self.assertTrue(after > before)
 
+    def test_lending_policy_drafts(self):
+        # lesson 16: the engine catches both drafts, in different ways
+        with self.assertRaises(SafetyError) as cm:
+            run_program("member(iris). may_borrow(P) :- member(P), "
+                        "not overdue(P, B).")
+        self.assertIn("not overdue(P, B)", str(cm.exception))
+        # draft 2 runs but lets a suspended staff member borrow
+        draft2 = run_program("""
+            member(kim). staff(kim). suspended(kim).
+            has_overdue(P) :- overdue(P, _).
+            may_borrow(P) :- member(P), not has_overdue(P), not suspended(P).
+            may_borrow(P) :- staff(P).
+        """)
+        self.assertIn(("kim",), draft2.rels["may_borrow"])
+        tree = "\n".join(explain(draft2, "may_borrow", ("kim",)))
+        self.assertIn("may_borrow(P) :- staff(P).", tree)
+        # the shipped draft 3 fixes it
+        final = run_program(load("16-lending.dl"))
+        self.assertEqual(final.rels["may_borrow"], {("iris",), ("kim",)})
+
     def test_eligibility_policy(self):
         # the README's opening example: negation as an exemption, and a
         # derivation tree that names the fact doing the discriminating

@@ -1,5 +1,12 @@
 # Lesson 6 — Semirings: what a derivation carries
 
+> **Heavier going than lessons 1–5.** This one uses a little algebra —
+> semirings, quotients, a small impossibility proof. If that is not
+> your background, read to the end of "One program, four questions",
+> then skip to the summary box before the exercises. The result you
+> need for lessons 7 and 8 is just: *the same program computes
+> different things if you change what a derivation carries.*
+
 So far a fact is just true or false. But a derivation *carries* things:
 a cost, a count, a set of supporting evidence. Semiring-valued Datalog
 (`semiring.py`) generalises evaluation so the same program answers all of

@@ -173,6 +173,7 @@ a question, the command that answers it, and the lesson that builds it.
 | What do these definitions entail about each other? | `python3 subsumption.py programs/10-family-ontology.dl` | [10](lessons/10-kl-one-subsumption.md) |
 | Are these two queries the same query? | `python3 containment.py programs/14-minimise.dl` | [14](lessons/14-containment.md) |
 | Does absence mean false, or just unrecorded? | `python3 datalog.py programs/15-missing-data.dl` | [15](lessons/15-closed-and-open-worlds.md) |
+| How do I write rules someone else can sign off? | `python3 datalog.py --explain 'may_borrow(iris)' programs/16-lending.dl` | [16](lessons/16-writing-rules.md) |
 
 Provenance, in full:
 
@@ -304,7 +305,7 @@ subsumption.py  KL-ONE-style EL classifier, compiled to Datalog
 containment.py  query containment and minimisation by homomorphism
 programs/       teaching programs, numbered by the lesson that uses
                 them (00-* are the README's examples)
-lessons/        getting started, glossary, and lessons 0–15
+lessons/        getting started, glossary, and lessons 0–16
 exercises/      worked answers, verified by the test suite
 cases/          golden test cases — add one without writing Python
 benchmarks/     scaled input generators (chain/tree/clique/grid)

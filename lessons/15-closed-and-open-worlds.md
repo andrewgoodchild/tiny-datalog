@@ -161,3 +161,6 @@ one, the row just isn't there", you have found a bug waiting.
    *undefined*. Is that the same thing as the open world's "unknown"?
    Argue both sides, then say which of the two the `pending` predicate
    above is closer to.
+
+Next: [writing rules](16-writing-rules.md) — sixteen lessons on how
+engines evaluate rules, and one on authoring them.

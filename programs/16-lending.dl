@@ -1,0 +1,22 @@
+% A library lending policy, after three rounds of correction.
+% Lesson 16 walks through the drafts that got here.
+%
+%   python3 datalog.py -q 'may_borrow(P)' programs/16-lending.dl
+%   python3 datalog.py --explain 'may_borrow(iris)' programs/16-lending.dl
+
+member(iris).      member(jon).      member(kim).      member(lena).
+staff(kim).
+
+% loans that are recorded as overdue, by whoever runs circulation
+overdue(jon, book_a).
+
+% suspensions are a decision made elsewhere, not derived here
+suspended(lena).
+
+% Draft 3.  Every negation points at a base fact, so this stratifies
+% and has exactly one model — see the lesson for why drafts 1 and 2
+% did not.
+has_overdue(P) :- overdue(P, _).
+
+may_borrow(P) :- member(P), not has_overdue(P), not suspended(P).
+may_borrow(P) :- staff(P), not suspended(P).
