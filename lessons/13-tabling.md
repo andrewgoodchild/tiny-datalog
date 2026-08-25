@@ -2,14 +2,14 @@
 
 The course has answered queries three ways, each with a flaw it owns
 honestly: bottom-up (Lesson 2) computes everything whether you asked or
-not; magic sets (Lesson 4) fixes that by rewriting the program before
+not; magic sets (Lesson 5) fixes that by rewriting the program before
 running bottom-up; SLD (Lesson 9) is natively goal-directed but repeats
 subgoals endlessly and falls off a cliff on left recursion. Tabling is
 the fourth strategy — top-down, goal-directed, and it terminates.
 
 ## The cliff, first
 
-`programs/13-left-recursive.dl` defines ancestor the way a database
+`programs/left-recursive.dl` defines ancestor the way a database
 person naturally would:
 
 ```prolog
@@ -26,7 +26,7 @@ memorise rule-ordering folklore.
 ## The fix: give every subgoal a table
 
 ```sh
-$ python3 tabling.py programs/13-left-recursive.dl -q 'ancestor(abe, X)' -t
+$ python3 tabling.py programs/left-recursive.dl -q 'ancestor(abe, X)' -t
 ?- ancestor(abe, X)   [tabled]
    ancestor(abe, ann).
    ancestor(abe, bob).
@@ -39,7 +39,7 @@ $ python3 tabling.py programs/13-left-recursive.dl -q 'ancestor(abe, X)' -t
 ```
 
 A **subgoal** is a predicate plus a pattern of bound arguments —
-`ancestor(abe, _)` — and each subgoal gets a **table** of answers,
+`ancestor(abe, _)`, and each subgoal gets a **table** of answers,
 computed once and shared by every occurrence. The recursive call inside
 `ancestor`'s own rule doesn't descend; it *reads the table*, and an
 outer fixpoint loop grows all tables until nothing changes (`tabling.py`
@@ -55,8 +55,8 @@ subgoals, finitely many answers per table.
 Run the bound reachability query both ways:
 
 ```sh
-python3 tabling.py programs/02-reachability.dl -q 'path(n5, X)' -t
-python3 datalog.py --magic --trace -q 'path(n5, X)' programs/02-reachability.dl
+python3 tabling.py programs/reachability.dl -q 'path(n5, X)' -t
+python3 datalog.py --magic --trace -q 'path(n5, X)' programs/reachability.dl
 ```
 
 The tabling run creates path tables for exactly {n5, n6, n7, n8} — and
@@ -65,11 +65,12 @@ n8}. Same sets, provably doing the same job: **magic sets is tabling
 performed at compile time; tabling is magic sets performed at run
 time.** One is a program transformation, the other a smarter
 interpreter, and the demand they compute is identical. That equivalence
-(QSQ/magic-sets duality) is one of the field's quietly beautiful
+(the Query-Subquery/magic-sets duality) is one of the field's quietly
+beautiful
 theorems, and you can now verify it with two shell commands.
 
 What this module leaves out — negation. Tabling under negation is SLG
-resolution, which computes the well-founded semantics of Lesson 5;
+resolution, which computes the well-founded semantics of Lesson 4;
 building it is how XSB earned its place in the history told in
 Lesson 0.
 
@@ -77,7 +78,7 @@ Lesson 0.
 ## Exercises
 
 1. Compare `tabling.py -t` and `--magic --trace` on
-   `ancestor(bob, X)` over `programs/01-family.dl`. Match each table to
+   `ancestor(bob, X)` over `programs/family.dl`. Match each table to
    a magic fact.
 2. The rounds count for the left-recursive query is larger than the
    answer count. Why does iterative QSQR pay extra rounds, and what do
@@ -97,6 +98,6 @@ suite in `tests.py`. The remaining lessons step outside evaluation —
 [16](16-writing-rules.md) is about authoring rules rather than running
 them.
 
-Next: [containment](14-containment.md) — the last lesson asks a
+Next: [containment](14-containment.md). The last lesson asks a
 question evaluation never does: what does this query compute on
 *every* database?

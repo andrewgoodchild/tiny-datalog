@@ -7,7 +7,7 @@ joins and becomes a language.
 
 ## Transitive closure
 
-The canonical recursive program (`programs/02-reachability.dl`):
+The canonical recursive program (`programs/reachability.dl`):
 
 ```prolog
 path(X, Y) :- edge(X, Y).                 % base case
@@ -20,13 +20,13 @@ edge plus a length-1 path), and so on, until a round adds nothing new.
 
 Termination is guaranteed: no rule can invent new constants, so there are
 finitely many possible facts, and the fact set only grows. Every Datalog
-program terminates — this is the deep trade against Prolog and general
+program terminates. This is the deep trade against Prolog and general
 logic programming, bought by banning function symbols.
 
 ## Watching it run
 
 ```sh
-$ python3 datalog.py --trace programs/02-reachability.dl
+$ python3 datalog.py --trace programs/reachability.dl
 Semi-naive evaluation:
   stratum 1 (path):
     round 1: +9 path
@@ -67,9 +67,9 @@ DBSP).
 
 ## The same rules, on data you can't eyeball
 
-`programs/02-reachability.dl` is a ten-node chain, which is good for
+`programs/reachability.dl` is a ten-node chain, which is good for
 watching the machinery and bad for believing it matters.
-`programs/00-supply-chain.dl` is the same two rules over a software
+`programs/supply-chain.dl` is the same two rules over a software
 dependency graph: 160 packages, 292 dependency edges, 12 of them
 services you deploy.
 
@@ -80,8 +80,8 @@ exposed(S, C) :- service(S), uses(S, L), vulnerable(L, C).
 ```
 
 Two numbers make the case for recursion better than any chain does.
-The 292 edges you *stated* imply **8,457** `uses` facts — the closure
-is 29× the input — and the question "which services are exposed to this
+The 292 edges you *stated* imply **8,457** `uses` facts: the closure
+is 29× the input, and the question "which services are exposed to this
 CVE" is answered in the closure, not in the input. Four of the twelve
 services are exposed, and nothing you can see in the file tells you
 which four.
@@ -89,7 +89,7 @@ which four.
 Now watch the deltas, because they do something the chain cannot:
 
 ```sh
-$ python3 datalog.py --trace programs/00-supply-chain.dl
+$ python3 datalog.py --trace programs/supply-chain.dl
     round  1: +292 uses
     round  2: +475 uses
     round  3: +661 uses,  +3 exposed
@@ -112,7 +112,7 @@ re-deriving all 8,457 known ones.
 The cost of not doing that is measurable:
 
 ```sh
-$ python3 datalog.py --naive --trace programs/00-supply-chain.dl
+$ python3 datalog.py --naive --trace programs/supply-chain.dl
 ```
 
 Naive evaluation derives **166,171** tuples to arrive at the same 8,766
@@ -124,7 +124,7 @@ discipline, and it grows with the graph.
 
 There is a distinction hiding in everything above, and naming it makes
 the rest of the course legible. A Datalog program has two sizes — the
-**rules** and the **data** — and cost behaves completely differently in
+**rules** and the **data**, and cost behaves completely differently in
 each.
 
 Hold the program fixed (the two `path` rules) and grow the data:
@@ -153,10 +153,12 @@ on data that never changed.
 That is the shape of the two standard measures:
 
 - **Data complexity** — program fixed, data varies. Datalog is
-  **PTIME-complete** here. Polynomial, and the exponent depends on the
+  **PTIME-complete** here (as hard as any problem solvable in polynomial
+  time). Polynomial, and the exponent depends on the
   rules you wrote, not on how much data you have.
 - **Combined complexity** — both vary. Datalog is
-  **EXPTIME-complete**, and the exponential lives in the number of
+  **EXPTIME-complete** (exponential time), and the exponential lives in
+  the number of
   variables per rule, because each one multiplies the space of
   candidate bindings to join over.
 
@@ -166,7 +168,7 @@ organised around. Real workloads have small programs and enormous data:
 CodeQL runs a few hundred rules over a codebase with hundreds of
 millions of facts, and it is only viable because the axis that grows is
 the cheap one. It is also why Lesson 14 can call query minimisation
-worth an NP-complete analysis — you pay it once per rule and save on
+worth an NP-complete analysis: you pay it once per rule and save on
 every row.
 
 (This engine's data curve is worse than the theory allows: nested-loop
@@ -190,7 +192,7 @@ semi-naive implementation misses derivations where *both* body literals
 are new. See `test_nonlinear_recursion_joins_delta_with_new_facts`.)
 
 **Mutual recursion.** Predicates can recurse through each other
-(`programs/02-even-odd.dl` — run it with `--trace` to see both evaluated
+(`programs/even-odd.dl` — run it with `--trace` to see both evaluated
 in one stratum):
 
 ```prolog
@@ -204,7 +206,7 @@ evaluates them together, in one fixpoint.
 
 **A modern classic — pointer analysis.** Real static analyzers are
 mutually recursive Datalog at heart. A miniature Andersen-style analysis
-(`programs/02-points-to.dl`):
+(`programs/points-to.dl`):
 
 ```prolog
 pt(V, H)     :- alloc(V, H).                        % v = new h
@@ -227,7 +229,7 @@ points to heap object) feed each other until the analysis stabilizes.
 3. Predict which of the three `path` variants takes the fewest rounds on
    a 16-node chain, then verify (`python3 benchmarks/generate.py chain 16`
    makes the input; compare `--trace` with and without `--naive` while
-   you're there — the "tuples derived" column is naive evaluation paying
+   you're there: the "tuples derived" column is naive evaluation paying
    for its lack of a delta).
 
 Next: [negation](03-negation.md) — where "not" turns out to be the hard

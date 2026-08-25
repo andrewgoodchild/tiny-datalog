@@ -10,13 +10,13 @@ spend_count(P, count(C)) :- charge(P, C, A).
 average_parts(P, S, N)   :- spend_sum(P, S), spend_count(P, N).
 ```
 
-`average_parts(alice, 180, 2)` — the division is the consumer's job,
+`average_parts(alice, 180, 2)`: the division is the consumer's job,
 because dividing requires arithmetic over *derived* values, which is a
 built-in, which is deliberately missing (README, "Deliberately
 missing"): a built-in must fire at the moment its operands bind, and
 this engine refuses to make join order semantically significant.
 
-**2. `reach(alice, N)` — and dana's absence.**
+**2. `reach(alice, N)`, and dana's absence.**
 
 `reach(alice, 3)`: alice is connected to bob, carol, and dana. dana
 produces *no* `reach` fact at all — she knows no one, so the body has
@@ -49,7 +49,7 @@ total(bob, 990)   [via total(P, sum(A)) :- charge(P, C, A).]
   = sum over 2 body solutions of A: [90, 900]
 ```
 
-Instead of premises, the tree shows the *group* — one entry per body
+Instead of premises, the tree shows the *group*: one entry per body
 solution, in a list rather than a set, because two solutions
 contributing equal values are two contributions. An aggregate fact
 isn't supported by any single body fact: remove either charge and the

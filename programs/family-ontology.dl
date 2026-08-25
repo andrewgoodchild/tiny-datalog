@@ -1,8 +1,8 @@
 % A KL-ONE-style family ontology in the EL concept language.
 %
-%   python3 subsumption.py programs/10-family-ontology.dl          classify
-%   python3 subsumption.py --emit programs/10-family-ontology.dl   the Datalog
-%   python3 subsumption.py -q grandfather programs/10-family-ontology.dl
+%   python3 subsumption.py programs/family-ontology.dl          classify
+%   python3 subsumption.py --emit programs/family-ontology.dl   the Datalog
+%   python3 subsumption.py -q grandfather programs/family-ontology.dl
 %
 % isa/2    = necessary condition only (a "primitive" concept)
 % define/2 = necessary AND sufficient (a "defined" concept — the

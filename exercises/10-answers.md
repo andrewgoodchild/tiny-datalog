@@ -12,8 +12,8 @@ unaided.
 
 **2. Why doesn't `isa(father, tall)` make every man tall?**
 
-`isa` states a *necessary* condition — every father is tall — and
-inference flows upward from father only. Nothing says tall things are
+`isa` states a *necessary* condition: every father is tall. Inference
+flows upward from father only. Nothing says tall things are
 fathers, and nothing connects man to tall at all. A `define(father,
 and(man, tall, ...))` would be different: definitions are necessary
 AND sufficient, so any concept provably man-and-tall-with-a-child would
@@ -23,12 +23,12 @@ KL-ONE: only definitions let the classifier discover.
 **3. Goal-directed subsumption via `--emit` + magic.**
 
 ```sh
-python3 subsumption.py --emit programs/10-family-ontology.dl > /tmp/ont.dl
+python3 subsumption.py --emit programs/family-ontology.dl > /tmp/ont.dl
 python3 datalog.py --magic --trace -q 'subs(grandfather, parent)' /tmp/ont.dl
 ```
 
 The magic facts that appear are `magic#subs#bb(grandfather, parent)`
-and the subgoals demand discovers from it — the classifier's work
+and the subgoals demand discovers from it: the classifier's work
 narrowed to one subsumption question. (Tabling the same query shows the
 same sets as tables: lesson 13's punchline, in ontology form.)
 

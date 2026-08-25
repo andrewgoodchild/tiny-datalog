@@ -1,7 +1,7 @@
 # Lesson 8 — Incremental maintenance: don't recompute the world
 
 Databases change. If one edge appears in a million-edge graph, rerunning
-the whole fixpoint to update `path` is absurd — the answer differs by a
+the whole fixpoint to update `path` is absurd: the answer differs by a
 handful of facts. Incremental view maintenance repairs the materialised
 relations instead. `incremental.py` implements both directions for
 positive programs.
@@ -17,7 +17,7 @@ insertions and run the same loop:
 ```python
 from incremental import IncrementalEngine
 
-inc = IncrementalEngine(open("programs/02-reachability.dl").read())
+inc = IncrementalEngine(open("programs/reachability.dl").read())
 inc.insert("edge(n8, n1).")
 # {'inserted': 1, 'derived': ...}   — only the new consequences
 ```
@@ -46,9 +46,9 @@ delete("edge(n3, n4).")   — n2's shortcut keeps most paths alive:
   {'deleted': 1, 'over_deleted': 7, 'rederived': 4, 'net_removed': 3}
 ```
 
-The graph (`programs/08-dred-graph.dl`) is a chain n1..n5 plus a shortcut
-edge(n2, n4). Deleting edge(n3, n4) implicates seven facts — the edge
-itself plus six paths — but four of the paths, like path(n1, n5),
+The graph (`programs/dred-graph.dl`) is a chain n1..n5 plus a shortcut
+edge(n2, n4). Deleting edge(n3, n4) implicates seven facts: the edge
+itself plus six paths, but four of the paths, like path(n1, n5),
 survive via the shortcut and are re-derived. Only the three
 facts genuinely dependent on the dead edge stay dead. The engine then
 verifies the repaired state equals a from-scratch recomputation (so do
@@ -61,17 +61,17 @@ is counting-based maintenance and eventually DBSP.
 
 ## The case that makes it obvious
 
-`programs/00-supply-chain.dl` (Lesson 2) is where this stops being an
+`programs/supply-chain.dl` (Lesson 2) is where this stops being an
 optimisation. The materialisation is 8,766 facts over a dependency
 graph, and the world changes in exactly one way: a CVE is published.
 
 ```python
->>> inc = IncrementalEngine(open("programs/00-supply-chain.dl").read())
+>>> inc = IncrementalEngine(open("programs/supply-chain.dl").read())
 >>> inc.insert("vulnerable(pkg40, cve_2026_0002).")
 {'inserted': 1, 'derived': 12}
 ```
 
-Twelve new facts, 0.03 seconds, against 0.81 to rebuild — and the new
+Twelve new facts, 0.03 seconds, against 0.81 to rebuild, and the new
 CVE turns out to reach *every* service, which nobody predicted by
 looking. This is the shape of the real workload: the rules never
 change, the graph rarely changes, and the vulnerability feed changes
@@ -82,12 +82,12 @@ the thing incremental maintenance exists to stop.
 
 DRed's weakness is recomputation in phase 2, and the deeper issue is that
 sets can't express "this fact lost one of its two supports." Modern
-systems (Differential Dataflow, DBSP — the 2023 boom in incremental
+systems (Differential Dataflow, DBSP: the 2023 boom in incremental
 computation) work with **Z-sets**: facts with signed multiplicities,
 where an insertion is +1, a deletion is −1, and the algebra of changes
 composes through joins, recursion, everything. Semi-naive evaluation and
 DRed are both special cases of one uniform derivative rule. That algebra
-needs subtraction — exactly the operation Lesson 6's semirings lack —
+needs subtraction, exactly the operation Lesson 6's semirings lack —
 which is why this module handles change and semiring.py handles values,
 and unifying them is a current research frontier.
 
@@ -108,5 +108,5 @@ programs rather than getting them quietly wrong.
    DRed's worst case?
 3. Why does `insert()` never need a re-derive phase? One sentence.
 
-Next: [Horn clauses](09-horn-clauses.md) — the boundary the whole
+Next: [Horn clauses](09-horn-clauses.md). The boundary the whole
 language lives on.

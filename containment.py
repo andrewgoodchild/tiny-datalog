@@ -30,7 +30,7 @@ answer.
 
 CLI
 ---
-    python3 containment.py programs/14-minimise.dl
+    python3 containment.py programs/minimise.dl
     python3 containment.py --contains 'q(X) :- e(X, Y), e(Y, Z).' \\
                            'q(X) :- e(X, Y).'
 """

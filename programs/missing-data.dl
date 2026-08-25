@@ -1,8 +1,8 @@
 % "We have no record" is not "we checked and the answer is no" — and a
 % closed-world engine cannot tell them apart unless you make it.
 %
-%   python3 datalog.py programs/15-missing-data.dl
-%   python3 datalog.py --explain 'eligible_naive(dana)' programs/15-missing-data.dl
+%   python3 datalog.py programs/missing-data.dl
+%   python3 datalog.py --explain 'eligible_naive(dana)' programs/missing-data.dl
 %
 % Three people in a qualifying household.  Cyril has been checked and
 % is employed.  Bob has been checked and is not.  Dana has never been

@@ -20,7 +20,7 @@ joins them.
 **2. Bill of materials, chain of 6 parts.**
 
 `has_part` derives 15 facts (all ordered pairs down the chain) in **5
-rounds of new facts** — one per containment depth: `--trace` shows
+rounds of new facts**, one per containment depth. `--trace` shows
 +5, +4, +3, +2, +1, then fixpoint. Depth of recursion = number of
 rounds; that is semi-naive's shape on any chain.
 

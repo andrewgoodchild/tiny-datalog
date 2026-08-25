@@ -1,7 +1,7 @@
-# Lesson 4 — Magic sets: asking questions efficiently
+# Lesson 5 — Magic sets: asking questions efficiently
 
 Bottom-up evaluation has a blind spot. Ask `path(n5, X)` — "what can n5
-reach?" — and the engine computes *every* path in the graph, then throws
+reach?", and the engine computes *every* path in the graph, then throws
 away all but the ones starting at n5. Prolog would never do that: it
 starts from the query and only explores what's relevant. But Prolog can
 loop forever, and we don't want to give up termination or semi-naive.
@@ -13,7 +13,7 @@ evaluation of the original would have done.
 ## The idea in one example
 
 ```sh
-$ python3 datalog.py --magic --trace -q 'path(n5, X)' programs/02-reachability.dl
+$ python3 datalog.py --magic --trace -q 'path(n5, X)' programs/reachability.dl
 Magic-sets rewriting (answer predicate path#bf):
   path#bf(X, Y)     :- magic#path#bf(X), edge(X, Y).
   magic#path#bf(Y)  :- magic#path#bf(X), edge(X, Y).
@@ -36,31 +36,31 @@ Read the pieces:
 - **Every original rule gets guarded** by the magic predicate, so it can
   only fire for demanded start points.
 
-The result: `magic#path#bf` fills with {n5, n6, n7, n8} — the demanded
-subgoals — and evaluation never touches the rest of the graph. 10 facts
+The result: `magic#path#bf` fills with {n5, n6, n7, n8}, the demanded
+subgoals, and evaluation never touches the rest of the graph. 10 facts
 instead of 35, same answers, still semi-naive, still guaranteed to
 terminate. You've recovered Prolog's goal-direction inside bottom-up
 evaluation.
 
 ## Different bindings, different rewritings
 
-Ask the reverse question — `path(X, n10)`, "what reaches n10?" — and the
+Ask the reverse question — `path(X, n10)`, "what reaches n10?", and the
 rewriting is different: the adornment is `fb`, and following how bindings
 flow through `path(X, Z) :- edge(X, Y), path(Y, Z)` produces a *second*
 adornment `bb` for the inner call. One predicate, several specializations,
 each with its own magic predicate. Try it:
 
 ```sh
-python3 datalog.py --magic --trace -q 'path(X, n10)' programs/02-reachability.dl
+python3 datalog.py --magic --trace -q 'path(X, n10)' programs/reachability.dl
 ```
 
 The classic showpiece is the **same-generation** program
-(`programs/04-same-generation.dl`) — for "who is in cal's generation?"
+(`programs/same-generation.dl`), for "who is in cal's generation?"
 magic sets explores only cal's ancestors and their descendants, not the
 whole family forest:
 
 ```sh
-python3 datalog.py --magic --trace -q 'sg(cal, Y)' programs/04-same-generation.dl
+python3 datalog.py --magic --trace -q 'sg(cal, Y)' programs/same-generation.dl
 ```
 
 ## Negation, briefly
@@ -87,7 +87,7 @@ rewriting on the same program lands in two very different places:
 
 Ask from near the chain's end and demand stays local: 170× fewer facts,
 12× faster. Ask from the start and demand propagates the entire chain —
-`magic#path#bf` fills with all 150 nodes — so the rewritten program
+`magic#path#bf` fills with all 150 nodes, so the rewritten program
 derives *more* facts than the original (the magic facts themselves) and
 every specialised rule now carries a guard literal that each join must
 scan. Result: 3.5× slower than not bothering.
@@ -96,8 +96,8 @@ The rule to take away is about demand, not about the technique being
 good or bad: **magic sets pays in proportion to how much the query's
 bindings prune the search.** When demand approaches the whole relation,
 the guards are pure overhead. This engine's nested-loop joins amplify
-that overhead — an indexed join would make the bad case closer to
-break-even — but indexing changes the size of the penalty, not its
+that overhead: an indexed join would make the bad case closer to
+break-even, but indexing changes the size of the penalty, not its
 existence. Real systems apply magic sets selectively for exactly this
 reason.
 
@@ -107,7 +107,7 @@ baseline just to print its comparison line, so time the query *without*
 
 ## Exercises
 
-1. For the ancestor program of Lesson 1 (`programs/01-family.dl`),
+1. For the ancestor program of Lesson 1 (`programs/family.dl`),
    compare `-q 'ancestor(abe, X)'` with and without `--magic --trace`.
    How many facts does each derive?
 2. Write down, by hand, the rewriting for `ancestor(X, dana)` (adornment
@@ -119,5 +119,5 @@ baseline just to print its comparison line, so time the query *without*
    binding failed to buy. Then find the crossover: how far along the
    chain must the query start before magic wins on wall-clock?
 
-Next: [beyond stratification](05-beyond-stratification.md) — what a
-program means when no stratification exists, and the café paradox.
+Next: [semirings](06-semirings.md), which asks what a derivation
+carries besides truth.

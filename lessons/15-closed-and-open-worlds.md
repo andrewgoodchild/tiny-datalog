@@ -22,7 +22,7 @@ computable at all (Lesson 3), and for a database it is usually right —
 if a row is missing from `employed`, that person genuinely isn't
 employed, because that table is the authority.
 
-Usually. `programs/15-missing-data.dl` has three people in a qualifying
+Usually. `programs/missing-data.dl` has three people in a qualifying
 household: Cyril, checked and employed; Bob, checked and not; and Dana,
 whose file is simply empty.
 
@@ -32,7 +32,7 @@ eligible_naive(P) :- member(P, H), qualifying_household(H),
 ```
 
 ```sh
-$ python3 datalog.py programs/15-missing-data.dl
+$ python3 datalog.py programs/missing-data.dl
 % eligible_naive/1 (derived) — 2 facts
 eligible_naive(bob).
 eligible_naive(dana).
@@ -41,12 +41,12 @@ eligible_naive(dana).
 Dana gets the benefit. Worse, she gets it with a flawless justification:
 
 ```sh
-$ python3 datalog.py --explain 'eligible_naive(dana)' programs/15-missing-data.dl
+$ python3 datalog.py --explain 'eligible_naive(dana)' programs/missing-data.dl
    ...
      not employed(dana)   (absent from its completed stratum)
 ```
 
-Read that last line carefully — it is the honest one. The engine is not
+Read that last line carefully; it is the honest one. The engine is not
 claiming Dana is unemployed. It is reporting that `employed(dana)` was
 absent from a relation it had finished computing. The rule is what
 turned "absent" into "therefore eligible".
@@ -62,7 +62,7 @@ pending(P) :- member(P, H), qualifying_household(H),
               not employment_checked(P).
 ```
 
-Now `eligible(bob)` and `pending(dana)` — a third outcome, which is the
+Now `eligible(bob)` and `pending(dana)`: a third outcome, which is the
 true state of the world. The general move: **model the check, not just
 the result.** Any time you write `not p(X)` against data that might
 merely be missing, you want a companion predicate asserting that the
@@ -74,7 +74,7 @@ question was actually asked.
 is no "complete" list of everything true about fathers. So it makes the
 opposite assumption: unstated means unknown. It will never tell you
 `father ⊑ not tall`; it cannot even express that (Lesson 10's limits
-section — no ⊥, no negation at all).
+section, no ⊥, no negation at all).
 
 The consequence is worth seeing rather than being told, because it is
 the sharpest observable difference between the two engines. Add
@@ -83,11 +83,11 @@ information to each and watch what happens to the conclusions.
 **Closed world — adding a fact destroys a conclusion:**
 
 ```sh
-$ python3 datalog.py -q 'flies(X)' programs/03-tweety.dl
+$ python3 datalog.py -q 'flies(X)' programs/tweety.dl
    flies(tweety).
    (1 answer)
 
-$ (cat programs/03-tweety.dl; echo 'penguin(tweety).') > /tmp/t.dl
+$ (cat programs/tweety.dl; echo 'penguin(tweety).') > /tmp/t.dl
 $ python3 datalog.py -q 'flies(X)' /tmp/t.dl
    (0 answers)
 ```
@@ -95,18 +95,19 @@ $ python3 datalog.py -q 'flies(X)' /tmp/t.dl
 **Open world — adding an axiom can only create conclusions:**
 
 ```sh
-$ python3 subsumption.py -q father programs/10-family-ontology.dl
+$ python3 subsumption.py -q father programs/family-ontology.dl
 father  ⊑  man, parent, person
 
-$ (cat programs/10-family-ontology.dl; echo 'isa(father, taxpayer).') > /tmp/o.dl
+$ (cat programs/family-ontology.dl; echo 'isa(father, taxpayer).') > /tmp/o.dl
 $ python3 subsumption.py -q father /tmp/o.dl
 father  ⊑  man, parent, person, taxpayer
 ```
 
 That is **non-monotonicity** versus **monotonicity**, and it is not a
-quirk of these implementations — it is forced by the two assumptions.
-Under CWA, new facts can shrink what "absent" covers, so conclusions
-can be withdrawn. Under OWA, nothing was ever concluded from absence,
+quirk of these implementations; it is forced by the two assumptions.
+Under the closed-world assumption (CWA), new facts can shrink what
+"absent" covers, so conclusions can be withdrawn. Under the open-world
+assumption (OWA), nothing was ever concluded from absence,
 so nothing has to be taken back.
 
 ## The trade, stated plainly
@@ -142,22 +143,22 @@ at all. The reverse is worse — ontology axioms loaded into a rule
 engine acquire a completeness claim nobody made.
 
 If you take one habit from this lesson: when you see `not` in a rule,
-ask *whose authority says this is absent* — and if the answer is "no
+ask *whose authority says this is absent*, and if the answer is "no
 one, the row just isn't there", you have found a bug waiting.
 
 ## Exercises
 
-1. Add `employment_checked(dana).` to `programs/15-missing-data.dl` and
+1. Add `employment_checked(dana).` to `programs/missing-data.dl` and
    predict all three relations before running it. Which of Dana's three
    possible states is now recorded?
-2. The `pending` rule uses `not employment_checked(P)` — which is
+2. The `pending` rule uses `not employment_checked(P)`, which is
    itself closed-world reasoning about the checking process. When is
    *that* safe, and what would the same objection look like one level
    up?
 3. Construct a Datalog program where adding a single fact removes two
    conclusions and adds a third. (Hint: chain a default off another
    default.)
-4. Lesson 5's well-founded semantics has a third truth value,
+4. Lesson 4's well-founded semantics has a third truth value,
    *undefined*. Is that the same thing as the open world's "unknown"?
    Argue both sides, then say which of the two the `pending` predicate
    above is closer to.

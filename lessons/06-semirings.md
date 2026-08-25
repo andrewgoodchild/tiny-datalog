@@ -10,7 +10,7 @@
 So far a fact is just true or false. But a derivation *carries* things:
 a cost, a count, a set of supporting evidence. Semiring-valued Datalog
 (`semiring.py`) generalises evaluation so the same program answers all of
-these questions — you only change the algebra.
+these questions. You only change the algebra.
 
 ## The idea
 
@@ -26,7 +26,7 @@ Plain Datalog is the boolean semiring: times = and, plus = or.
 
 ## One program, four questions
 
-Facts take weights with `@`. `programs/06-routes.dl` is a weighted DAG:
+Facts take weights with `@`. `programs/routes.dl` is a weighted directed acyclic graph:
 
 ```prolog
 edge(a, b) @ 1.   edge(a, c) @ 2.   edge(b, c) @ 1.
@@ -36,13 +36,13 @@ path(X, Z) :- edge(X, Y), path(Y, Z).
 ```
 
 ```sh
-$ python3 semiring.py --semiring minplus -q 'path(a, d)' programs/06-routes.dl
+$ python3 semiring.py --semiring minplus -q 'path(a, d)' programs/routes.dl
    path(a, d) = 4          # cheapest route (min over routes, + along a route)
 
-$ python3 semiring.py --semiring count -q 'path(a, d)' programs/06-routes.dl
+$ python3 semiring.py --semiring count -q 'path(a, d)' programs/routes.dl
    path(a, d) = 3          # three distinct routes
 
-$ python3 semiring.py --semiring why -q 'path(a, d)' programs/06-routes.dl
+$ python3 semiring.py --semiring why -q 'path(a, d)' programs/routes.dl
    path(a, d) = {edge(a, b), edge(b, c), edge(c, d)}
               | {edge(a, b), edge(b, d)}
               | {edge(a, c), edge(c, d)}
@@ -82,7 +82,7 @@ Suciu and colleagues, 2022 onward).
 ## Can you compute provenance once and specialise later?
 
 A real design-review question. Why-provenance is the expensive
-semiring — witness sets are big — and someone will propose computing it
+semiring — witness sets are big, and someone will propose computing it
 once and deriving the cheap answers from it afterwards by applying a
 function. When is that sound?
 
@@ -107,7 +107,7 @@ why -> minplus, over 06-routes.dl:
   => agrees on every fact
 ```
 
-**why → count does not exist.** Run `programs/06-two-derivations.dl`,
+**why → count does not exist.** Run `programs/two-derivations.dl`,
 where a second rule reaches the same conclusion from the same facts by
 a different route:
 
@@ -130,7 +130,7 @@ information is quotiented away, no function recovers it.
 
 So the design-review answer: **materialise the polynomial and you may
 specialise to anything; materialise why-provenance and you may only
-specialise to semirings that don't need multiplicity** — the idempotent
+specialise to semirings that don't need multiplicity**: the idempotent
 and absorptive ones, like minplus, max-min, and boolean. Counting,
 probability-by-summation, and anything else that distinguishes two
 routes through the same facts must be computed from the polynomial or
@@ -161,20 +161,20 @@ sits just underneath.
 
 ## Exercises
 
-1. Add a second cheap route to `06-routes.dl` and predict all three
+1. Add a second cheap route to `routes.dl` and predict all three
    semirings' answers for `path(a, e)` before running them.
 2. The `count` semiring ignores weights. Suppose it read `@ n` as a
    multiplicity (n parallel copies of the edge) — what would
-   `path(a, d)` become in `06-routes.dl`? (This is bag semantics.)
+   `path(a, d)` become in `routes.dl`? (This is bag semantics.)
 3. Design a semiring for "the *longest* path" and explain why it
    diverges on cyclic graphs for the same reason counting does.
 4. Write `h : why → minplus` yourself before reading
    `exercises/06-homomorphism.py`, and check it against
-   `--semiring minplus` on `06-routes.dl`. Which of the two semiring
+   `--semiring minplus` on `routes.dl`. Which of the two semiring
    axioms is the one you have to think about?
 5. Construct your own program where `why → count` fails — two
    derivations of one fact from one set of base facts. Then explain
    why the same trick cannot break `why → bool`.
 
-Next: [probabilistic Datalog](07-probabilistic.md) — the semiring that
+Next: [probabilistic Datalog](07-probabilistic.md). The semiring that
 almost works, and why its failure matters.

@@ -20,7 +20,8 @@ memorising:
 Here is what that buys you.
 
 You deploy 12 services, sitting on 160 packages joined by 292
-dependency edges. A CVE lands on one package. Which services are
+dependency edges. A CVE (Common Vulnerabilities and Exposures entry, a
+published security flaw) lands on one package. Which services are
 exposed?
 
 You write down **facts**, things simply true:
@@ -35,7 +36,7 @@ vulnerable(pkg21, cve_2026_0001). % pkg21 has the CVE
 means "and", capitals are variables:
 
 ```prolog
-% programs/00-supply-chain.dl
+% programs/supply-chain.dl
 uses(X, Y) :- depends(X, Y).                  % you use what you depend on
 uses(X, Z) :- depends(X, Y), uses(Y, Z).      % ...and whatever that uses
 
@@ -48,7 +49,7 @@ walks the graph to any depth, without you saying how deep or when to
 stop.
 
 ```
-$ python3 datalog.py -q 'exposed(S, C)' programs/00-supply-chain.dl
+$ python3 datalog.py -q 'exposed(S, C)' programs/supply-chain.dl
 ?- exposed(S, C)
    exposed(pkg0, cve_2026_0001).
    exposed(pkg4, cve_2026_0001).
@@ -63,7 +64,7 @@ in those. Ask why, and you get the derivation the answer came out of,
 which is also the remediation path:
 
 ```
-$ python3 datalog.py --explain 'exposed(pkg4, cve_2026_0001)' programs/00-supply-chain.dl
+$ python3 datalog.py --explain 'exposed(pkg4, cve_2026_0001)' programs/supply-chain.dl
 ?- explain exposed(pkg4, cve_2026_0001)
    exposed(pkg4, cve_2026_0001)   [via exposed(S, C) :- service(S), uses(S, L), vulnerable(L, C).]
      service(pkg4)   (base fact)
@@ -78,7 +79,7 @@ When tomorrow's CVE arrives, the engine repairs those 8,457 facts
 instead of recomputing them:
 
 ```
-$ python3 incremental.py programs/00-supply-chain.dl -u 'vulnerable(pkg100, cve_2026_0002).'
+$ python3 incremental.py programs/supply-chain.dl -u 'vulnerable(pkg100, cve_2026_0002).'
 materialised: 8766 facts
 vulnerable(pkg100, cve_2026_0002).
   -> {'inserted': 1, 'derived': 12} in 0.034s
@@ -122,7 +123,7 @@ cannot answer them. Datalog can, because it gave things up:
 | Are two rule sets equivalent? | decidable for the non-recursive fragment | undecidable |
 
 (Containment and equivalence become undecidable once recursion is
-involved — Shmueli, 1993 — which is why `containment.py` handles
+involved — Shmueli, 1993, which is why `containment.py` handles
 conjunctive queries and refuses the rest.
 [Lesson 14](lessons/14-containment.md) covers the boundary.)
 
@@ -157,28 +158,28 @@ a question, the command that answers it, and the lesson that builds it.
 
 | Question | Command | Lesson |
 |---|---|---|
-| What follows from these facts and rules? | `python3 datalog.py programs/01-family.dl` | [1](lessons/01-first-steps.md) |
-| What's reachable, at any depth? | `python3 datalog.py --trace programs/02-reachability.dl` | [2](lessons/02-recursion.md) |
-| What holds *unless* something else does? | `python3 datalog.py programs/03-tweety.dl` | [3](lessons/03-negation.md) |
-| Answer just this query — don't compute everything | `python3 datalog.py --magic -q 'path(n5, X)' programs/02-reachability.dl` | [4](lessons/04-magic-sets.md) |
-| Is this rule set self-contradictory? | `python3 datalog.py --models programs/00-eligibility-paradox.dl` | [5](lessons/05-beyond-stratification.md) |
-| Why did you conclude that? | `python3 datalog.py --explain 'eligible(bob)' programs/00-eligibility.dl` | [1](lessons/01-first-steps.md), [11](lessons/11-under-the-hood.md) |
-| Which facts does the conclusion rest on? | `python3 semiring.py -s why programs/06-routes.dl` | [6](lessons/06-semirings.md) |
-| What's the cheapest route? How many ways? | `python3 semiring.py -s minplus programs/06-routes.dl` | [6](lessons/06-semirings.md) |
-| How likely is it? | `python3 semiring.py -s viterbi programs/07-prob-reach.dl` | [7](lessons/07-probabilistic.md) |
-| The data changed — what changed in the answers? | `python3 incremental.py programs/08-dred-graph.dl -u 'edge(n3, n4)~.'` | [8](lessons/08-incremental.md) |
-| How many, how much, largest? | `python3 datalog.py programs/12-spending.dl` | [12](lessons/12-aggregation.md) |
-| Answer a goal top-down, even left-recursive | `python3 tabling.py programs/13-left-recursive.dl -q 'ancestor(abe, X)'` | [13](lessons/13-tabling.md) |
-| What if I allow function symbols — and lose termination? | `python3 prolog.py programs/09-peano.pl -q 'add(X, Y, s(s(zero)))'` | [9](lessons/09-horn-clauses.md) |
-| What do these definitions entail about each other? | `python3 subsumption.py programs/10-family-ontology.dl` | [10](lessons/10-kl-one-subsumption.md) |
-| Are these two queries the same query? | `python3 containment.py programs/14-minimise.dl` | [14](lessons/14-containment.md) |
-| Does absence mean false, or just unrecorded? | `python3 datalog.py programs/15-missing-data.dl` | [15](lessons/15-closed-and-open-worlds.md) |
-| How do I write rules someone else can sign off? | `python3 datalog.py --explain 'may_borrow(iris)' programs/16-lending.dl` | [16](lessons/16-writing-rules.md) |
+| What follows from these facts and rules? | `python3 datalog.py programs/family.dl` | [1](lessons/01-first-steps.md) |
+| What's reachable, at any depth? | `python3 datalog.py --trace programs/reachability.dl` | [2](lessons/02-recursion.md) |
+| What holds *unless* something else does? | `python3 datalog.py programs/tweety.dl` | [3](lessons/03-negation.md) |
+| Answer just this query — don't compute everything | `python3 datalog.py --magic -q 'path(n5, X)' programs/reachability.dl` | [5](lessons/05-magic-sets.md) |
+| Is this rule set self-contradictory? | `python3 datalog.py --models programs/eligibility-paradox.dl` | [4](lessons/04-beyond-stratification.md) |
+| Why did you conclude that? | `python3 datalog.py --explain 'eligible(bob)' programs/eligibility.dl` | [1](lessons/01-first-steps.md), [11](lessons/11-under-the-hood.md) |
+| Which facts does the conclusion rest on? | `python3 semiring.py -s why programs/routes.dl` | [6](lessons/06-semirings.md) |
+| What's the cheapest route? How many ways? | `python3 semiring.py -s minplus programs/routes.dl` | [6](lessons/06-semirings.md) |
+| How likely is it? | `python3 semiring.py -s viterbi programs/prob-reach.dl` | [7](lessons/07-probabilistic.md) |
+| The data changed — what changed in the answers? | `python3 incremental.py programs/dred-graph.dl -u 'edge(n3, n4)~.'` | [8](lessons/08-incremental.md) |
+| How many, how much, largest? | `python3 datalog.py programs/spending.dl` | [12](lessons/12-aggregation.md) |
+| Answer a goal top-down, even left-recursive | `python3 tabling.py programs/left-recursive.dl -q 'ancestor(abe, X)'` | [13](lessons/13-tabling.md) |
+| What if I allow function symbols, and lose termination? | `python3 prolog.py programs/peano.pl -q 'add(X, Y, s(s(zero)))'` | [9](lessons/09-horn-clauses.md) |
+| What do these definitions entail about each other? | `python3 subsumption.py programs/family-ontology.dl` | [10](lessons/10-kl-one-subsumption.md) |
+| Are these two queries the same query? | `python3 containment.py programs/minimise.dl` | [14](lessons/14-containment.md) |
+| Does absence mean false, or just unrecorded? | `python3 datalog.py programs/missing-data.dl` | [15](lessons/15-closed-and-open-worlds.md) |
+| How do I write rules someone else can sign off? | `python3 datalog.py --explain 'may_borrow(iris)' programs/lending.dl` | [16](lessons/16-writing-rules.md) |
 
 Provenance, in full:
 
 ```
-$ python3 semiring.py -s why -q 'path(a, d)' programs/06-routes.dl
+$ python3 semiring.py -s why -q 'path(a, d)' programs/routes.dl
 Semiring: why   (fixpoint after 5 rounds)
 ?- path(a, d)
    path(a, d) = {edge(a, b), edge(b, c), edge(c, d)} | {edge(a, b), edge(b, d)} | {edge(a, c), edge(c, d)}
@@ -211,7 +212,7 @@ python3 benchmarks/generate.py chain 150 > chain150.dl
 The last two are the same rewriting on the same program. Magic sets
 pays in proportion to how much the query's bindings prune; when demand
 is the whole relation the guards are pure overhead.
-[Lesson 4](lessons/04-magic-sets.md) works through why.
+[Lesson 5](lessons/05-magic-sets.md) works through why.
 
 Correctness is checked by a seeded differential fuzzer that generates
 stratified programs and demands semi-naive, naive, magic-sets and
@@ -221,7 +222,7 @@ recomputation under random updates. 400 programs per run;
 
 ## Learning Datalog
 
-`lessons/` is a complete course — no prior exposure assumed, every
+`lessons/` is a complete course, no prior exposure assumed, every
 example a runnable file, following the field's own history from 1977 to
 the current research threads. The Lesson column above is the index;
 [lessons/getting-started.md](lessons/getting-started.md) has the titles
@@ -281,9 +282,10 @@ quietly:
   algorithms stay one-screen readable. It is also why the magic-sets
   timing above goes the way it does.
 - **⊤, ⊥, role hierarchies** in the classifier — what ships is plain
-  EL. SNOMED needs ELH with right identities, which is what ELK and
-  Snorocket implement and this does not.
-- **A REPL and packaging.** `git clone` and run.
+  EL. SNOMED needs ELH (EL plus role hierarchies) with right identities,
+  which is what the ELK and Snorocket reasoners implement and this does
+  not.
+- **A REPL (interactive prompt) and packaging.** `git clone` and run.
 
 Aggregation used to be on this list;
 [lesson 12](lessons/12-aggregation.md) is what promoting an omission
@@ -321,8 +323,8 @@ tour.
 
 ### How big is it, honestly
 
-The evaluator is about 800 lines (`datalog.py`, up to the CLI), its
-CLI and `--explain` another 400, and the eight satellite modules about
+The evaluator is about 800 lines (`datalog.py`, up to the
+command-line interface), the CLI and `--explain` another 400, and the eight satellite modules about
 2,100. Call it 3.3k lines of toolkit and 1.3k of tests, roughly a
 quarter of it commentary.
 

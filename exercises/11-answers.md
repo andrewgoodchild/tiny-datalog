@@ -4,11 +4,11 @@
 
 The delta column (`+9 path`) counts facts that are *new* this round;
 the naive-mode column (`(24 tuples derived)`) counts every derivation
-performed, new or not — and it grows each round while the deltas
+performed, new or not, and it grows each round while the deltas
 shrink, because naive evaluation rederives the entire relation-so-far
 every time. What `_eval_stratum_naive` lacks is one thing: the
 restriction of one body position to the previous round's delta
-(`_eval_rule(delta_occ=i, delta=...)`) — the single argument-pair that
+(`_eval_rule(delta_occ=i, delta=...)`), the single argument-pair that
 is the whole of semi-naive.
 
 **2. Adding `X != Y`.**
@@ -21,7 +21,7 @@ force enumeration of an open domain); and evaluation as a filter in
 `_rule_substitutions`, exactly where negated literals filter. Note the
 order sensitivity you must handle: the check can only run once both
 variables are bound, which is why real engines treat built-ins as a
-scheduling problem — the README's "Deliberately missing" section is
+scheduling problem. The README's "Deliberately missing" section is
 this exercise's design discussion.
 
 **3. `max_rounds` protection for `Engine`.**
@@ -29,7 +29,7 @@ this exercise's design discussion.
 You can add the parameter, but no Datalog program can ever need it:
 finitely many constants → finitely many possible facts → a monotone
 loop must stop. To *need* the guard you'd have to invent new values
-mid-derivation — function symbols — and `validate` refuses them before
+mid-derivation, and `validate` refuses function symbols before
 evaluation starts. The exercise's answer is the proof pattern:
 termination lives in the language definition, not the loop.
 

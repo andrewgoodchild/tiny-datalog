@@ -5,12 +5,12 @@
 Give facts probabilities and you have the on-ramp to neurosymbolic AI:
 a neural network estimates fact confidences, a logic program reasons over
 them. This lesson builds the piece of that which is *actually a
-semiring* — and shows precisely where the simple story breaks, because
+semiring*, and shows precisely where the simple story breaks, because
 the breakage is the interesting part.
 
 ## Viterbi: the probability of the best derivation
 
-`programs/07-prob-reach.dl` is a flaky network:
+`programs/prob-reach.dl` is a flaky network:
 
 ```prolog
 link(s, a) @ 0.9.    link(a, t) @ 0.9.
@@ -21,7 +21,7 @@ reach(X, Z) :- link(X, Y), reach(Y, Z).
 ```
 
 ```sh
-$ python3 semiring.py --semiring viterbi -q 'reach(s, t)' programs/07-prob-reach.dl
+$ python3 semiring.py --semiring viterbi -q 'reach(s, t)' programs/prob-reach.dl
    reach(s, t) = 0.81
 ```
 
@@ -74,7 +74,7 @@ exact >= Viterbi: True
 
 The exact answer must be at least the Viterbi one, because "some route
 works" includes "the best route works". The 0.12 gap is the value of
-the backup paths — precisely the redundancy a single-derivation
+the backup paths, precisely the redundancy a single-derivation
 semiring cannot see.
 
 That enumeration is exponential, which is why real systems compute it

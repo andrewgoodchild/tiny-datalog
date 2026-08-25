@@ -3,9 +3,9 @@
 % datalog.py refuses this file (try it: the error message states the
 % boundary).  prolog.py runs it top-down with a depth bound:
 %
-%   python3 prolog.py programs/09-peano.pl -q 'add(s(zero), s(s(zero)), X)'
-%   python3 prolog.py programs/09-peano.pl -q 'add(X, Y, s(s(zero)))'
-%   python3 prolog.py programs/09-peano.pl -q 'nat(X)' --max-solutions 5
+%   python3 prolog.py programs/peano.pl -q 'add(s(zero), s(s(zero)), X)'
+%   python3 prolog.py programs/peano.pl -q 'add(X, Y, s(s(zero)))'
+%   python3 prolog.py programs/peano.pl -q 'nat(X)' --max-solutions 5
 
 nat(zero).
 nat(s(N)) :- nat(N).

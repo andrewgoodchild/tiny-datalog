@@ -3,9 +3,9 @@
 **1. `mult` forwards and backwards.**
 
 ```sh
-python3 prolog.py programs/09-peano.pl -q 'mult(s(s(zero)), s(s(zero)), X)'
+python3 prolog.py programs/peano.pl -q 'mult(s(s(zero)), s(s(zero)), X)'
    X = s(s(s(s(zero))))          # 2 × 2 = 4
-python3 prolog.py programs/09-peano.pl -q 'mult(X, s(s(zero)), s(s(s(s(zero)))))'
+python3 prolog.py programs/peano.pl -q 'mult(X, s(s(zero)), s(s(s(s(zero)))))'
    X = s(s(zero))                # 4 ÷ 2 = 2, by running × in reverse
 ```
 
@@ -24,7 +24,7 @@ enter.
 
 **3. Does `lt(X, zero)` fail finitely?**
 
-Yes — no depth bound needed. Both `lt` clauses have `s(N)` as their
+Yes, no depth bound needed. Both `lt` clauses have `s(N)` as their
 second argument, and `zero` unifies with neither, so resolution has
 zero matching clauses and fails immediately. This is *finite failure*:
 the honest kind of "no", as opposed to the depth-bound's "unproven".

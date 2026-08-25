@@ -34,7 +34,7 @@ dependencies only), `off_cycle` in stratum 2, above the negation.
 It is, and must be: stratification is a property of the *rules*, not
 the data. `win` depends on `not win` syntactically, whatever the move
 graph contains; the engine cannot know the data keeps the recursion
-harmless without evaluating — which is exactly what the stratified
-semantics refuses to gamble on. The semantics that *does* consult the
-ground program is lesson 5's (`--models` accepts this program and finds
+harmless without evaluating, and that gamble is exactly what the
+stratified semantics refuses to take. The semantics that *does* consult the
+ground program is lesson 4's (`--models` accepts this program and finds
 its unique stable model).

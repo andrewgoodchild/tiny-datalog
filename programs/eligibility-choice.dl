@@ -1,8 +1,8 @@
 % The policy of 00-eligibility.dl, plus a rule every scheme has: only
 % one member of a household may claim.
 %
-%   python3 datalog.py programs/00-eligibility-choice.dl     (rejected)
-%   python3 datalog.py --models programs/00-eligibility-choice.dl
+%   python3 datalog.py programs/eligibility-choice.dl     (rejected)
+%   python3 datalog.py --models programs/eligibility-choice.dl
 %
 % This is not a contradiction — it is a SILENCE.  The rule says one
 % claimant per household without saying which one, and for oak_house

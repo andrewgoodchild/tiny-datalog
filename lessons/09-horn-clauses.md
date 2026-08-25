@@ -1,13 +1,13 @@
 # Lesson 9 — Horn clauses: the boundary Datalog lives on
 
-Every rule in this repository is a **Horn clause** — a formula with at
+Every rule in this repository is a **Horn clause**: a formula with at
 most one positive literal, `b₁ ∧ … ∧ bₙ → h`. Datalog is Horn-clause
 logic with one thing confiscated: **function symbols**. This lesson
 gives them back, to show exactly what the confiscation bought.
 
 ## The boundary, stated by the engine
 
-`programs/09-peano.pl` defines arithmetic the logician's way:
+`programs/peano.pl` defines arithmetic the logician's way:
 
 ```prolog
 nat(zero).
@@ -19,7 +19,7 @@ add(s(M), N, s(R)) :- add(M, N, R).
 Feed it to the Datalog engine:
 
 ```sh
-$ python3 datalog.py programs/09-peano.pl
+$ python3 datalog.py programs/peano.pl
 error: function symbols are not Datalog: term s(N) in nat(s(N)) :- nat(N).
 Datalog bans compound terms so that bottom-up evaluation always
 terminates; for Horn clauses with function symbols use the top-down
@@ -34,12 +34,15 @@ syntax rule separates a query language from a programming language.
 
 ## The other side: SLD resolution
 
+SLD stands for *Selective Linear resolution for Definite clauses*, and
+it is the proof procedure Prolog runs on.
+
 `prolog.py` is a miniature top-down interpreter: to prove a goal, find a
 clause whose head **unifies** with it, and recursively prove that
-clause's body. This is SLD resolution — the heart of Prolog.
+clause's body. This is SLD resolution: the heart of Prolog.
 
 ```sh
-$ python3 prolog.py programs/09-peano.pl -q 'add(s(zero), s(s(zero)), X)'
+$ python3 prolog.py programs/peano.pl -q 'add(s(zero), s(s(zero)), X)'
 ?- add(s(zero), s(s(zero)), X)
    X = s(s(s(zero)))
    (1 solution)
@@ -48,7 +51,7 @@ $ python3 prolog.py programs/09-peano.pl -q 'add(s(zero), s(s(zero)), X)'
 Unification makes the program *reversible* — ask which pairs sum to two:
 
 ```sh
-$ python3 prolog.py programs/09-peano.pl -q 'add(X, Y, s(s(zero)))'
+$ python3 prolog.py programs/peano.pl -q 'add(X, Y, s(s(zero)))'
    X = zero,  Y = s(s(zero))
    X = s(zero),  Y = s(zero)
    X = s(s(zero)),  Y = zero
@@ -58,7 +61,7 @@ $ python3 prolog.py programs/09-peano.pl -q 'add(X, Y, s(s(zero)))'
 The price appears on the very next query:
 
 ```sh
-$ python3 prolog.py programs/09-peano.pl -q 'nat(X)' --max-solutions 5
+$ python3 prolog.py programs/peano.pl -q 'nat(X)' --max-solutions 5
    X = zero
    X = s(zero)
    ...
@@ -83,10 +86,10 @@ cut, arithmetic, or I/O. Just resolution.
 | function symbols | banned | yes |
 | termination | guaranteed | undecidable |
 | all answers at once | yes (fixpoint) | enumerated, maybe forever |
-| goal-directed | via magic sets (Lesson 4) | natively |
+| goal-directed | via magic sets (Lesson 5) | natively |
 | data structures | none — facts only | lists, trees, numbers |
 
-Magic sets (Lesson 4) is this table's punchline: it imports top-down's
+Magic sets (Lesson 5) is this table's punchline: it imports top-down's
 goal-direction into bottom-up evaluation *without* importing the
 non-termination — possible only because the function-symbol ban keeps
 everything finite.
@@ -95,8 +98,9 @@ everything finite.
 
 Add theory constraints (arithmetic, arrays) to Horn clauses and you get
 **constrained Horn clauses**, the standard intermediate language of
-modern program verification (Z3's Spacer, CHC-COMP). Different solving
-technology — SMT, interpolation — same clause shape you've been writing
+modern program verification (Z3's Spacer solver, and CHC-COMP, the
+annual competition for them). Different solving
+technology (satisfiability modulo theories, interpolation), same clause shape you've been writing
 for nine lessons.
 
 

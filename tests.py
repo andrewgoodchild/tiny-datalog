@@ -128,7 +128,7 @@ class SemiNaiveTests(unittest.TestCase):
         self.assertLess(len(engine.stats[0]["iterations"]), 8)
 
     def test_shipped_reachability_program(self):
-        engine = run_program(load("02-reachability.dl"))
+        engine = run_program(load("reachability.dl"))
         self.assertEqual(len(engine.rels["path"]), 35)
 
     def test_facts_seed_recursive_predicate(self):
@@ -146,7 +146,7 @@ class ClassicExamplesTests(unittest.TestCase):
     def test_supply_chain_reachability(self):
         # 292 dependency facts, 12 services, one CVE: which services are
         # exposed is not readable off the data, which is the point
-        text = load("00-supply-chain.dl")
+        text = load("supply-chain.dl")
         engine = run_program(text)
         self.assertEqual(
             {s for s, _c in engine.rels["exposed"]},
@@ -162,7 +162,7 @@ class ClassicExamplesTests(unittest.TestCase):
         # (That the repair equals a fresh recompute is established for
         # arbitrary programs by DifferentialFuzzTests; here we only need
         # that the incremental path handles this one.)
-        inc = IncrementalEngine(load("00-supply-chain.dl"))
+        inc = IncrementalEngine(load("supply-chain.dl"))
         before = {s for s, _c in inc.rels["exposed"]}
         stats = inc.insert("vulnerable(pkg40, cve_2026_0002).")
         self.assertEqual(stats["inserted"], 1)
@@ -187,13 +187,13 @@ class ClassicExamplesTests(unittest.TestCase):
         tree = "\n".join(explain(draft2, "may_borrow", ("kim",)))
         self.assertIn("may_borrow(P) :- staff(P).", tree)
         # the shipped draft 3 fixes it
-        final = run_program(load("16-lending.dl"))
+        final = run_program(load("lending.dl"))
         self.assertEqual(final.rels["may_borrow"], {("iris",), ("kim",)})
 
     def test_eligibility_policy(self):
         # the README's opening example: negation as an exemption, and a
         # derivation tree that names the fact doing the discriminating
-        engine = run_program(load("00-eligibility.dl"))
+        engine = run_program(load("eligibility.dl"))
         self.assertEqual(engine.rels["eligible"],
                          {("bob",), ("cyril",), ("edith",)})
         self.assertNotIn(("dana",), engine.rels["eligible"])  # employed
@@ -207,7 +207,7 @@ class ClassicExamplesTests(unittest.TestCase):
     def test_eligibility_paradox(self):
         # the README's second demo: one plausible anti-double-dipping
         # clause turns the same policy self-referential
-        text = load("00-eligibility-paradox.dl")
+        text = load("eligibility-paradox.dl")
         with self.assertRaises(StratificationError) as cm:
             run_program(text)
         message = str(cm.exception)
@@ -224,7 +224,7 @@ class ClassicExamplesTests(unittest.TestCase):
 
     def test_eligibility_stable_and_underspecified(self):
         # the README's three-way verdict: one model, none, or several
-        stable = run_program(load("00-eligibility-stable.dl"))
+        stable = run_program(load("eligibility-stable.dl"))
         self.assertEqual(stable.rels["eligible"], {("bob",), ("cyril",)})
         # elm_house is excluded by the register, not by the rules looping
         self.assertEqual(stable.rels["qualifying_household"],
@@ -232,9 +232,9 @@ class ClassicExamplesTests(unittest.TestCase):
         # negating only base facts forces no stratum boundary
         self.assertEqual(set(stable.program.strata.values()), {1})
 
-        choice = parse(load("00-eligibility-choice.dl"))
+        choice = parse(load("eligibility-choice.dl"))
         with self.assertRaises(StratificationError):
-            run_program(load("00-eligibility-choice.dl"))
+            run_program(load("eligibility-choice.dl"))
         models = stable_models(choice)
         self.assertEqual(len(models), 2)
         claimants = sorted(sorted(a[1][0] for a in m
@@ -248,7 +248,7 @@ class ClassicExamplesTests(unittest.TestCase):
                          {"bob", "cyril"})
 
     def test_family_and_ancestor(self):
-        text = load("01-family.dl")
+        text = load("family.dl")
         engine = run_program(text)
         self.assertEqual(engine.rels["grandparent"],
                          {("abe", "carl"), ("abe", "dana")})
@@ -266,7 +266,7 @@ class ClassicExamplesTests(unittest.TestCase):
 
     def test_same_generation(self):
         # the classic magic-sets benchmark: cal and dee are cousins
-        text = load("04-same-generation.dl")
+        text = load("same-generation.dl")
         engine = run_program(text)
         self.assertEqual(
             {t for t in engine.rels["sg"] if t[0] != t[1]},
@@ -276,12 +276,12 @@ class ClassicExamplesTests(unittest.TestCase):
 
     def test_tweety_default_reasoning(self):
         # birds fly unless known to be abnormal; penguins are abnormal
-        engine = run_program(load("03-tweety.dl"))
+        engine = run_program(load("tweety.dl"))
         self.assertEqual(engine.rels["flies"], {("tweety",)})
 
     def test_barber_paradox(self):
         # the barber shaves exactly those who do not shave themselves
-        text = load("03-barber.dl")
+        text = load("barber.dl")
         with self.assertRaises(StratificationError):
             run_program(text)
         clauses = parse(text)
@@ -291,7 +291,7 @@ class ClassicExamplesTests(unittest.TestCase):
         self.assertIn(("shaves", ("barber", "plato")), true)
 
     def test_even_odd_mutual_recursion(self):
-        engine = run_program(load("02-even-odd.dl"))
+        engine = run_program(load("even-odd.dl"))
         self.assertEqual(engine.rels["odd"], {
             ("n1", "n2"), ("n2", "n3"), ("n3", "n4"), ("n4", "n5"),
             ("n1", "n4"), ("n2", "n5")})
@@ -303,7 +303,7 @@ class ClassicExamplesTests(unittest.TestCase):
     def test_andersen_points_to(self):
         # field-insensitive Andersen-style pointer analysis:
         # v1 = new h1; v2 = new h2; v3 = v1; *v3 = v2; v4 = *v3
-        engine = run_program(load("02-points-to.dl"))
+        engine = run_program(load("points-to.dl"))
         self.assertEqual(engine.rels["pt"], {
             ("v1", "h1"), ("v2", "h2"), ("v3", "h1"), ("v4", "h2")})
         self.assertEqual(engine.rels["hpt"], {("h1", "h2")})
@@ -358,13 +358,13 @@ class MagicSetTests(unittest.TestCase):
         self.assertEqual(answers, {("n1", "n2")})
 
     def test_cafe_foodary_magic_matches_full(self):
-        clauses = parse(load("05-cafe-foodary.dl"))
+        clauses = parse(load("cafe-foodary.dl"))
         _engine, answers = magic_query(clauses, query_atom("eats_in_cafe(X)"))
         self.assertEqual(answers, {("bob",), ("carol",)})
 
     def test_cafe_paradox_still_rejected_under_magic(self):
         # the negated subgoal pulls in the original cycle untransformed
-        clauses = parse(load("05-cafe-paradox.dl"))
+        clauses = parse(load("cafe-paradox.dl"))
         with self.assertRaises(StratificationError):
             magic_query(clauses, query_atom("eats_at_home(alice)"))
 
@@ -375,7 +375,7 @@ class SemanticsTests(unittest.TestCase):
 
     def test_unstratifiable_program_can_still_have_stable_models(self):
         # The standard example: unstratifiable, yet two stable models.
-        clauses = parse(load("03-win.dl"))
+        clauses = parse(load("win.dl"))
         with self.assertRaises(StratificationError):
             stratify(clauses)
         models = stable_models(clauses)
@@ -391,7 +391,7 @@ class SemanticsTests(unittest.TestCase):
         self.assertEqual(undef, {("p", ())})
 
     def test_stratified_program_has_exactly_its_stratified_model(self):
-        text = load("05-cafe-foodary.dl")
+        text = load("cafe-foodary.dl")
         engine = run_program(text)
         models = stable_models(parse(text))
         self.assertEqual(len(models), 1)
@@ -402,7 +402,7 @@ class SemanticsTests(unittest.TestCase):
 class CafeTests(unittest.TestCase):
     def test_paradox_is_rejected_as_unstratifiable(self):
         with self.assertRaises(StratificationError) as cm:
-            run_program(load("05-cafe-paradox.dl"))
+            run_program(load("cafe-paradox.dl"))
         msg = str(cm.exception)
         self.assertIn("eats_in_cafe", msg)
         self.assertIn("household_cooks", msg)
@@ -413,10 +413,10 @@ class CafeTests(unittest.TestCase):
     def test_paradox_has_no_stable_model(self):
         # The semantic verdict behind the syntactic rejection: this
         # particular program really is paradoxical — no stable model.
-        self.assertEqual(stable_models(parse(load("05-cafe-paradox.dl"))), [])
+        self.assertEqual(stable_models(parse(load("cafe-paradox.dl"))), [])
 
     def test_paradox_wfs_leaves_exactly_bobs_atoms_undefined(self):
-        true, undef = well_founded(parse(load("05-cafe-paradox.dl")))
+        true, undef = well_founded(parse(load("cafe-paradox.dl")))
         self.assertEqual(undef, {
             ("household_cooks", ("cafe_house",)),
             ("eats_at_home", ("bob",)),
@@ -432,7 +432,7 @@ class CafeTests(unittest.TestCase):
         # Direct reading: household_cooks derived outright, the
         # program stratifies, and the paradox appears as a data-level
         # integrity violation naming exactly Bob.
-        engine = run_program(load("05-cafe-constraint.dl"))
+        engine = run_program(load("cafe-constraint.dl"))
         self.assertEqual(engine.rels["household_cooks"],
                          {("house_a",), ("cafe_house",)})
         self.assertEqual(engine.rels["eats_at"], {
@@ -441,7 +441,7 @@ class CafeTests(unittest.TestCase):
         self.assertEqual(engine.rels["violation"], {("bob",)})
 
     def test_foodary_model_lets_bob_eat_in_the_cafe(self):
-        engine = run_program(load("05-cafe-foodary.dl"))
+        engine = run_program(load("cafe-foodary.dl"))
         self.assertEqual(engine.rels["household_cooks"], {("house_a",)})
         self.assertEqual(engine.rels["eats_at_home"], {("alice",), ("alan",)})
         self.assertEqual(engine.rels["eats_in_cafe"], {("bob",), ("carol",)})
@@ -450,7 +450,7 @@ class CafeTests(unittest.TestCase):
         self.assertEqual(engine.rels.get("conclusion2_violated", set()), set())
 
 
-ROUTES = load("06-routes.dl")
+ROUTES = load("routes.dl")
 
 
 class SemiringTests(unittest.TestCase):
@@ -480,7 +480,7 @@ class SemiringTests(unittest.TestCase):
         self.assertEqual(set(eng.rels["path"]), core.rels["path"])
 
     def test_viterbi_best_derivation(self):
-        eng = run_semiring(load("07-prob-reach.dl"), "viterbi")
+        eng = run_semiring(load("prob-reach.dl"), "viterbi")
         # best route s-a-t (0.81) beats s-b-t (0.475) and s-a-b-t (0.684)
         self.assertAlmostEqual(eng.value("reach", ("s", "t")), 0.81)
 
@@ -512,7 +512,7 @@ class SemiringTests(unittest.TestCase):
 
 
 class IncrementalTests(unittest.TestCase):
-    GRAPH = load("08-dred-graph.dl")
+    GRAPH = load("dred-graph.dl")
 
     def recompute(self, inc):
         """Fresh from-scratch evaluation of inc's current base facts."""
@@ -566,7 +566,7 @@ class IncrementalTests(unittest.TestCase):
 
 
 class PrologTests(unittest.TestCase):
-    PEANO = load("09-peano.pl")
+    PEANO = load("peano.pl")
 
     def query(self, engine, goal, **kw):
         atom = parse(goal + ".")[0].head
@@ -650,7 +650,7 @@ class ClosedAndOpenWorldTests(unittest.TestCase):
     the disagreement is observable."""
 
     def test_missing_data_produces_a_confident_wrong_answer(self):
-        engine = run_program(load("15-missing-data.dl"))
+        engine = run_program(load("missing-data.dl"))
         # dana has no employment record at all
         self.assertIn(("dana",), engine.rels["eligible_naive"])
         self.assertNotIn(("dana",), engine.rels["eligible"])
@@ -661,7 +661,7 @@ class ClosedAndOpenWorldTests(unittest.TestCase):
         self.assertIn("not employed(dana)", tree)
 
     def test_closed_world_is_non_monotone(self):
-        base = load("03-tweety.dl")
+        base = load("tweety.dl")
         self.assertEqual(run_program(base).rels["flies"], {("tweety",)})
         # adding a fact REMOVES a conclusion
         self.assertEqual(
@@ -669,7 +669,7 @@ class ClosedAndOpenWorldTests(unittest.TestCase):
             set())
 
     def test_open_world_is_monotone(self):
-        base = load("10-family-ontology.dl")
+        base = load("family-ontology.dl")
         before = subsumption.load(base).classify()["father"]
         after = subsumption.load(base + "\nisa(father, taxpayer).\n"
                                  ).classify()["father"]
@@ -680,7 +680,7 @@ class ClosedAndOpenWorldTests(unittest.TestCase):
 
 class QueryValidationTests(unittest.TestCase):
     def test_magic_query_rejects_structs_and_bad_arity(self):
-        clauses = parse(load("02-reachability.dl"))
+        clauses = parse(load("reachability.dl"))
         with self.assertRaises(DatalogError):
             magic_query(clauses, query_atom("path(s(a), X)"))
         with self.assertRaises(DatalogError):
@@ -697,7 +697,7 @@ class QueryValidationTests(unittest.TestCase):
 
 
 class IncrementalValidationTests(unittest.TestCase):
-    GRAPH = load("08-dred-graph.dl")
+    GRAPH = load("dred-graph.dl")
 
     def test_invalid_facts_rejected(self):
         inc = IncrementalEngine(self.GRAPH)
@@ -742,7 +742,7 @@ class AggregationTests(unittest.TestCase):
                          {("alice", 120), ("bob", 900)})
 
     def test_aggregation_over_recursion_stratifies(self):
-        engine = run_program(load("02-reachability.dl") + """
+        engine = run_program(load("reachability.dl") + """
             reach_count(X, count(Y)) :- path(X, Y).
         """)
         self.assertIn(("n1", 9), engine.rels["reach_count"])
@@ -795,7 +795,7 @@ class AggregationTests(unittest.TestCase):
 
 class NaiveAndExplainTests(unittest.TestCase):
     def test_naive_matches_seminaive(self):
-        text = load("02-reachability.dl")
+        text = load("reachability.dl")
         fast = run_program(text)
         slow = Engine(Program(parse(text)), naive=True)
         slow.run()
@@ -805,7 +805,7 @@ class NaiveAndExplainTests(unittest.TestCase):
         self.assertGreater(produced, len(slow.rels["path"]))
 
     def test_explain_builds_wellfounded_tree(self):
-        engine = run_program(load("02-reachability.dl"))
+        engine = run_program(load("reachability.dl"))
         lines = explain(engine, "path", ("n1", "n3"))
         self.assertIn("(base fact)", "\n".join(lines))
         self.assertIn("[via", lines[0])
@@ -826,7 +826,7 @@ class RetractionTests(unittest.TestCase):
         self.assertIn("incremental.py", str(cm.exception))
 
     def test_apply_mixed_update_script(self):
-        inc = IncrementalEngine(load("08-dred-graph.dl"))
+        inc = IncrementalEngine(load("dred-graph.dl"))
         stats = inc.apply("edge(n3, n4)~.  edge(n2, n9).")
         self.assertEqual(stats["deleted"], 1)
         self.assertEqual(stats["inserted"], 1)
@@ -834,7 +834,7 @@ class RetractionTests(unittest.TestCase):
         self.assertNotIn(("n3", "n4"), inc.rels["path"])
 
     def test_insert_refuses_retractions(self):
-        inc = IncrementalEngine(load("08-dred-graph.dl"))
+        inc = IncrementalEngine(load("dred-graph.dl"))
         with self.assertRaises(DatalogError):
             inc.insert("edge(a, b)~.")
 
@@ -846,13 +846,13 @@ class RetractionTests(unittest.TestCase):
 
 class TablingTests(unittest.TestCase):
     def test_left_recursion_terminates(self):
-        engine = TabledEngine(parse(load("13-left-recursive.dl")))
+        engine = TabledEngine(parse(load("left-recursive.dl")))
         answers = engine.query(query_atom("ancestor(abe, X)"))
         self.assertEqual({a[1] for a in answers},
                          {"ann", "bob", "carl", "dee"})
 
     def test_bound_query_tables_are_the_magic_set(self):
-        engine = TabledEngine(parse(load("02-reachability.dl")))
+        engine = TabledEngine(parse(load("reachability.dl")))
         engine.query(query_atom("path(n5, X)"))
         path_tables = {key[1][0] for key in engine.tables
                        if key[0] == "path"}
@@ -861,7 +861,7 @@ class TablingTests(unittest.TestCase):
 
     def test_rejects_negation(self):
         with self.assertRaises(DatalogError):
-            TabledEngine(parse(load("03-tweety.dl")))
+            TabledEngine(parse(load("tweety.dl")))
 
 
 class ConformanceTests(unittest.TestCase):
@@ -869,11 +869,11 @@ class ConformanceTests(unittest.TestCase):
     return identical answers.  (AbcDatalog's shared-suite pattern.)"""
 
     CASES = [
-        ("ancestor", load("01-family.dl"), "ancestor(abe, X)"),
-        ("reachability", load("02-reachability.dl"), "path(n5, X)"),
-        ("same-generation", load("04-same-generation.dl"), "sg(cal, Y)"),
-        ("even-odd", load("02-even-odd.dl"), "even(n1, X)"),
-        ("tweety", load("03-tweety.dl"), "flies(X)"),   # negation: no tabling
+        ("ancestor", load("family.dl"), "ancestor(abe, X)"),
+        ("reachability", load("reachability.dl"), "path(n5, X)"),
+        ("same-generation", load("same-generation.dl"), "sg(cal, Y)"),
+        ("even-odd", load("even-odd.dl"), "even(n1, X)"),
+        ("tweety", load("tweety.dl"), "flies(X)"),   # negation: no tabling
     ]
 
     def test_all_strategies_agree(self):
@@ -920,7 +920,7 @@ class ContainmentTests(unittest.TestCase):
         self.assertEqual(len(containment.minimise(cycle)), 2)
 
     def test_minimisation_of_shipped_examples(self):
-        clauses = parse(load("14-minimise.dl"))
+        clauses = parse(load("minimise.dl"))
         by_head = {c.head.pred: c for c in clauses if c.body}
         self.assertEqual(len(containment.minimise(by_head["has_edge"])), 1)
         self.assertEqual(len(containment.minimise(by_head["two_hop"])), 2)
@@ -944,8 +944,8 @@ class ContainmentTests(unittest.TestCase):
             containment.minimise(self.rule("q(X) :- e(X, Y), not e(Y, X)."))
 
     def test_shipped_programs_are_already_minimal(self):
-        for name in ("01-family.dl", "04-same-generation.dl",
-                     "02-reachability.dl"):
+        for name in ("family.dl", "same-generation.dl",
+                     "reachability.dl"):
             for clause in parse(load(name)):
                 if clause.body and not any(l.negated for l in clause.body):
                     with self.subTest(program=name, rule=str(clause)):
@@ -965,7 +965,7 @@ class SemiringHomomorphismTests(unittest.TestCase):
         self.assertIn("agrees on every fact", r.stdout)
 
     def test_why_cannot_determine_count(self):
-        text = load("06-two-derivations.dl")
+        text = load("two-derivations.dl")
         why = run_semiring(text, "why")
         count = run_semiring(text, "count")
         # identical provenance, different derivation counts: no function
@@ -1158,7 +1158,7 @@ class RepositoryClaimTests(unittest.TestCase):
         # one, or the claim is unverifiable from the shell
         r = subprocess.run(
             [sys.executable, os.path.join(HERE, "incremental.py"),
-             "programs/00-supply-chain.dl",
+             "programs/supply-chain.dl",
              "-u", "vulnerable(pkg100, cve_2026_0002)."],
             capture_output=True, text=True, cwd=HERE)
         self.assertEqual(r.returncode, 0, r.stderr)
@@ -1211,8 +1211,8 @@ class ExerciseTests(unittest.TestCase):
         self.assertEqual(max(engine.program.strata.values()), 2)
 
     def test_lesson4_magic_counts(self):
-        clauses = parse(load("01-family.dl"))
-        full = run_program(load("01-family.dl"))
+        clauses = parse(load("family.dl"))
+        full = run_program(load("family.dl"))
         full_total = sum(len(full.rels[p]) for p in full.program.idb)
         m, _a = magic_query(clauses, query_atom("ancestor(abe, X)"))
         m_total = sum(len(m.rels.get(p, ())) for p in m.program.idb)
@@ -1251,7 +1251,7 @@ class ExerciseTests(unittest.TestCase):
                           stats["net_removed"]), (6, 4, 2))
 
     def test_lesson9_mult_and_finite_failure(self):
-        engine = prolog.load(load("09-peano.pl"))
+        engine = prolog.load(load("peano.pl"))
         answers, _ = engine.query(
             query_atom("mult(s(s(zero)), s(s(zero)), X)"), max_solutions=1)
         self.assertEqual(str(answers[0]["X"]), "s(s(s(s(zero))))")
@@ -1269,7 +1269,7 @@ class ExerciseTests(unittest.TestCase):
         self.assertIn(("dad", "father"), ont.equivalences())
 
     def test_lesson11_magic_bob_counts(self):
-        m, _a = magic_query(parse(load("01-family.dl")),
+        m, _a = magic_query(parse(load("family.dl")),
                             query_atom("ancestor(bob, X)"))
         total = sum(len(m.rels.get(p, ())) for p in m.program.idb)
         self.assertEqual(total, 3)   # 2 magic facts + 1 answer fact
@@ -1281,11 +1281,11 @@ class ExerciseTests(unittest.TestCase):
                          {("alice", 180, 2), ("bob", 990, 2)})
 
     def test_lesson13_duality(self):
-        te = TabledEngine(parse(load("01-family.dl")))
+        te = TabledEngine(parse(load("family.dl")))
         te.query(query_atom("ancestor(bob, X)"))
         table_patterns = {key[1][0] for key in te.tables
                           if key[0] == "ancestor"}
-        m, _a = magic_query(parse(load("01-family.dl")),
+        m, _a = magic_query(parse(load("family.dl")),
                             query_atom("ancestor(bob, X)"))
         magic_starts = {t[0] for t in m.rels["magic#ancestor#bf"]}
         self.assertEqual(table_patterns, magic_starts)
@@ -1304,7 +1304,7 @@ class CLITests(unittest.TestCase):
 
     def test_magic_cli_specialises_bound_queries(self):
         r = self.cli("--magic", "--trace", "-q", "ancestor(abe, X)",
-                     "programs/01-family.dl")
+                     "programs/family.dl")
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertIn("ancestor#bf", r.stdout)
         self.assertNotIn("ancestor#ff", r.stdout)
@@ -1325,7 +1325,7 @@ class CLITests(unittest.TestCase):
 
 
 class SubsumptionTests(unittest.TestCase):
-    ONT = load("10-family-ontology.dl")
+    ONT = load("family-ontology.dl")
 
     def test_classifier_discovers_subsumptions(self):
         supers = subsumption.load(self.ONT).classify()

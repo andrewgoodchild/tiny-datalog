@@ -31,8 +31,8 @@ convergence theory of Abo Khamis–Ngo–Suciu and colleagues.
 
 CLI
 ---
-    python3 semiring.py --semiring minplus programs/06-routes.dl
-    python3 semiring.py --semiring why -q 'path(a, e)' programs/06-routes.dl
+    python3 semiring.py --semiring minplus programs/routes.dl
+    python3 semiring.py --semiring why -q 'path(a, e)' programs/routes.dl
 """
 
 from __future__ import annotations

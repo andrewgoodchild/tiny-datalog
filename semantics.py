@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 semantics.py — ground semantics: stable models and the well-founded
-model.  (Lesson 5; implementation tour in Lesson 11.)
+model.  (Lesson 4; implementation tour in Lesson 11.)
 
 Stratifiability is a *syntactic* test, and rejection by the stratified
 engine is not a semantic verdict: win(X) :- move(X, Y), not win(Y) is

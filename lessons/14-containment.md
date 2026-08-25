@@ -19,14 +19,14 @@ both ways. **Minimisation** is finding the smallest body equivalent to
 the one you wrote.
 
 Quantifying over all databases sounds undecidable. For conjunctive
-queries — a single rule, no negation, no recursion — it isn't:
+queries: a single rule, no negation, no recursion; it isn't:
 
 > **Q2 ⊇ Q1 iff there is a homomorphism from Q2's body into Q1's body
 > that fixes the head variables.**
 
 A homomorphism is a map from Q2's variables to Q1's terms sending every
 atom of Q2 onto an atom of Q1. Infinitely many databases collapse into
-one finite search, because Q1's own body — with its variables frozen
+one finite search, because Q1's own body, with its variables frozen
 into distinct constants — is the hardest database Q1 can be run on. If
 Q2 can be satisfied there, it can be satisfied wherever Q1 is.
 
@@ -52,10 +52,10 @@ already in the engine; the lesson is recognising where else it applies.
 
 ## Minimisation, running
 
-`programs/14-minimise.dl` collects the classic shapes:
+`programs/minimise.dl` collects the classic shapes:
 
 ```sh
-$ python3 containment.py programs/14-minimise.dl
+$ python3 containment.py programs/minimise.dl
 has_edge(X, Y) :- edge(X, Y), edge(X, Z).
   minimises to has_edge(X, Y) :- edge(X, Y).   (2 atoms -> 1)
 two_hop(X) :- edge(X, Y), edge(Y, Z), edge(X, W).
@@ -67,7 +67,7 @@ triangle(X) :- edge(X, Y), edge(Y, Z), edge(Z, X).
 ```
 
 Read the first one carefully, because it is the whole idea. `edge(X, Z)`
-says "X has *an* outgoing edge" — and `edge(X, Y)` already guarantees
+says "X has *an* outgoing edge", and `edge(X, Y)` already guarantees
 that, since Z is free to be Y. The atom's job is done; drop it and the
 answers on every database are unchanged. That is a self-join eliminated
 by proof, not by pattern-matching on the syntax.
@@ -90,14 +90,14 @@ path", necessarily and forever.
 
 ## What it costs
 
-Homomorphism-finding is NP-complete — it is graph colouring wearing a
+Homomorphism-finding is NP-complete; it is graph colouring wearing a
 different hat, and containment inherits that. The backtracking search
 in `containment.py` is the standard practical answer: queries written by
 humans are small, and the exponential lives in the number of atoms, not
 the size of the data. Optimisers apply minimisation once per query and
 then evaluate the minimised form over millions of rows, so an expensive
-analysis buys cheap execution — the same trade magic sets makes in
-Lesson 4.
+analysis buys cheap execution: the same trade magic sets makes in
+Lesson 5.
 
 ## Where the theory stops
 
@@ -110,7 +110,7 @@ Two boundaries, both sharp:
   undecidable (Shmueli). This is the same wall Lesson 9 hit from the
   other side: the question is decidable exactly where the language is
   restricted enough, and Datalog's recursion is expressive enough to
-  break it. Uniform containment — a stronger, sufficient condition — is
+  break it. Uniform containment: a stronger, sufficient condition — is
   decidable, which is what real systems check.
 
 Notice the pattern the course keeps returning to: a question about all
@@ -123,7 +123,7 @@ containment — four different fences, same reason for the fence.
 
 1. Minimise by hand, then check: `q(X) :- e(X, Y), e(Y, Z), e(X, U), e(U, V).`
    How many atoms survive, and why is it not one? (Note which pair the
-   tool keeps — and convince yourself the other pair would have done
+   tool keeps, and convince yourself the other pair would have done
    equally well.)
 2. `q(X) :- edge(X, Y), edge(Y, X).` is contained in
    `q(X) :- edge(X, Y).` but not the reverse. Give the one-edge
@@ -138,6 +138,6 @@ containment — four different fences, same reason for the fence.
    what happens when a view is inlined into another view, and why
    optimisers minimise *after* rewriting rather than before.)
 
-Next: [closed and open worlds](15-closed-and-open-worlds.md) — the two
+Next: [closed and open worlds](15-closed-and-open-worlds.md). The two
 reasoners in this repository disagree about what absence means, and
 the disagreement is the last thing the course has to teach.

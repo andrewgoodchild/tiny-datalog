@@ -1,8 +1,8 @@
 % The lesson-1 family tree: joins, and a first recursive rule.
 %
-%   python3 datalog.py programs/01-family.dl
-%   python3 datalog.py -q 'ancestor(abe, X)' programs/01-family.dl
-%   python3 datalog.py --magic --trace -q 'ancestor(bob, X)' programs/01-family.dl
+%   python3 datalog.py programs/family.dl
+%   python3 datalog.py -q 'ancestor(abe, X)' programs/family.dl
+%   python3 datalog.py --magic --trace -q 'ancestor(bob, X)' programs/family.dl
 
 parent(abe, bob).
 parent(abe, ann).

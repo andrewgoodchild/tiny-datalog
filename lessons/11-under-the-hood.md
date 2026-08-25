@@ -1,20 +1,20 @@
 # Lesson 11 — Under the hood: how this engine is built
 
 Ten lessons used the engine; this one reads it. Everything is plain
-Python with no dependencies, written to be read — and the code's own
+Python with no dependencies, written to be read, and the code's own
 comments carry much of the story, so this lesson is a map, not a
 paraphrase.
 
 | File | What it implements | Taught in |
 |---|---|---|
-| `datalog.py` | AST, parser, safety, stratification, semi-naive engine, CLI | Lessons 1–3 |
-| `magic.py` | the magic-sets rewriting | Lesson 4 |
-| `semantics.py` | grounding, stable models, well-founded model | Lesson 5 |
+| `datalog.py` | syntax tree, parser, safety, stratification, semi-naive engine, command line | Lessons 1–3 |
+| `magic.py` | the magic-sets rewriting | Lesson 5 |
+| `semantics.py` | grounding, stable models, well-founded model | Lesson 4 |
 | `semiring.py` | Kleene iteration over semirings | Lessons 6–7 |
 | `incremental.py` | insertion propagation + DRed | Lesson 8 |
 | `prolog.py` | unification + SLD resolution | Lesson 9 |
 | `subsumption.py` | EL normalisation, compiled to Datalog | Lesson 10 |
-| `tabling.py` | tabled top-down evaluation (iterative QSQR) | Lesson 13 |
+| `tabling.py` | tabled top-down evaluation (Query-Subquery Recursive) | Lesson 13 |
 | `containment.py` | homomorphism search: containment and minimisation | Lesson 14 |
 
 ## The core, in one pass (`datalog.py`)
@@ -33,14 +33,14 @@ in `_Parser`'s docstring.
 **Safety is range restriction** (`validate`): every head variable and
 every variable under `not` must be bound by a positive body literal.
 This is what keeps every relation finite. The same function enforces the
-function-symbol ban — the Datalog boundary from Lesson 9 is four lines
+function-symbol ban: the Datalog boundary from Lesson 9 is four lines
 of `isinstance(a, Struct)`.
 
 **Stratification is a graph problem.** Build predicate dependency edges,
 find strongly connected components (Tarjan's algorithm, iterative so
 Python's recursion limit never bites), and reject any negative edge
 inside a component — that *is* "negation in a recursive cycle", and the
-error message reconstructs the offending cycle by BFS. Stratum numbers
+error message reconstructs the offending cycle by breadth-first search. Stratum numbers
 then fall out by relaxation: strictly above what you negate, at least as
 high as what you use.
 
@@ -48,7 +48,7 @@ high as what you use.
 indexes: `rels["path"] == {("a","b"), ("a","c")}`. Matching an atom
 against a tuple (`_match`) is one-way unification: variables take values
 or must agree with earlier bindings. A rule body is evaluated by folding
-`_match` over its literals under one growing substitution — which is
+`_match` over its literals under one growing substitution, which is
 exactly a relational join, done as nested loops.
 
 **Semi-naive is about twenty lines** (`Engine._eval_stratum`). Here it
@@ -151,12 +151,12 @@ same idea, computed at run time instead of compile time.
 ## A detail worth stealing: names that cannot collide
 
 `magic.py` mints predicate names like `magic#path#bf` and `path#bf`.
-The `#` is not decoration — the tokenizer's identifier rule
+The `#` is not decoration: the tokenizer's identifier rule
 (`[a-z][A-Za-z0-9_]*`) *cannot produce* it, so no user program can
 write a predicate that clashes with a generated one. Collision-freedom
 by construction, rather than by hoping nobody names a relation
 `magic_path`. `subsumption.py` takes the opposite route for its
-`gen_N` names — they are ordinary identifiers, so it keeps a reserved
+`gen_N` names; they are ordinary identifiers, so it keeps a reserved
 list and rejects clashes explicitly. Two valid designs; the first is
 cheaper when the target syntax gives you a spare character.
 
@@ -172,7 +172,7 @@ algorithm's *idea* fits on one screen.
 The nested-loop choice has a visible consequence worth knowing about:
 it makes magic sets' guard literals relatively expensive, which is part
 of why a poorly-pruning magic query can run *slower* than plain
-evaluation (Lesson 4 measures this). An engine's optimisations are not
+evaluation (Lesson 5 measures this). An engine's optimisations are not
 independent of each other — indexing changes which rewritings pay off,
 which is exactly the kind of interaction a readable implementation lets
 you observe rather than take on faith.
@@ -181,7 +181,7 @@ you observe rather than take on faith.
 ## Exercises
 
 1. Run `--naive --trace` beside the default on
-   `programs/02-reachability.dl` and explain both number columns. Then
+   `programs/reachability.dl` and explain both number columns. Then
    read `_eval_stratum_naive` and name precisely what the semi-naive
    loop has that it lacks.
 2. Add a comparison built-in (`X != Y`) to rule bodies: parser, safety
@@ -191,7 +191,7 @@ you observe rather than take on faith.
    would need it if function symbols were allowed. What stops you? (That
    is the point.)
 4. Read `magic.py` end to end and hand-simulate the rewriting of
-   `programs/01-family.dl` for `ancestor(bob, X)`. Check yourself
+   `programs/family.dl` for `ancestor(bob, X)`. Check yourself
    against `--magic --trace`.
 
 Next: [aggregation](12-aggregation.md) and [tabling](13-tabling.md) —

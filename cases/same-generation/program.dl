@@ -2,8 +2,8 @@
 % cousins: their parents (ann, bob) are siblings, so they are in the same
 % generation.
 %
-%   python3 datalog.py programs/04-same-generation.dl
-%   python3 datalog.py --magic --trace -q 'sg(cal, Y)' programs/04-same-generation.dl
+%   python3 datalog.py programs/same-generation.dl
+%   python3 datalog.py --magic --trace -q 'sg(cal, Y)' programs/same-generation.dl
 
 person(pam). person(ann). person(bob). person(cal). person(dee).
 

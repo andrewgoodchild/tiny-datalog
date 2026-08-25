@@ -1,0 +1,18 @@
+% A weighted DAG of routes.  One program, many semirings (semiring.py):
+%
+%   python3 semiring.py --semiring minplus programs/routes.dl   cheapest route
+%   python3 semiring.py --semiring count   programs/routes.dl   # of routes
+%   python3 semiring.py --semiring why     programs/routes.dl   which edges
+%   python3 semiring.py --semiring bool    programs/routes.dl   plain Datalog
+%
+% The `@ n` annotations are fact weights; plain datalog.py ignores them.
+
+edge(a, b) @ 1.
+edge(a, c) @ 2.
+edge(b, c) @ 1.
+edge(b, d) @ 4.
+edge(c, d) @ 2.
+edge(d, e) @ 3.
+
+path(X, Y) :- edge(X, Y).
+path(X, Z) :- edge(X, Y), path(Y, Z).

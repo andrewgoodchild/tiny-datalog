@@ -1,8 +1,8 @@
 % Aggregation: one aggregate term per rule head; the remaining head
 % arguments are the implicit GROUP BY.
 %
-%   python3 datalog.py programs/12-spending.dl
-%   python3 datalog.py --explain 'total(alice, 180)' programs/12-spending.dl
+%   python3 datalog.py programs/spending.dl
+%   python3 datalog.py --explain 'total(alice, 180)' programs/spending.dl
 
 charge(alice, groceries, 120).
 charge(alice, transport, 60).

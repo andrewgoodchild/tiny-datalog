@@ -2,7 +2,7 @@
 % a way that terminates — and the fix is a policy decision, not a
 % syntactic trick.
 %
-%   python3 datalog.py --trace programs/00-eligibility-stable.dl
+%   python3 datalog.py --trace programs/eligibility-stable.dl
 %
 % The broken version asked "is anyone in this household ALREADY
 % claiming?" where 'claiming' was this program's own output.  The fix is

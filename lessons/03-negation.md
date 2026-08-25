@@ -37,7 +37,7 @@ growing, you might say yes today and be wrong tomorrow.
 That ordering requirement generalizes: slice the program into **strata**
 so that each predicate's negated dependencies live in strictly lower
 strata, then compute the strata in order, each to fixpoint. Run
-`--trace` on `programs/05-cafe-foodary.dl` and you'll see the engine do
+`--trace` on `programs/cafe-foodary.dl` and you'll see the engine do
 exactly this:
 
 ```
@@ -47,7 +47,7 @@ Stratification:
 ```
 
 The classic non-monotone idiom this enables is **default reasoning**
-(Tweety, `programs/03-tweety.dl`):
+(Tweety, `programs/tweety.dl`):
 
 ```prolog
 bird(tweety). bird(opus). penguin(opus).
@@ -71,14 +71,14 @@ That is the whole content of stratification, and it is a useful thing
 to know while writing rules: if every `not` in your program points at
 input data, you will never see a stratification error. They appear
 exactly when a rule asks about the absence of something the program
-itself produces. (`programs/00-eligibility-stable.dl` and
-`programs/00-eligibility-paradox.dl` are the same policy on either side
+itself produces. (`programs/eligibility-stable.dl` and
+`programs/eligibility-paradox.dl` are the same policy on either side
 of that line.)
 
 ## When stratification fails
 
 What if negation sits *inside* a recursive loop?
-(`programs/03-win.dl`)
+(`programs/win.dl`)
 
 ```prolog
 move(a, b).  move(b, a).
@@ -86,7 +86,7 @@ win(X) :- move(X, Y), not win(Y).
 ```
 
 "A position is winning if it has a move to a losing position." `win`
-depends negatively on itself — no stratum ordering exists, and the engine
+depends negatively on itself, no stratum ordering exists, and the engine
 refuses:
 
 ```
@@ -96,12 +96,12 @@ recursive cycle: win --not--> win.
 
 Note carefully what this does and doesn't mean. It's a *syntactic*
 verdict: this engine's evaluation strategy can't order the computation.
-It does **not** by itself mean the program is meaningless — this very
+It does **not** by itself mean the program is meaningless. This very
 program has two perfectly sensible "solutions" ({win(a)} and {win(b)}).
-Making that precise needs better semantics, which is Lesson 5.
+Making that precise needs better semantics, which is Lesson 4.
 
 Meanwhile the truly pathological case looks the same syntactically
-(`programs/03-barber.dl`):
+(`programs/barber.dl`):
 
 ```prolog
 person(barber). person(plato).
@@ -111,7 +111,7 @@ shaves(barber, X) :- person(X), not shaves(X, X).
 The barber shaves exactly those who don't shave themselves. Does the
 barber shave the barber? Russell's paradox as a Datalog program — also
 rejected, and here the rejection is hiding something genuinely broken.
-Lesson 5 separates the two cases.
+Lesson 4 separates the two cases.
 
 
 ## Exercises
@@ -124,5 +124,7 @@ Lesson 5 separates the two cases.
    work out why the *rules*, not the *data*, are what stratification
    looks at.
 
-Next: [magic sets](04-magic-sets.md) — how to stop computing the whole
-world when you asked one question.
+Next: [beyond stratification](04-beyond-stratification.md), which
+picks up the cliffhanger above: what a rejected program *means*, and
+how to tell an unstratifiable-but-sensible one from a genuinely
+broken one.

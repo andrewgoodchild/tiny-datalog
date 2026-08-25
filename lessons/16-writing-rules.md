@@ -78,7 +78,7 @@ $ python3 datalog.py --explain 'may_borrow(kim)' draft2.dl
 ```
 
 There is the whole bug in three lines. The derivation names the rule
-that fired and lists everything it consumed — and the suspension check
+that fired and lists everything it consumed, and the suspension check
 is simply not in it. Not "the answer looks wrong": *this* rule, with
 *this* premise, and nothing else.
 
@@ -92,7 +92,7 @@ Every escape hatch needs the conditions that apply to everybody.
 ## Draft 3
 
 ```prolog
-% programs/16-lending.dl
+% programs/lending.dl
 has_overdue(P) :- overdue(P, _).
 
 may_borrow(P) :- member(P), not has_overdue(P), not suspended(P).
@@ -100,20 +100,20 @@ may_borrow(P) :- staff(P), not suspended(P).
 ```
 
 ```
-$ python3 datalog.py -q 'may_borrow(P)' programs/16-lending.dl
+$ python3 datalog.py -q 'may_borrow(P)' programs/lending.dl
 ?- may_borrow(P)
    may_borrow(iris).
    may_borrow(kim).
    (2 answers)
 ```
 
-Same two names, different reasons — and now Kim borrows *because she is
+Same two names, different reasons, and now Kim borrows *because she is
 unsuspended staff* rather than because a rule forgot to check. Lena is
 out, Jon is out. Ask why Iris qualifies and every condition is stated,
 including the negative ones:
 
 ```
-$ python3 datalog.py --explain 'may_borrow(iris)' programs/16-lending.dl
+$ python3 datalog.py --explain 'may_borrow(iris)' programs/lending.dl
 ?- explain may_borrow(iris)
    may_borrow(iris)   [via may_borrow(P) :- member(P), not has_overdue(P), not suspended(P).]
      member(iris)   (base fact)
@@ -151,7 +151,7 @@ whose authority says this is absent.*
 against what anybody intended. The engine will tell you your rules
 agree with each other; only a person can tell you they agree with the
 regulation. That is the division of labour, and it is why the
-derivation matters — it makes the human's remaining job small enough to
+derivation matters; it makes the human's remaining job small enough to
 actually do.
 
 ## Exercises

@@ -1,8 +1,8 @@
 % The eligibility policy of 00-eligibility.dl, with one clause added —
 % and the clause is one a real scheme would want.
 %
-%   python3 datalog.py programs/00-eligibility-paradox.dl
-%   python3 datalog.py --models programs/00-eligibility-paradox.dl
+%   python3 datalog.py programs/eligibility-paradox.dl
+%   python3 datalog.py --models programs/eligibility-paradox.dl
 %
 % "A household stops qualifying once one of its members is already
 % claiming" is ordinary anti-double-dipping.  But claiming is what

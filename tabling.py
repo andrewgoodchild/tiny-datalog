@@ -36,8 +36,8 @@ is beyond this teaching module).
 
 CLI
 ---
-    python3 tabling.py programs/02-reachability.dl -q 'path(n5, X)'
-    python3 tabling.py programs/13-left-recursive.dl -q 'ancestor(abe, X)'
+    python3 tabling.py programs/reachability.dl -q 'path(n5, X)'
+    python3 tabling.py programs/left-recursive.dl -q 'ancestor(abe, X)'
 """
 
 from __future__ import annotations

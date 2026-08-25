@@ -7,7 +7,7 @@
 % pt(V, H): variable V may point to heap object H.
 % hpt(H1, H2): a field of H1 may point to H2.  Mutually recursive.
 %
-%   python3 datalog.py --trace programs/02-points-to.dl
+%   python3 datalog.py --trace programs/points-to.dl
 
 alloc(v1, h1).
 alloc(v2, h2).

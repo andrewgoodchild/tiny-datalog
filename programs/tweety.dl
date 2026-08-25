@@ -2,7 +2,7 @@
 % proven abnormal.  Add penguin(tweety). and watch a conclusion retract —
 % non-monotonicity, tamed by stratification.
 %
-%   python3 datalog.py --trace programs/03-tweety.dl
+%   python3 datalog.py --trace programs/tweety.dl
 
 bird(tweety).
 bird(opus).

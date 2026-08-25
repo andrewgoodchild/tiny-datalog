@@ -1,7 +1,7 @@
 % Query minimisation — every rule here is a conjunctive query, and
 % containment.py decides which ones carry redundant atoms.
 %
-%   python3 containment.py programs/14-minimise.dl
+%   python3 containment.py programs/minimise.dl
 %
 % Redundancy is not a syntactic property: you cannot see it by looking
 % for repeated atoms.  It is "some atom's job is already done by

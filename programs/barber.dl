@@ -4,8 +4,8 @@
 % leaves precisely shaves(barber, barber) undefined while still settling
 % that the barber shaves plato.
 %
-%   python3 datalog.py programs/03-barber.dl            (rejected)
-%   python3 datalog.py --models programs/03-barber.dl   (the semantic verdict)
+%   python3 datalog.py programs/barber.dl            (rejected)
+%   python3 datalog.py --models programs/barber.dl   (the semantic verdict)
 
 person(barber).
 person(plato).

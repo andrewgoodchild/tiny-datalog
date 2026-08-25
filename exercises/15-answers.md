@@ -16,7 +16,7 @@ It is closed-world reasoning one level up: it assumes the *checking
 register* is complete, i.e. that if a check had happened it would be
 recorded. That is a much better bet than assuming the employment table
 is complete, because the register is maintained by the process making
-the decisions — it is genuinely the authority on its own activity.
+the decisions; it is genuinely the authority on its own activity.
 
 The same objection still applies one level further up, and this is the
 honest part: if checks can happen without being recorded, you need
@@ -38,7 +38,7 @@ grounded(X) :- bird(X), not flies(X).
 
 With no `penguin` fact: `flies(tweety)` and `migrates(tweety)` hold,
 `grounded(tweety)` does not. Add `penguin(tweety).` and both
-conclusions vanish while `grounded(tweety)` appears — one fact, two
+conclusions vanish while `grounded(tweety)` appears: one fact, two
 retractions, one addition. Every real default hierarchy behaves this
 way, which is why non-monotone systems are hard to test: the effect of
 a fact is not local to the rule that mentions it.
@@ -49,7 +49,7 @@ a fact is not local to the rule that mentions it.
 
 - Well-founded *undefined* arises from **circularity**: the program
   cannot settle the atom because its truth depends on itself
-  (Lesson 5's paradox). Add more facts and it may resolve. It is a
+  (Lesson 4's paradox). Add more facts and it may resolve. It is a
   statement about *this program's* self-reference.
 - Open-world *unknown* arises from **incompleteness**: the world may
   well contain the fact, we simply were not told. Nothing about the
@@ -58,8 +58,8 @@ a fact is not local to the rule that mentions it.
 
 One is "these rules cannot decide"; the other is "nobody told me".
 
-`pending` is closer to the open-world reading — it exists precisely to
-mark "we have not been told" — but it achieves that *inside* a
+`pending` is closer to the open-world reading; it exists precisely to
+mark "we have not been told", but it achieves that *inside* a
 closed-world engine by making the absence into a positive fact about
 the checking process. That is the general technique: closed-world
 engines can represent open-world ignorance, but only if you model the

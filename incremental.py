@@ -222,7 +222,7 @@ class IncrementalEngine:
 # ---------------------------------------------------------------------------
 
 _DEMO_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                          "programs", "08-dred-graph.dl")
+                          "programs", "dred-graph.dl")
 
 
 def _demo():

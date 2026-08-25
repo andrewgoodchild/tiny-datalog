@@ -3,9 +3,9 @@
 Datalog is a database query language that looks like logic. A program has
 two ingredients:
 
-- **Facts** — the data. `parent(abe, bob).` says the relation `parent`
+- **Facts**: the data. `parent(abe, bob).` says the relation `parent`
   contains the pair (abe, bob). Facts are what a database calls rows.
-- **Rules** — the reasoning. `grandparent(X, Z) :- parent(X, Y), parent(Y, Z).`
+- **Rules**: the reasoning. `grandparent(X, Z) :- parent(X, Y), parent(Y, Z).`
   says: *for any* X, Y, Z, if X is a parent of Y and Y is a parent of Z,
   then X is a grandparent of Z. `:-` reads as "if"; the comma reads as
   "and".
@@ -15,7 +15,7 @@ input); relations defined by rules are **IDB** (intensional — derived).
 
 ## A first program
 
-This ships as `programs/01-family.dl` (with an `ancestor` rule you'll meet
+This ships as `programs/family.dl` (with an `ancestor` rule you'll meet
 properly in Lesson 2); the heart of it:
 
 ```prolog
@@ -29,7 +29,7 @@ sibling(X, Y) :- parent(P, X), parent(P, Y).
 ```
 
 ```sh
-$ python3 datalog.py programs/01-family.dl
+$ python3 datalog.py programs/family.dl
 % grandparent/2 (derived) — 2 facts
 grandparent(abe, carl).
 grandparent(abe, dana).
@@ -42,7 +42,7 @@ Two things to notice:
 1. **Variables range over everything.** The engine finds *all* ways to
    match the body against the data. This is a join: `grandparent` is the
    relational join of `parent` with itself.
-2. **`sibling` has a bug** — it derives `sibling(bob, bob)`, because
+2. **`sibling` has a bug**; it derives `sibling(bob, bob)`, because
    nothing stops X and Y being the same person. Datalog has no `X != Y`
    built-in in this engine; the standard fix is to model the data so the
    issue can't arise, or filter afterwards. Sit with this example — being
@@ -51,7 +51,7 @@ Two things to notice:
 ## Queries
 
 ```sh
-$ python3 datalog.py -q 'grandparent(abe, X)' programs/01-family.dl
+$ python3 datalog.py -q 'grandparent(abe, X)' programs/family.dl
 ?- grandparent(abe, X)
    grandparent(abe, carl).
    grandparent(abe, dana).
@@ -66,7 +66,7 @@ Constants in the query act as filters.
 Any derived fact can be interrogated, from your very first program:
 
 ```sh
-$ python3 datalog.py --explain 'grandparent(abe, carl)' programs/01-family.dl
+$ python3 datalog.py --explain 'grandparent(abe, carl)' programs/family.dl
 ?- explain grandparent(abe, carl)
    grandparent(abe, carl)   [via grandparent(X, Z) :- parent(X, Y), parent(Y, Z).]
      parent(abe, bob)   (base fact)
@@ -79,7 +79,7 @@ explanation you would write by hand: it is generated from the same work
 that produced the answer, so it cannot disagree with it, and it costs
 nothing extra to ask.
 
-Use it whenever a result surprises you — it is the fastest debugging
+Use it whenever a result surprises you; it is the fastest debugging
 tool in the repository, and it gets more interesting as the programs
 do (recursive derivations nest, and negated conditions are shown as
 explicitly as positive ones). [Lesson 11](11-under-the-hood.md)

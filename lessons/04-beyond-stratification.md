@@ -1,6 +1,6 @@
-# Lesson 5 — Beyond stratification: stable models and the café paradox
+# Lesson 4 — Beyond stratification: stable models and the café paradox
 
-Lesson 3 ended on a cliffhanger: the engine rejects any program with
+Lesson 3 ended on a cliffhanger. The engine rejects any program with
 negation inside a recursive cycle, but among the rejected programs some
 are perfectly meaningful and some are genuinely paradoxical. Telling them
 apart needs real semantics. This engine ships both classical answers
@@ -14,7 +14,7 @@ against that assumption, and check that the simplified (now
 negation-free) program derives exactly M back. No dropped conclusions, no
 unsupported beliefs.
 
-The win/move game (`programs/03-win.dl`, from Lesson 3) shows why this
+The win/move game (`programs/win.dl`, from Lesson 3) shows why this
 is the right notion:
 
 ```prolog
@@ -23,7 +23,7 @@ win(X) :- move(X, Y), not win(Y).
 ```
 
 ```
-$ python3 datalog.py --models programs/03-win.dl
+$ python3 datalog.py --models programs/win.dl
 Syntactic check: not stratifiable (win --not--> win).
 Stable models: 2
   model 1: win(a).
@@ -46,31 +46,31 @@ worth stating them as a table you can act on:
 
 | `--models` says | your program is | what to do |
 |---|---|---|
-| exactly one stable model | determinate | nothing — this is the goal |
+| exactly one stable model | determinate | nothing. This is the goal |
 | no stable model | self-contradictory | some condition reads its own outcome; break the loop |
 | several stable models | underspecified | consistent, but a choice is unmade — add a tie-break |
 
 The third row is the one people find surprising. Several models does
 not mean the program is broken; it means it is *silent* about
 something, and the engine has enumerated the ways that silence could be
-resolved. `programs/00-eligibility-choice.dl` is the worked case: "only
+resolved. `programs/eligibility-choice.dl` is the worked case: "only
 one member of a household may claim" never says which, so a household
-with two candidates yields two models — and a household with only one
+with two candidates yields two models, and a household with only one
 candidate stays settled in both, so the ambiguity is localised rather
 than contagious.
 
 ## The well-founded model
 
 The **well-founded semantics** (Van Gelder–Ross–Schlipf, 1991) refuses to
-guess. It's three-valued — every fact comes out *true*, *false*, or
-*undefined* — and it always exists. For win/move it makes both `win(a)`
+guess. It's three-valued, every fact comes out *true*, *false*, or
+*undefined*, and it always exists. For win/move it makes both `win(a)`
 and `win(b)` undefined; for `p :- not p.` it makes p undefined. What it
 can settle, it settles; what is genuinely circular, it names as such.
 
 ## The café paradox
 
 (If you arrived from the README: this is that eligibility paradox with
-the roles made concrete. `00-eligibility-paradox.dl` is the same knot in
+the roles made concrete. `eligibility-paradox.dl` is the same knot in
 benefits vocabulary, and both are the barber paradox underneath. The
 café version is the better one to *learn* on, because the story makes
 the circularity visible before the engine names it.)
@@ -78,11 +78,11 @@ the circularity visible before the engine names it.)
 Now the capstone: the café paradox. A town's policy:
 anyone who does **not** live in a household that cooks its own meals may
 eat free in the café. The café is operated by one of the households, and
-Bob — a member of that household — is assigned to cook the café's meals.
+Bob: a member of that household — is assigned to cook the café's meals.
 Where will Bob take his meals?
 
 Encode "a household cooks its own meals" as being about the meals its
-members actually eat (`programs/05-cafe-paradox.dl`), and you get a cycle:
+members actually eat (`programs/cafe-paradox.dl`), and you get a cycle:
 Bob eats in the café iff his household doesn't cook, but his household
 cooks — its meals are cooked by its own member, Bob — iff Bob eats in the
 café. The engine rejects it syntactically, and `--models` delivers the
@@ -96,21 +96,21 @@ Well-founded model (three-valued):
   undefined: eats_at_home(bob).  eats_in_cafe(bob).  household_cooks(cafe_house).
 ```
 
-This is the barber paradox in catering form — the ground core is
-`p :- not p` stretched over two atoms — and the well-founded model is
+This is the barber paradox in catering form: the ground core is
+`p :- not p` stretched over two atoms, and the well-founded model is
 wonderfully precise about it: everyone else's meals are settled, and
 exactly Bob's three facts are undefined. *Where will Bob take his meals?
 Undefined.*
 
 Two further encodings complete the story:
 
-- `programs/05-cafe-constraint.dl` — read the argument directly (Bob
+- `programs/cafe-constraint.dl` — read the argument directly (Bob
   cooks the café's meals, the café is his household, therefore his
   household cooks). The program stratifies, and the paradox reappears as
   a *data-level* integrity violation naming exactly Bob:
   `violation(bob).` Modelling choices decide whether a paradox lives in
   your rules or your data.
-- `programs/05-cafe-foodary.dl` — the resolution: the café's food is
+- `programs/cafe-foodary.dl` is the resolution. The café's food is
   delivered from another town, nobody local cooks it, the cycle is gone,
   and `eats_in_cafe(bob)` holds. Change the situation, not the rule.
 
@@ -120,7 +120,7 @@ Three programs, one story, three verdicts:
 
 | Encoding | Syntactic | Semantic |
 |---|---|---|
-| self-referential | rejected | no stable model; Bob undefined in WFS |
+| self-referential | rejected | no stable model; Bob undefined in the well-founded model |
 | direct | stratifies | model exists; `violation(bob)` |
 | Foodary | stratifies | model exists; Bob eats free |
 
@@ -133,12 +133,13 @@ answer.
 
 ## Exercises
 
-1. Run `--models` on the barber program (`programs/03-barber.dl`).
+1. Run `--models` on the barber program (`programs/barber.dl`).
    Which fact is undefined? Which is *true* despite the paradox?
 2. Give win/move an acyclic move graph (a chain). How many stable models
    now? What does that say about where the ambiguity came from?
 3. Invent a third reading of the café: make `household_cooks` an EDB
    fact you assert or don't. What happens in each case?
 
-Next: [semirings](06-semirings.md) — what a derivation carries besides
-truth.
+Next: [magic sets](05-magic-sets.md), which leaves semantics behind
+and asks a performance question: how do you stop computing the whole
+world when you only asked one thing?

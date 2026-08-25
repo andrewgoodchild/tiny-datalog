@@ -25,7 +25,7 @@ reasoning (a "TBox," about concepts), not *assertional* reasoning (an
 "ABox," about individuals). Datalog answers "which tuples?"; subsumption
 answers "which definitions entail which?"
 
-## The tradeoff saga — the same lesson as Lesson 9, rediscovered
+## The tradeoff saga: the same lesson as Lesson 9, rediscovered
 
 KL-ONE's own subsumption algorithm was *structural*: normalise both
 definitions, compare part by part. Then came the shock results: Brachman
@@ -39,7 +39,7 @@ different logic.
 
 The fragment this lesson implements is **EL**: conjunction (`and`) and
 existential restriction (`some`), nothing else. Subsumption in EL is
-polynomial — and EL is no toy: it is the tractable core underneath the
+polynomial, and EL is no toy: it is the tractable core underneath the
 OWL 2 EL profile, the family that reasoners like ELK and Snorocket
 scale to SNOMED CT, the ~350,000-concept clinical terminology used in
 health records worldwide.
@@ -48,13 +48,13 @@ health records worldwide.
 
 EL subsumption is decided by a *saturation calculus*: normalise the
 ontology into four axiom shapes, then apply completion rules to fixpoint.
-Monotone rules, run to fixpoint — that is a Datalog program. So this
+Monotone rules, run to fixpoint, that is, a Datalog program. So this
 repository's implementation (`subsumption.py`) is a **compiler**: it
 normalises the ontology, emits facts plus five rules, and hands them to
 the engine you already know. Try `--emit` to see the generated program;
 it runs under plain `datalog.py`.
 
-The ontology (`programs/10-family-ontology.dl` — note it uses the
+The ontology (`programs/family-ontology.dl` — note it uses the
 compound terms Datalog itself forbids; the ontology language *needs* the
 structure Datalog banned, which is why it must be compiled):
 
@@ -73,7 +73,7 @@ only defined concepts can be discovered to lie under things you never
 said. Run the classifier:
 
 ```
-$ python3 subsumption.py programs/10-family-ontology.dl
+$ python3 subsumption.py programs/family-ontology.dl
 Classification (7 named concepts):
   father         ⊑  man, parent*
   grandfather    ⊑  father*
@@ -86,14 +86,14 @@ Classification (7 named concepts):
 ```
 
 Three subsumptions nobody stated: every father is a parent, every mother
-is a parent — and every grandfather is a *father* (having a child who is
+is a parent, and every grandfather is a *father* (having a child who is
 a parent is, in particular, having a child who is a person). That
 asterisked discovery is KL-ONE's party trick, reproduced by five
 Datalog rules.
 
 Two details worth reading in `subsumption.py`: normalisation mints fresh
 names (`gen_1`, ...) for nested expressions, choosing the inclusion's
-direction by which side of ⊑ the expression sits on — a conservative
+direction by which side of ⊑ the expression sits on: a conservative
 extension, and essentially the structural normalisation KL-ONE performed;
 and the five completion rules in `datalog()` are the CR1–CR4 calculus
 that industrial EL reasoners (ELK, Snorocket) implement with exactly the
@@ -119,10 +119,10 @@ classifier is exactly one letter of the alphabet.
 
 What ships is plain **EL**. Missing: **⊤** (no universal concept), **⊥
 and disjointness** (so this classifier can never tell you a definition
-is unsatisfiable — a significant thing for a knowledge base to be
+is unsatisfiable: a significant thing for a knowledge base to be
 unable to say), **role hierarchies** (`subrole(has_part, has_component)`
 is rejected, loudly, rather than silently ignored), **role chains and
-right identities**, nominals, datatypes — and there is no ABox at all:
+right identities**, nominals, datatypes, and there is no ABox at all:
 this reasons about definitions, never about individuals.
 
 SNOMED CT genuinely needs the role hierarchy and right identities
@@ -145,6 +145,6 @@ role chains is a research-grade one.
    appear?
 4. Write an ontology where a concept is discovered *equivalent* to
    another (hint: two syntactically different definitions of the same
-   thing — the classifier reports `≡`).
+   thing: the classifier reports `≡`).
 
 Next: [under the hood](11-under-the-hood.md) — how all of it is built.

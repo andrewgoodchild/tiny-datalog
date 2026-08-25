@@ -1,8 +1,8 @@
 % A software supply chain: 160 packages, 292 dependency edges, 12 of
 % them services you actually deploy.  One package has a CVE.
 %
-%   python3 datalog.py -q 'exposed(S, C)' programs/00-supply-chain.dl
-%   python3 datalog.py --explain 'exposed(pkg4, cve_2026_0001)' programs/00-supply-chain.dl
+%   python3 datalog.py -q 'exposed(S, C)' programs/supply-chain.dl
+%   python3 datalog.py --explain 'exposed(pkg4, cve_2026_0001)' programs/supply-chain.dl
 %
 % Three rules.  The question they answer — which deployed services are
 % reachable to the vulnerable package, through any depth of transitive

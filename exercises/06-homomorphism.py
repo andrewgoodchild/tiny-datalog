@@ -48,7 +48,7 @@ def h_minplus(why_value, weights):
 
 
 def check_minplus():
-    text = load("06-routes.dl")
+    text = load("routes.dl")
     weights = fact_weights(text)
     why = run_semiring(text, "why")
     direct = run_semiring(text, "minplus")
@@ -68,7 +68,7 @@ def check_minplus():
 
 
 def check_count():
-    text = load("06-two-derivations.dl")
+    text = load("two-derivations.dl")
     why = run_semiring(text, "why")
     count = run_semiring(text, "count")
     witnesses = why.value("q", ("a", "c"))

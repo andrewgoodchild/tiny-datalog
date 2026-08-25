@@ -1,6 +1,6 @@
 % A flaky network: each link is up with some probability.
 %
-%   python3 semiring.py --semiring viterbi programs/07-prob-reach.dl
+%   python3 semiring.py --semiring viterbi programs/prob-reach.dl
 %
 % Viterbi (max, x) scores the MOST LIKELY single route — a true semiring.
 % "Total probability of reachability" is deliberately not offered: its

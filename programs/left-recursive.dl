@@ -1,12 +1,12 @@
 % Left-recursive ancestor — the program that separates the three
 % top-down strategies:
 %
-%   python3 datalog.py -q 'ancestor(abe, X)' programs/13-left-recursive.dl
+%   python3 datalog.py -q 'ancestor(abe, X)' programs/left-recursive.dl
 %       bottom-up: doesn't care about rule shape, just works
-%   python3 prolog.py programs/13-left-recursive.dl -q 'ancestor(abe, X)'
+%   python3 prolog.py programs/left-recursive.dl -q 'ancestor(abe, X)'
 %       SLD: descends into ancestor before consuming any input — only the
 %       depth bound saves it, and answers arrive marked "truncated"
-%   python3 tabling.py programs/13-left-recursive.dl -q 'ancestor(abe, X)'
+%   python3 tabling.py programs/left-recursive.dl -q 'ancestor(abe, X)'
 %       tabled: the recursive call reads its own table; terminates cleanly
 
 parent(abe, bob).

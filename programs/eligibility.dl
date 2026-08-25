@@ -2,8 +2,8 @@
 % access-control list and compliance check is made of, and the question
 % they all have to answer: why is this person eligible?
 %
-%   python3 datalog.py -q 'eligible(X)' programs/00-eligibility.dl
-%   python3 datalog.py --explain 'eligible(bob)' programs/00-eligibility.dl
+%   python3 datalog.py -q 'eligible(X)' programs/eligibility.dl
+%   python3 datalog.py --explain 'eligible(bob)' programs/eligibility.dl
 %
 % The café paradox (programs/05-cafe-*.dl) is this same policy shape
 % pushed until it contradicts itself.

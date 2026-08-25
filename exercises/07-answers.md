@@ -34,5 +34,5 @@ The exact answer must always be ≥ Viterbi, because "some route works"
 includes the event "the best route works" — Viterbi is a lower bound
 that ignores the redundancy between routes. The gap (0.12) is the value
 of the backup paths, and computing it required leaving semirings for
-world-counting — precisely the boundary the lesson drew, and precisely
+world-counting, precisely the boundary the lesson drew, and precisely
 where Scallop-style systems bring in weighted model counting.

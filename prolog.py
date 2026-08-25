@@ -18,13 +18,13 @@ Differences from real Prolog, on purpose:
 * `not` is negation as failure via a depth-bounded sub-proof.
 
 Same syntax and parser as datalog.py, which *parses* compound terms but
-rejects them at validation — run datalog.py on programs/09-peano.pl to see
+rejects them at validation — run datalog.py on programs/peano.pl to see
 the boundary stated as an error message.
 
 CLI
 ---
-    python3 prolog.py programs/09-peano.pl -q 'add(s(zero), s(s(zero)), X)'
-    python3 prolog.py programs/09-peano.pl -q 'nat(X)' --max-solutions 5
+    python3 prolog.py programs/peano.pl -q 'add(s(zero), s(s(zero)), X)'
+    python3 prolog.py programs/peano.pl -q 'nat(X)' --max-solutions 5
 """
 
 from __future__ import annotations

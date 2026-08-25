@@ -23,11 +23,11 @@ one wrote down.
 and evaluation is the working-out of all consequences.** The README
 names three properties; here is what each one costs and buys:
 
-1. **Declarative** — you never say *how* to compute (no loops, no
+1. **Declarative**. You never say *how* to compute (no loops, no
    ordering); the engine picks the strategy.
 2. **Recursive** — reachability, hierarchies, and dependency closures are
    native, not bolted on.
-3. **Terminating** — every Datalog program finishes. Always. This is a
+3. **Terminating**, every Datalog program finishes. Always. This is a
    theorem, not a convention, and Lesson 9 shows the price paid for it.
 
 If you know SQL: Datalog is roughly "SELECT–JOIN plus real recursion,
@@ -35,7 +35,7 @@ minus the ceremony." If you know Prolog: Datalog is Prolog without
 function symbols, evaluated bottom-up, with termination guaranteed.
 
 For a program that looks like actual work rather than a textbook
-figure, read `programs/00-eligibility.dl` — a benefits policy with an
+figure, read `programs/eligibility.dl`: a benefits policy with an
 exemption clause, which the engine can both evaluate and *justify*
 (`--explain 'eligible(bob)'`). You will be able to write it yourself
 after lesson 3, and to explain how `--explain` works after lesson 11.
@@ -71,7 +71,8 @@ bddbddb (2004) and Doop (2009) to Soufflé and GitHub's **CodeQL**,
 probably the most widely deployed Datalog on earth. Databases speak it
 again (Datomic, 2012; RDFox; LogicBlox, whose engine gave database theory
 worst-case optimal joins). Distributed-systems theory gets the CALM
-theorem: monotone Datalog is exactly what needs no coordination.
+theorem (Consistency As Logical Monotonicity): monotone Datalog is
+exactly what needs no coordination.
 
 **The present (2020s).** The active research threads: **semiring
 provenance** (one program computing costs, counts, and evidence —
@@ -91,14 +92,14 @@ itself was convened by **Hervé Gallaire** and **Jack Minker**, whose
 1977 workshop and 1978 book *Logic and Data Bases* made "logic meets
 databases" a discipline.
 
-The *name* — and much of the language's identity as a thing distinct
+The *name*, and much of the language's identity as a thing distinct
 from Prolog — is generally credited to **David Maier**, who coined
 "Datalog" in the early 1980s. Maier is one of database theory's central
 figures: author of *The Theory of Relational Databases* (1983),
 co-author with **David S. Warren** of *Computing with Logic* (1988),
 and a builder of the GemStone object database. In 2018 he co-wrote,
 with Warren and colleagues, the retrospective *"Datalog: Concepts,
-History, and Outlook"* — the definitive account of the language's life,
+History, and Outlook"*: the definitive account of the language's life,
 by people who lived it. Warren built XSB, the tabling engine that kept
 the well-founded semantics alive through the winter years of Act 3.
 
@@ -115,7 +116,7 @@ The obvious test is to hand a language model a logic puzzle and watch it
 fail. It is the oldest story in science fiction: feed the machine a
 paradox, watch it seize. That story assumes the machine is a deductive
 system, in which a contradiction propagates until something breaks. A
-language model has no propagation — a contradiction is just more text,
+language model has no propagation: a contradiction is just more text,
 and it glides past. **You cannot crash it with a paradox because there
 is no inference engine in there to crash.**
 
@@ -123,7 +124,7 @@ It also assumes models are weak at logic, and they are not. Logic
 puzzles are cheap to verify, which makes them ideal reinforcement
 learning targets, so the labs have trained on them hard. On top of that,
 the classic paradoxes are among the most written-about objects in the
-Western canon — the café paradox in Lesson 5 *is* the barber paradox
+Western canon: the café paradox in Lesson 4 *is* the barber paradox
 *is* Russell's paradox, discussed in logic textbooks for a century. Hand
 a frontier model that puzzle and it will do fine. It was never a probe.
 
@@ -145,7 +146,9 @@ whether you got reasoning or recall.
 
 There is also a complexity result worth carrying, because it says where
 the limit is rather than guessing at it. Directed graph reachability is
-NL-complete and Horn-clause satisfiability — which is what evaluating
+NL-complete (as hard as any problem a nondeterministic machine solves
+in logarithmic space) and Horn-clause satisfiability, which is what
+evaluating
 Datalog rules *is* — is P-complete. Merrill and Sabharwal (ICLR 2024)
 prove that transformers with a linear number of chain-of-thought steps
 can decide neither, naming both explicitly. Doing this kind of
@@ -157,7 +160,7 @@ code should be rather than about whether models can reason.
 All of which inverts where the danger lies. Logic puzzles are the *safest*
 place to probe a model, because they are exactly where cheap
 verification made training effective. The risk sits wherever a
-confident answer cannot be checked in under a minute — and that is a
+confident answer cannot be checked in under a minute, and that is a
 much larger territory than the one science fiction warned us about.
 
 ## How this course follows the history
@@ -165,19 +168,19 @@ much larger territory than the one science fiction warned us about.
 | Era | Idea | Where here |
 |---|---|---|
 | 1977–1985 | facts, rules, joins, recursion, semi-naive | Lessons 1–2 · `datalog.py` |
-| 1986 | magic sets | Lesson 4 · `magic.py` |
+| 1986 | magic sets | Lesson 5 · `magic.py` |
 | 1988–1991 | stratification; stable models; well-founded | Lessons 3 & 5 · `semantics.py` |
 | 2007– | provenance semirings, recursive aggregation | Lesson 6 · `semiring.py` |
 | 2020s | probabilistic / neurosymbolic | Lesson 7 |
 | 1993 → 2023 | DRed → differential dataflow → DBSP | Lesson 8 · `incremental.py` |
 | 1965–1972 | Horn clauses, resolution, Prolog | Lesson 9 · `prolog.py` |
 | 1977 | conjunctive-query containment (Chandra–Merlin) | Lesson 14 · `containment.py` |
-| 1978 → today | KL-ONE → description logics → OWL / SNOMED | Lesson 10 · `subsumption.py` |
+| 1978 → today | KL-ONE → description logics → OWL / SNOMED CT | Lesson 10 · `subsumption.py` |
 | throughout | closed vs open worlds — what absence means | Lesson 15 |
 | the practice | authoring rules others must review | Lesson 16 |
-| 1990s → today | recursive aggregation; SLG tabling (XSB) | Lessons 12–13 · `tabling.py` |
+| 1990s → today | recursive aggregation; SLG tabling, the resolution strategy XSB implements | Lessons 12–13 · `tabling.py` |
 
-The repository is small on purpose — every algorithm named above is
+The repository is small on purpose, every algorithm named above is
 implemented in readable standard-library Python, and every example in
 every lesson is a file you can run.
 
@@ -192,7 +195,7 @@ lessons is stated in them.
 A reader arriving from category theory will notice that much of this
 *can* be recast categorically: instances and homomorphisms form a
 category, `lfp(T_P)` is an initial algebra, semiring specialisation is
-a functor. All true, and — for classical Datalog — none of it doing
+a functor. All true, and, for classical Datalog — none of it doing
 work the lattice-and-semiring toolkit wasn't already doing. Nothing in
 `datalog.py` would be different. It is worth saying plainly, because
 the vocabulary is attractive enough to mistake for content.
@@ -201,7 +204,8 @@ Where categorical machinery genuinely earns its place is one step
 outside this repository: at **existential rules** (Datalog±, the
 chase), where the chase is a left Kan extension, and at **functorial
 data migration** (schemas as categories, instances as functors,
-migration as Kan extensions — CQL and the Topos Institute line). Both
+migration as Kan extensions, in the Categorical Query Language (CQL)
+and the Topos Institute line). Both
 concern the fragment this engine deliberately does not implement, and
 both are live research rather than settled technique. If you add
 existentials, that is the road; until then, it is a signpost.

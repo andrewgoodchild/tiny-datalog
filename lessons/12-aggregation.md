@@ -16,7 +16,7 @@ howmany(P, count(C)) :- charge(P, C, A).
 An aggregate term — `sum(V)`, `count(V)`, `min(V)`, `max(V)` — may
 appear once in a rule head. The *other* head arguments are the implicit
 GROUP BY: `total(P, sum(A))` reads "for each P, the sum of the A values."
-Run `programs/12-spending.dl`:
+Run `programs/spending.dl`:
 
 ```
 total(alice, 180).      howmany(alice, 2).
@@ -29,15 +29,15 @@ Two semantic decisions worth knowing:
   values. Two different charges of 50 sum to 100, because they are two
   rows. This is worth stating precisely, because there is a tempting
   wrong answer: "Datalog is a set language, so 50 and 50 collapse."
-  Sets do apply — to the body's *solutions*, which are already distinct
-  — and collapsing the values on top of that is an extra projection,
-  not a consequence. The tell that it's wrong: under value-collapsing,
+  Sets do apply to the body's *solutions*, which are already distinct;
+  collapsing the values on top of that is an extra projection, not a
+  consequence. The tell that it's wrong: under value-collapsing,
   `count(C)` and `count(A)` give different answers for the same rule
   over the same rows, and an aggregate whose result depends on which
   functionally-determined variable you happen to name cannot be
   defended. SQL, Soufflé, LogicBlox and DDlog all aggregate over
   solutions; so does this engine. (If you *want* distinct values, that
-  is SQL's `SUM(DISTINCT A)` — a different, explicitly-requested
+  is SQL's `SUM(DISTINCT A)`: a different, explicitly-requested
   operation.)
 - A group with no body solutions produces *no* fact — `count` never
   returns 0, because there is no group to attach it to.
@@ -59,7 +59,7 @@ REJECTED: program is not stratifiable — aggregation occurs inside a
 recursive cycle: q --agg--> q.
 ```
 
-Aggregating a *recursive* relation is perfectly fine — it just lands in
+Aggregating a *recursive* relation is perfectly fine; it just lands in
 the next stratum (`reach(P, count(Q)) :- connected(P, Q).` in the
 example program). What's forbidden is the summary feeding back into what
 it summarises. (Letting *monotone* aggregation recurse safely — min
@@ -70,11 +70,11 @@ seen from two sides.)
 
 ## Exercises
 
-1. Add `average(P, ...)` — you can't, with one aggregate per head. Build
+1. Add `average(P, ...)`. You can't, with one aggregate per head. Build
    it from two rules (`sum` and `count`) and explain why the engine
    can't divide for you (no arithmetic — see the README's "deliberately
    missing" section).
-2. Predict `reach(alice, N)` in `12-spending.dl` before running it.
+2. Predict `reach(alice, N)` in `spending.dl` before running it.
    Why does dana not appear at all?
 3. Write the forbidden program: make a predicate's count feed its own
    derivation, and read the cycle diagnosis. Then explain in one
@@ -82,5 +82,5 @@ seen from two sides.)
 4. `--explain 'total(bob, 990)'` — what does the tree show instead of
    premises, and why can't an aggregate have a normal premise list?
 
-Next: [tabling](13-tabling.md) — the third way to evaluate, and the
+Next: [tabling](13-tabling.md). The third way to evaluate, and the
 secret identity of magic sets.
