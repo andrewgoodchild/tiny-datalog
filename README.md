@@ -5,7 +5,8 @@ that builds it up from nothing.**
 
 ## What is Datalog?
 
-A query language with three properties worth memorising:
+A query language from the early 1980s, with three properties worth
+memorising:
 
 - **Declarative.** You state what follows from what, never how to
   compute it. No loops, no ordering, no stopping condition.
@@ -75,7 +76,14 @@ When tomorrow's CVE arrives, the engine repairs those 8,457 facts
 instead of recomputing them: `{'inserted': 1, 'derived': 12}`, 0.03s
 against 0.81s for a rebuild.
 
-## Why this matters
+Nothing to install:
+
+```sh
+git clone https://github.com/andrewgoodchild/tiny-datalog && cd tiny-datalog
+python3 tests.py        # 121 tests, ~2s
+```
+
+## Why the language choice decides what you can ask later
 
 Rules that encode policy tend to outlive the query that prompted them.
 They get reviewed, audited, inherited by someone who did not write
@@ -89,7 +97,7 @@ cannot answer them. Datalog can, because it gave things up:
 | Question about the rules themselves | Datalog | A general-purpose program |
 |---|---|---|
 | Does it terminate? | yes, by construction | undecidable |
-| Are the rules circular? | decidable, and it names the cycle | — |
+| Are the rules circular? | decidable, and it names the cycle | n/a, recursion is ordinary |
 | Is there exactly one consistent answer? | decidable | not even well-formed |
 | Is one rule redundant given another? | decidable for the non-recursive fragment | undecidable |
 | Are two rule sets equivalent? | decidable for the non-recursive fragment | undecidable |
@@ -114,13 +122,13 @@ it:
 That argument has always applied to rules a compliance team signs off
 on. It applies more now that language models write rules too.
 
-Models are good at logic, incidentally. They have been trained on every
-trope in the canon, they spot contradictions in prose reliably, and
-given more data than they can hold they do the sensible thing and write
-a program. So the question was never whether to run code. It is what
-the code should be, and that choice decides which of the questions
-above you are still allowed to ask afterwards. Each feature here is a
-check worth having on rules you did not write yourself:
+Models are good at logic. They have been trained on every trope in the
+canon, they spot contradictions in prose reliably, and given more data
+than they can hold they do the sensible thing and write a program. So
+the question was never whether to run code. It is what the code should
+be, and that choice decides which of the questions above you can still
+ask. Each feature here is a check worth having on rules you did not
+write yourself:
 
 | The rules might be... | Caught by |
 |---|---|
@@ -139,34 +147,28 @@ the better tool, and that covers most problems.
 
 ## What you can ask it
 
-Clone it and every row below runs — no dependencies, no install step,
-Python 3.9+. This table is the quick start and the table of contents at
-once: a question, the command that answers it, and the lesson that
-builds it.
-
-```sh
-git clone https://github.com/andrewgoodchild/tiny-datalog && cd tiny-datalog
-python3 tests.py        # 121 tests, ~2s
-```
+Every row runs against the shipped programs. No dependencies, no
+install step, Python 3.9+. This table doubles as the table of contents:
+a question, the command that answers it, and the lesson that builds it.
 
 | Question | Command | Lesson |
 |---|---|---|
-| What follows from these facts and rules? | `python3 datalog.py programs/01-family.dl` | 1 |
-| What's reachable, at any depth? | `python3 datalog.py --trace programs/02-reachability.dl` | 2 |
-| What holds *unless* something else does? | `python3 datalog.py programs/03-tweety.dl` | 3 |
-| Answer just this query — don't compute everything | `python3 datalog.py --magic -q 'path(n5, X)' programs/02-reachability.dl` | 4 |
-| Is this rule set self-contradictory? | `python3 datalog.py --models programs/00-eligibility-paradox.dl` | 5 |
-| Why did you conclude that? | `python3 datalog.py --explain 'eligible(bob)' programs/00-eligibility.dl` | 1, 11 |
-| Which facts does the conclusion rest on? | `python3 semiring.py -s why programs/06-routes.dl` | 6 |
-| What's the cheapest route? How many ways? | `python3 semiring.py -s minplus programs/06-routes.dl` | 6 |
-| How likely is it? | `python3 semiring.py -s viterbi programs/07-prob-reach.dl` | 7 |
-| The data changed — what changed in the answers? | `python3 incremental.py programs/08-dred-graph.dl -u 'edge(n3, n4)~.'` | 8 |
-| How many, how much, largest? | `python3 datalog.py programs/12-spending.dl` | 12 |
-| Answer a goal top-down, even left-recursive | `python3 tabling.py programs/13-left-recursive.dl -q 'ancestor(abe, X)'` | 13 |
-| What if I allow function symbols — and lose termination? | `python3 prolog.py programs/09-peano.pl -q 'add(X, Y, s(s(zero)))'` | 9 |
-| What do these definitions entail about each other? | `python3 subsumption.py programs/10-family-ontology.dl` | 10 |
-| Are these two queries the same query? | `python3 containment.py programs/14-minimise.dl` | 14 |
-| Does absence mean false, or just unrecorded? | `python3 datalog.py programs/15-missing-data.dl` | 15 |
+| What follows from these facts and rules? | `python3 datalog.py programs/01-family.dl` | [1](lessons/01-first-steps.md) |
+| What's reachable, at any depth? | `python3 datalog.py --trace programs/02-reachability.dl` | [2](lessons/02-recursion.md) |
+| What holds *unless* something else does? | `python3 datalog.py programs/03-tweety.dl` | [3](lessons/03-negation.md) |
+| Answer just this query — don't compute everything | `python3 datalog.py --magic -q 'path(n5, X)' programs/02-reachability.dl` | [4](lessons/04-magic-sets.md) |
+| Is this rule set self-contradictory? | `python3 datalog.py --models programs/00-eligibility-paradox.dl` | [5](lessons/05-beyond-stratification.md) |
+| Why did you conclude that? | `python3 datalog.py --explain 'eligible(bob)' programs/00-eligibility.dl` | [1](lessons/01-first-steps.md), [11](lessons/11-under-the-hood.md) |
+| Which facts does the conclusion rest on? | `python3 semiring.py -s why programs/06-routes.dl` | [6](lessons/06-semirings.md) |
+| What's the cheapest route? How many ways? | `python3 semiring.py -s minplus programs/06-routes.dl` | [6](lessons/06-semirings.md) |
+| How likely is it? | `python3 semiring.py -s viterbi programs/07-prob-reach.dl` | [7](lessons/07-probabilistic.md) |
+| The data changed — what changed in the answers? | `python3 incremental.py programs/08-dred-graph.dl -u 'edge(n3, n4)~.'` | [8](lessons/08-incremental.md) |
+| How many, how much, largest? | `python3 datalog.py programs/12-spending.dl` | [12](lessons/12-aggregation.md) |
+| Answer a goal top-down, even left-recursive | `python3 tabling.py programs/13-left-recursive.dl -q 'ancestor(abe, X)'` | [13](lessons/13-tabling.md) |
+| What if I allow function symbols — and lose termination? | `python3 prolog.py programs/09-peano.pl -q 'add(X, Y, s(s(zero)))'` | [9](lessons/09-horn-clauses.md) |
+| What do these definitions entail about each other? | `python3 subsumption.py programs/10-family-ontology.dl` | [10](lessons/10-kl-one-subsumption.md) |
+| Are these two queries the same query? | `python3 containment.py programs/14-minimise.dl` | [14](lessons/14-containment.md) |
+| Does absence mean false, or just unrecorded? | `python3 datalog.py programs/15-missing-data.dl` | [15](lessons/15-closed-and-open-worlds.md) |
 
 Provenance, in full:
 
@@ -190,6 +192,7 @@ generator, including the one that goes the wrong way. Timings are on an
 Apple M1 Pro, CPython 3.10, single core:
 
 ```sh
+python3 benchmarks/generate.py chain 50  > chain50.dl
 python3 benchmarks/generate.py chain 100 > chain100.dl
 python3 benchmarks/generate.py chain 150 > chain150.dl
 ```
@@ -301,9 +304,10 @@ quarter of it commentary.
 
 "Tiny" is a claim about the evaluator, and about each satellite module
 singly: none of the eight exceeds 380 lines. It is not a claim about
-the repository, which is nine modules because it teaches nine things. There is no dead code to golf
-away (checked); shrinking further means deleting a technique or an
-explanation.
+the repository, which is nine modules because it teaches nine things.
+
+There is no dead code to golf away (checked); shrinking further means
+deleting either a technique or an explanation.
 
 ## License
 
