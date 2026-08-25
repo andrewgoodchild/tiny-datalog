@@ -129,17 +129,10 @@ it:
 - **Provenance and incremental maintenance come from the semantics**
   rather than from extra code that would itself need verifying.
 
-Which makes each feature here a check worth having on rules you did not
-write yourself:
-
-| The rules might be... | Caught by |
-|---|---|
-| circular | stratification, which names the cycle |
-| self-contradictory | `--models` → *no stable model* |
-| silently ambiguous | `--models` → *several stable models* |
-| redundant | `containment.py` |
-| unsound | safety validation |
-| correct, but needing sign-off | `--explain` |
+Every feature in this repository is a check of that kind: stratification
+catches circularity, `--models` catches contradiction and ambiguity,
+`containment.py` catches redundancy, and `--explain` produces the
+derivation somebody has to sign off on.
 
 Two limits. An engine checks coherence, not intent: a rule set can pass
 every check above and still be the wrong policy. And the trade only
