@@ -180,7 +180,9 @@ much larger territory than the one science fiction warned us about.
 | 2020s | probabilistic / neurosymbolic | Lesson 7 |
 | 1993 → 2023 | DRed → differential dataflow → DBSP | Lesson 8 · `incremental.py` |
 | 1965–1972 | Horn clauses, resolution, Prolog | Lesson 9 · `prolog.py` |
+| 1977 | conjunctive-query containment (Chandra–Merlin) | Lesson 14 · `containment.py` |
 | 1978 → today | KL-ONE → description logics → OWL / SNOMED | Lesson 10 · `subsumption.py` |
+| throughout | closed vs open worlds — what absence means | Lesson 15 |
 | 1990s → today | recursive aggregation; SLG tabling (XSB) | Lessons 12–13 · `tabling.py` |
 
 The repository is small on purpose — every algorithm named above is

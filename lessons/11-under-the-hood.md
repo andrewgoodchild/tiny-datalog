@@ -15,6 +15,7 @@ paraphrase.
 | `prolog.py` | unification + SLD resolution | Lesson 9 |
 | `subsumption.py` | EL normalisation, compiled to Datalog | Lesson 10 |
 | `tabling.py` | tabled top-down evaluation (iterative QSQR) | Lesson 13 |
+| `containment.py` | homomorphism search: containment and minimisation | Lesson 14 |
 
 ## The core, in one pass (`datalog.py`)
 

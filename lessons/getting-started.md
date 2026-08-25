@@ -4,9 +4,9 @@ Everything is one file of standard-library Python — there is nothing to
 install beyond Python 3.9+.
 
 ```sh
-git clone https://github.com/<you>/tiny-datalog
+git clone https://github.com/andrewgoodchild/tiny-datalog
 cd tiny-datalog
-python3 tests.py                     # 119 tests, should all pass
+python3 tests.py                     # 123 tests, should all pass
 python3 datalog.py programs/02-reachability.dl
 ```
 

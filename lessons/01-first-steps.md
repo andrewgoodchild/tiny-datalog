@@ -29,7 +29,7 @@ sibling(X, Y) :- parent(P, X), parent(P, Y).
 ```
 
 ```sh
-$ python3 datalog.py 01-family.dl
+$ python3 datalog.py programs/01-family.dl
 % grandparent/2 (derived) — 2 facts
 grandparent(abe, carl).
 grandparent(abe, dana).
@@ -51,7 +51,7 @@ Two things to notice:
 ## Queries
 
 ```sh
-$ python3 datalog.py -q 'grandparent(abe, X)' 01-family.dl
+$ python3 datalog.py -q 'grandparent(abe, X)' programs/01-family.dl
 ?- grandparent(abe, X)
    grandparent(abe, carl).
    grandparent(abe, dana).

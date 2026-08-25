@@ -88,8 +88,8 @@ Classification (7 named concepts):
 Three subsumptions nobody stated: every father is a parent, every mother
 is a parent — and every grandfather is a *father* (having a child who is
 a parent is, in particular, having a child who is a person). That
-asterisked discovery is KL-ONE's party trick, reproduced by six Datalog
-rules.
+asterisked discovery is KL-ONE's party trick, reproduced by five
+Datalog rules.
 
 Two details worth reading in `subsumption.py`: normalisation mints fresh
 names (`gen_1`, ...) for nested expressions, choosing the inclusion's

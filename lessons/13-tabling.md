@@ -28,8 +28,10 @@ memorise rule-ordering folklore.
 ```sh
 $ python3 tabling.py programs/13-left-recursive.dl -q 'ancestor(abe, X)' -t
 ?- ancestor(abe, X)   [tabled]
-   ancestor(abe, ann).  ancestor(abe, bob).
-   ancestor(abe, carl). ancestor(abe, dee).
+   ancestor(abe, ann).
+   ancestor(abe, bob).
+   ancestor(abe, carl).
+   ancestor(abe, dee).
    (4 answers; 6 subgoal tables, 11 rounds)
    table ancestor(abe, _): 4 answers
    table parent(abe, _): 2 answers

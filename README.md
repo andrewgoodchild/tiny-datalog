@@ -203,7 +203,7 @@ python3 benchmarks/generate.py chain 150 > chain150.dl
 
 | Claim | Measured |
 |---|---|
-| Semi-naive beats naive, and the gap grows | chain-50: 0.7s → 0.07s (**10×**); chain-100: 10.8s → 0.23s (**47×**) |
+| Semi-naive beats naive, and the gap grows | chain-50: 0.7s → 0.07s (**10×**); chain-100: 10.7s → 0.22s (**48×**) |
 | Magic sets makes a *selective* query goal-directed | `path(n140, X)`: **66 facts vs 11,175**, 0.05s vs 0.62s |
 | Magic sets is not a free lunch | `path(n1, X)`: **11,325 facts vs 11,175**, 2.19s vs 0.62s |
 
@@ -227,6 +227,25 @@ the current research threads. The Lesson column above is the index;
 and the reading order, and
 [lessons/glossary.md](lessons/glossary.md) defines every technical term
 the course uses.
+
+Three of them teach things that are hard to find taught well anywhere
+else, and they are the reason the course exists rather than just the
+engine:
+
+- **[Lesson 6](lessons/06-semirings.md)** proves that why-provenance
+  cannot be specialised into derivation counts, with a program that
+  prints the disproof: two facts with identical provenance and different
+  counts. That settles "materialise provenance once, specialise later,"
+  which is a real design-review question with a real answer.
+- **[Lesson 14](lessons/14-containment.md)** shows that the containment
+  test you need for query minimisation is the search already sitting in
+  `datalog.py`: `_match` maps a rule body into a database,
+  `find_homomorphism` maps a rule body into another rule body. Same
+  backtracking, one level up.
+- **[Lesson 15](lessons/15-closed-and-open-worlds.md)** contrasts the
+  two reasoners in this repository, which disagree about what absence
+  means, and leaves you with a habit: when you see `not`, ask whose
+  authority says this is absent.
 
 Every lesson ends with exercises, and every exercise has a worked answer
 in `exercises/` — runnable where the answer is a program, and executed

@@ -49,11 +49,11 @@ a 100-node chain and run it both ways:
 
 ```sh
 python3 benchmarks/generate.py chain 100 > chain100.dl
-python3 datalog.py chain100.dl            # semi-naive: 0.23s
-python3 datalog.py --naive chain100.dl    # naive:     10.6s
+python3 datalog.py chain100.dl            # semi-naive: 0.22s
+python3 datalog.py --naive chain100.dl    # naive:     10.7s
 ```
 
-**46× on a hundred nodes**, and the gap widens with depth: naive
+**48× on a hundred nodes**, and the gap widens with depth: naive
 evaluation redoes every derivation in every round, so its total work
 grows with rounds × relation size while semi-naive's grows with the
 relation. Add `--trace` to either run to watch the mechanism —
