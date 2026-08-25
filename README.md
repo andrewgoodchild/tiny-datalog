@@ -5,14 +5,14 @@ that builds it up from nothing.**
 
 ## What is Datalog?
 
-A query language with exactly three properties worth memorising:
+A query language with three properties worth memorising:
 
-- **Declarative** — you state what follows from what, never how to
+- **Declarative.** You state what follows from what, never how to
   compute it. No loops, no ordering, no stopping condition.
-- **Recursive** — rules may refer to themselves, so "at any depth"
+- **Recursive.** Rules may refer to themselves, so "at any depth"
   questions are the native shape rather than something bolted on.
-- **Terminating** — every program finishes. Always. A theorem, not a
-  convention.
+- **Terminating.** Every program finishes. Always. That is a theorem,
+  not a convention.
 
 Here is what that buys you.
 
@@ -20,7 +20,7 @@ You deploy 12 services, sitting on 160 packages joined by 292
 dependency edges. A CVE lands on one package. Which services are
 exposed?
 
-You write down **facts** — things simply true:
+You write down **facts**, things simply true:
 
 ```prolog
 depends(pkg4, pkg13).             % pkg4 pulls in pkg13
@@ -39,8 +39,8 @@ uses(X, Z) :- depends(X, Y), uses(Y, Z).      % ...and whatever that uses
 exposed(S, C) :- service(S), uses(S, L), vulnerable(L, C).
 ```
 
-The middle rule reads *X uses Z if X depends on Y and Y uses Z* — it
-refers to itself, and that is the whole trick. Applied over and over it
+The middle rule reads *X uses Z if X depends on Y and Y uses Z*. It
+refers to itself, and that is the whole trick: applied over and over it
 walks the graph to any depth, without you saying how deep or when to
 stop.
 
@@ -54,10 +54,10 @@ $ python3 datalog.py -q 'exposed(S, C)' programs/00-supply-chain.dl
    (4 answers)
 ```
 
-Four of twelve, and nothing you can see in the file says which four:
-the 292 edges you *stated* imply **8,457** `uses` facts, and the answer
-lives in those. Ask why, and you get the derivation the answer came out
-of — which is the remediation path, not a description of it:
+Four of twelve, and nothing you can see in the file says which four.
+The 292 edges you stated imply 8,457 `uses` facts, and the answer lives
+in those. Ask why, and you get the derivation the answer came out of,
+which is also the remediation path:
 
 ```
 $ python3 datalog.py --explain 'exposed(pkg4, cve_2026_0001)' programs/00-supply-chain.dl
@@ -71,58 +71,56 @@ $ python3 datalog.py --explain 'exposed(pkg4, cve_2026_0001)' programs/00-supply
      vulnerable(pkg21, cve_2026_0001)   (base fact)
 ```
 
-And when tomorrow's CVE arrives, the engine repairs the 8,457 facts
-rather than recomputing them — `{'inserted': 1, 'derived': 12}`, 0.03s
-against 0.81s to rebuild.
+When tomorrow's CVE arrives, the engine repairs those 8,457 facts
+instead of recomputing them: `{'inserted': 1, 'derived': 12}`, 0.03s
+against 0.81s for a rebuild.
 
-## Why a language from 1977 still matters
+## Why this matters
 
-Datalog is old. The field was convened by a 1977 workshop, the name
-dates to the early 1980s, and the techniques in this repository were
-mostly settled by 1991. So why now?
+Rules that encode policy tend to outlive the query that prompted them.
+They get reviewed, audited, inherited by someone who did not write
+them, and changed under pressure. Sooner or later somebody asks why a
+particular decision came out the way it did, and somebody else asks
+whether the rules are even coherent before trusting any answer at all.
 
-Not because language models are bad at logic. They are *good* at it.
-They have been trained on every logic trope in the canon — Russell's
-paradox, the barber, the liar — and they spot contradictions in prose
-reliably. Hand a frontier model this repository's own paradox example
-and it solves it. Give one more data than it can hold, and it will do
-the sensible thing: **write a program.**
+Both are questions about the rules, not about a run, and most languages
+cannot answer them. Datalog can, because it gave things up:
 
-Which is exactly the point. When the data is big enough, everyone ends
-up running code. The question stops being *whether* to write code and
-becomes **what you should have the code do** — and there, the choice of
-language decides what you are allowed to ask afterwards.
-
-Have the model write forty lines of Python with a breadth-first search,
-and you get the same four services. Have it write Datalog, and you also
-get this:
-
-| Question about the rules themselves | Datalog | Python |
+| Question about the rules themselves | Datalog | A general-purpose program |
 |---|---|---|
 | Does it terminate? | yes, by construction | undecidable |
-| Are the rules circular? | decidable — names the cycle | — |
+| Are the rules circular? | decidable, and it names the cycle | — |
 | Is there exactly one consistent answer? | decidable | not even well-formed |
-| Is this rule redundant given that one? | decidable | undecidable |
-| Are two rule sets equivalent? | decidable (conjunctive) | undecidable |
+| Is one rule redundant given another? | decidable for the non-recursive fragment | undecidable |
+| Are two rule sets equivalent? | decidable for the non-recursive fragment | undecidable |
 
-Python hands you an answer you must trust. Datalog hands you an answer
-*plus* machine-checkable claims about the logic that produced it — and
-it can do that precisely because it gave things up. Being declarative,
-recursive and terminating is not a feature list; it is the trade that
-makes the rules analysable.
+(Containment and equivalence become undecidable once recursion is
+involved — Shmueli, 1993 — which is why `containment.py` handles
+conjunctive queries and refuses the rest. [Lesson 14](lessons/14-containment.md)
+covers the boundary.)
 
-Three consequences:
+Being declarative, recursive and terminating is not a feature list. It
+is the trade that makes rules analysable, and three things follow from
+it:
 
 - **The artifact is reviewable by someone who is not a programmer.**
   `eligible(P) :- member(P, H), qualifying_household(H), not employed(P).`
   is nearly the policy sentence. Loops and mutable state are not.
-- **Termination is a safety property** when you are executing rules a
-  model wrote.
-- **Provenance and incremental maintenance come from the semantics**,
-  not from more generated code you would also have to verify.
+- **Termination is a safety property**, not a nicety, when the rules
+  are going to be executed by something you do not supervise.
+- **Provenance and incremental maintenance come from the semantics**
+  rather than from extra code that would itself need verifying.
 
-So each feature here is really a check you would want on machine-written
-rules:
+That argument has always applied to rules a compliance team signs off
+on. It applies more now that language models write rules too.
+
+Models are good at logic, incidentally. They have been trained on every
+trope in the canon, they spot contradictions in prose reliably, and
+given more data than they can hold they do the sensible thing and write
+a program. So the question was never whether to run code. It is what
+the code should be, and that choice decides which of the questions
+above you are still allowed to ask afterwards. Each feature here is a
+check worth having on rules you did not write yourself:
 
 | The rules might be... | Caught by |
 |---|---|
@@ -133,12 +131,11 @@ rules:
 | unsound | safety validation |
 | correct, but needing sign-off | `--explain` |
 
-Two honest limits. An engine checks *coherence*, not intent — a rule
-set can pass every check and still be the wrong policy. And this trade
-only pays when **the rules outlive the query**: policy rather than
-script, reviewed, audited, over changing data. For a one-off question,
-or anything arithmetic-heavy, forty lines of Python is the better tool.
-That is most problems.
+Two limits. An engine checks coherence, not intent: a rule set can pass
+every check above and still be the wrong policy. And the trade only
+pays when the rules genuinely outlive the query. For a one-off
+question, or anything arithmetic-heavy, forty lines of ordinary code is
+the better tool, and that covers most problems.
 
 ## What you can ask it
 
@@ -148,33 +145,37 @@ once: a question, the command that answers it, and the lesson that
 builds it.
 
 ```sh
-git clone https://github.com/<you>/tiny-datalog && cd tiny-datalog
-python3 tests.py        # 119 tests, ~0.7s
+git clone https://github.com/andrewgoodchild/tiny-datalog && cd tiny-datalog
+python3 tests.py        # 121 tests, ~2s
 ```
 
 | Question | Command | Lesson |
 |---|---|---|
-| What follows from these facts and rules? | `datalog.py programs/01-family.dl` | 1 |
-| What's reachable, at any depth? | `datalog.py --trace programs/02-reachability.dl` | 2 |
-| What holds *unless* something else does? | `datalog.py programs/03-tweety.dl` | 3 |
-| Answer just this query — don't compute everything | `datalog.py --magic -q 'path(n5, X)' programs/02-reachability.dl` | 4 |
-| Is this rule set self-contradictory? | `datalog.py --models programs/00-eligibility-paradox.dl` | 5 |
-| Why did you conclude that? | `datalog.py --explain 'eligible(bob)' programs/00-eligibility.dl` | 1, 11 |
-| Which facts does the conclusion rest on? | `semiring.py -s why programs/06-routes.dl` | 6 |
-| What's the cheapest route? How many ways? | `semiring.py -s minplus programs/06-routes.dl` | 6 |
-| How likely is it? | `semiring.py -s viterbi programs/07-prob-reach.dl` | 7 |
-| The data changed — what changed in the answers? | `incremental.py programs/08-dred-graph.dl -u 'edge(n3, n4)~.'` | 8 |
-| How many, how much, largest? | `datalog.py programs/12-spending.dl` | 12 |
-| Answer a goal top-down, even left-recursive | `tabling.py programs/13-left-recursive.dl -q 'ancestor(abe, X)'` | 13 |
-| What if I allow function symbols — and lose termination? | `prolog.py programs/09-peano.pl -q 'add(X, Y, s(s(zero)))'` | 9 |
-| What do these definitions entail about each other? | `subsumption.py programs/10-family-ontology.dl` | 10 |
-| Are these two queries the same query? | `containment.py programs/14-minimise.dl` | 14 |
+| What follows from these facts and rules? | `python3 datalog.py programs/01-family.dl` | 1 |
+| What's reachable, at any depth? | `python3 datalog.py --trace programs/02-reachability.dl` | 2 |
+| What holds *unless* something else does? | `python3 datalog.py programs/03-tweety.dl` | 3 |
+| Answer just this query — don't compute everything | `python3 datalog.py --magic -q 'path(n5, X)' programs/02-reachability.dl` | 4 |
+| Is this rule set self-contradictory? | `python3 datalog.py --models programs/00-eligibility-paradox.dl` | 5 |
+| Why did you conclude that? | `python3 datalog.py --explain 'eligible(bob)' programs/00-eligibility.dl` | 1, 11 |
+| Which facts does the conclusion rest on? | `python3 semiring.py -s why programs/06-routes.dl` | 6 |
+| What's the cheapest route? How many ways? | `python3 semiring.py -s minplus programs/06-routes.dl` | 6 |
+| How likely is it? | `python3 semiring.py -s viterbi programs/07-prob-reach.dl` | 7 |
+| The data changed — what changed in the answers? | `python3 incremental.py programs/08-dred-graph.dl -u 'edge(n3, n4)~.'` | 8 |
+| How many, how much, largest? | `python3 datalog.py programs/12-spending.dl` | 12 |
+| Answer a goal top-down, even left-recursive | `python3 tabling.py programs/13-left-recursive.dl -q 'ancestor(abe, X)'` | 13 |
+| What if I allow function symbols — and lose termination? | `python3 prolog.py programs/09-peano.pl -q 'add(X, Y, s(s(zero)))'` | 9 |
+| What do these definitions entail about each other? | `python3 subsumption.py programs/10-family-ontology.dl` | 10 |
+| Are these two queries the same query? | `python3 containment.py programs/14-minimise.dl` | 14 |
+| Does absence mean false, or just unrecorded? | `python3 datalog.py programs/15-missing-data.dl` | 15 |
 
 Provenance, in full:
 
 ```
-$ python3 semiring.py --semiring why -q 'path(a, d)' programs/06-routes.dl
-path(a, d) = {edge(a, b), edge(b, c), edge(c, d)} | {edge(a, b), edge(b, d)} | {edge(a, c), edge(c, d)}
+$ python3 semiring.py -s why -q 'path(a, d)' programs/06-routes.dl
+Semiring: why   (fixpoint after 5 rounds)
+?- path(a, d)
+   path(a, d) = {edge(a, b), edge(b, c), edge(c, d)} | {edge(a, b), edge(b, d)} | {edge(a, c), edge(c, d)}
+   (1 answer)
 ```
 
 Three independent derivations, each a minimal set of base facts. Remove
@@ -185,8 +186,13 @@ narrated.
 ## Claims you can check
 
 Every performance claim here is reproducible from the shipped
-generator (`python3 benchmarks/generate.py chain 150 > chain150.dl`),
-including the one that goes the wrong way.
+generator, including the one that goes the wrong way. Timings are on an
+Apple M1 Pro, CPython 3.10, single core:
+
+```sh
+python3 benchmarks/generate.py chain 100 > chain100.dl
+python3 benchmarks/generate.py chain 150 > chain150.dl
+```
 
 | Claim | Measured |
 |---|---|
@@ -223,8 +229,10 @@ regression test without writing Python.
 ## Where these techniques ship
 
 Static analysis at scale (CodeQL, Soufflé) is Datalog. Knowledge graphs
-(RDFox) are Datalog. Incremental view maintenance (Feldera) is the 1993
-DRed paper with thirty years of engineering on top.
+(RDFox) are Datalog. Incremental view maintenance is a live commercial
+category: DRed (1993) is the algorithm in Lesson 8, and DBSP — the
+Z-set formulation behind Feldera — is the descendant that took a
+different route to the same problem.
 [Lesson 0](lessons/00-what-is-datalog.md) maps every technique in the
 course to where it ships.
 
@@ -268,12 +276,13 @@ prolog.py       top-down SLD resolution with function symbols
 tabling.py      tabled top-down evaluation (iterative QSQR)
 subsumption.py  KL-ONE-style EL classifier, compiled to Datalog
 containment.py  query containment and minimisation by homomorphism
-programs/       the classic teaching programs, numbered by lesson
+programs/       teaching programs, numbered by the lesson that uses
+                them (00-* are the README's examples)
 lessons/        getting started, glossary, and lessons 0–15
 exercises/      worked answers, verified by the test suite
 cases/          golden test cases — add one without writing Python
 benchmarks/     scaled input generators (chain/tree/clique/grid)
-tests.py        119 tests: every shipped program and exercise answer is
+tests.py        121 tests: every shipped program and exercise answer is
                 executed, a conformance suite runs every query through
                 every applicable strategy, and a seeded fuzzer checks
                 the same property on random programs
@@ -285,15 +294,14 @@ tour.
 
 ### How big is it, honestly
 
-`wc -l`, so you can check: the evaluator is **801** lines
-(`datalog.py` 1–801), its CLI and `--explain` another 399, and eight
-satellite modules 2,092 — **3,292** total, of which 2,043 are code, 787
-commentary and 462 blank. `tests.py` adds 1,288 more, roughly one test
-line per 2.7 lines of toolkit.
+The evaluator is about 800 lines (`datalog.py`, up to the CLI), its
+CLI and `--explain` another 400, and the eight satellite modules about
+2,100. Call it 3.3k lines of toolkit and 1.3k of tests, roughly a
+quarter of it commentary.
 
-"Tiny" is a claim about the evaluator and about each module singly —
-none exceeds 380 lines — not about the repository, which is nine
-modules because it teaches nine things. There is no dead code to golf
+"Tiny" is a claim about the evaluator, and about each satellite module
+singly: none of the eight exceeds 380 lines. It is not a claim about
+the repository, which is nine modules because it teaches nine things. There is no dead code to golf
 away (checked); shrinking further means deleting a technique or an
 explanation.
 
