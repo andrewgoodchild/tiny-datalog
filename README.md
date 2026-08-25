@@ -5,40 +5,111 @@ that builds it up from nothing.**
 
 ## What is Datalog?
 
-A query language where you write down facts and rules, and the engine
-works out everything that follows.
+You deploy 12 services. They sit on 160 packages joined by 292
+dependency edges — each one individually boring, all of them together
+past what anyone holds in their head. A CVE lands on one package. Which
+services are exposed?
+
+In Datalog you write down what you know, and what follows from it.
+
+**Facts** — things that are simply true, one per line:
 
 ```prolog
-depends(billing, auth).          % facts: things you know
-depends(auth, crypto).
-
-uses(X, Y) :- depends(X, Y).                  % a rule: "uses if depends"
-uses(X, Z) :- depends(X, Y), uses(Y, Z).      % ...transitively, at any depth
+depends(pkg4, pkg13).             % pkg4 pulls in pkg13
+service(pkg4).                    % pkg4 is something we deploy
+vulnerable(pkg21, cve_2026_0001). % pkg21 has the CVE
 ```
 
-`:-` means "if", the comma means "and", capitals are variables. Ask it
-what `billing` uses and it answers `auth` and `crypto` — the second
-never stated, only implied.
+**Rules** — how to derive new facts from known ones. `:-` means "if",
+the comma means "and", and capital letters are variables standing for
+"any package", "any service":
 
-Three properties define it:
+```prolog
+% programs/00-supply-chain.dl
+uses(X, Y) :- depends(X, Y).                  % you use what you depend on
+uses(X, Z) :- depends(X, Y), uses(Y, Z).      % ...and whatever that uses
 
-- **Declarative.** You say what follows from what. You never say how to
-  compute it, in what order, or when to stop.
-- **Recursive.** Rules may refer to themselves, so "at any depth"
-  questions — reachability, inheritance, containment, dependency — are
-  native rather than bolted on.
+exposed(S, C) :- service(S), uses(S, L), vulnerable(L, C).
+```
+
+Read the middle rule aloud: *X uses Z if X depends on Y and Y uses Z.*
+It refers to itself, which is the whole point — apply it over and over
+and it walks the dependency graph to any depth, without you saying how
+deep, in what order, or when to stop.
+
+```
+$ python3 datalog.py -q 'exposed(S, C)' programs/00-supply-chain.dl
+?- exposed(S, C)
+   exposed(pkg0, cve_2026_0001).
+   exposed(pkg4, cve_2026_0001).
+   exposed(pkg5, cve_2026_0001).
+   exposed(pkg8, cve_2026_0001).
+   (4 answers)
+```
+
+Four of twelve, and nothing you can see in the file says which four.
+The 292 edges you *stated* imply **8,457** `uses` facts; the answer
+lives in those, not in what you wrote down. Being 95% right here means
+shipping a service you believed was clean.
+
+That is Datalog: **state what follows from what, and the engine works
+out all the consequences.** Three properties define it.
+
+- **Declarative.** You never say how to compute — no loops, no
+  ordering, no termination condition. Those three rules are the entire
+  program.
+- **Recursive.** "At any depth" questions — reachability, inheritance,
+  containment, dependency — are the native shape rather than something
+  bolted on.
 - **Terminating.** Every Datalog program finishes. Always. That is a
-  theorem, not a convention, and it is bought by one deliberate
-  restriction ([lesson 9](lessons/09-horn-clauses.md) shows exactly
-  which).
+  theorem, not a convention, bought by one deliberate restriction
+  ([lesson 9](lessons/09-horn-clauses.md) shows exactly which).
 
-It is roughly SQL's SELECT–JOIN plus real recursion and minus the
-ceremony, and it is what CodeQL, Datomic, RDFox and Soufflé are
-underneath.
+Roughly: SQL's SELECT–JOIN plus real recursion, minus the ceremony. It
+is what CodeQL, Datomic, RDFox and Soufflé are underneath.
+
+## Then the questions you actually have next
+
+**"Why pkg4? I need to tell the team what to bump."**
+
+```
+$ python3 datalog.py --explain 'exposed(pkg4, cve_2026_0001)' programs/00-supply-chain.dl
+?- explain exposed(pkg4, cve_2026_0001)
+   exposed(pkg4, cve_2026_0001)   [via exposed(S, C) :- service(S), uses(S, L), vulnerable(L, C).]
+     service(pkg4)   (base fact)
+     uses(pkg4, pkg21)   [via uses(X, Z) :- depends(X, Y), uses(Y, Z).]
+       depends(pkg4, pkg13)   (base fact)
+       uses(pkg13, pkg21)   [via uses(X, Y) :- depends(X, Y).]
+         depends(pkg13, pkg21)   (base fact)
+     vulnerable(pkg21, cve_2026_0001)   (base fact)
+```
+
+pkg4 → pkg13 → pkg21. Not an explanation *about* the answer — the
+derivation the answer came out of, which is what you paste into the
+ticket.
+
+**"Another CVE just dropped. Do I rerun everything?"**
+
+No. The engine keeps the 8,457 facts and repairs them:
+
+```python
+>>> inc.insert("vulnerable(pkg40, cve_2026_0002).")
+{'inserted': 1, 'derived': 12}        # 0.03s, against 0.81s to rebuild
+```
+
+**"Is my policy even coherent?"** A different question again, and the
+engine answers it — that is
+[lesson 5](lessons/05-beyond-stratification.md), worked through on a
+benefits policy in `programs/00-eligibility.dl`.
 
 ## Why Datalog matters in a post-LLM world
 
-Not for the reason science fiction taught us. The trope — feed the
+You have just watched an engine answer a question about 8,457 derived
+facts and show its working. The obvious modern question is why you
+would not simply ask a model — and the answer is not the one most
+people reach for first.
+
+Not the reason science fiction taught us. The trope — feed the
 machine a paradox and watch it seize — assumes the machine is a
 deductive system, where a contradiction propagates until something
 breaks. A language model has no propagation. A contradiction is just
@@ -57,8 +128,8 @@ The reason is verification, which is what formal methods have always
 been for.
 
 Start from the hardest version of the objection: a model can just write
-Python. Forty lines with a breadth-first search gets the same answer as
-the example below. If that is the whole task, write the Python.
+Python. Forty lines with a breadth-first search gets the same four
+services. If that is the whole task, write the Python.
 
 What you cannot do is ask anything about the Python afterwards.
 **Datalog is a deliberately restricted language, and the restriction
@@ -125,71 +196,6 @@ The limit is worth stating too: an engine checks *coherence*, not
 intent. A rule set can pass every check above and still be the wrong
 policy. What formal methods buy is not correctness — it is making the
 remaining judgement cheap enough for a human to actually make.
-
-## A worked example
-
-You deploy 12 services. They sit on 160 packages joined by 292
-dependency edges — each one individually boring, all of them together
-past what anyone holds in their head. A CVE lands on one package. Which
-services are exposed?
-
-The 292 edges you wrote down imply **8,457** reachability facts. The
-answer is in those, not in the edges, and being 95% right means
-shipping a service you believed was clean.
-
-```prolog
-% programs/00-supply-chain.dl
-uses(X, Y) :- depends(X, Y).
-uses(X, Z) :- depends(X, Y), uses(Y, Z).      % ... at any depth
-
-exposed(S, C) :- service(S), uses(S, L), vulnerable(L, C).
-```
-
-```
-$ python3 datalog.py -q 'exposed(S, C)' programs/00-supply-chain.dl
-?- exposed(S, C)
-   exposed(pkg0, cve_2026_0001).
-   exposed(pkg4, cve_2026_0001).
-   exposed(pkg5, cve_2026_0001).
-   exposed(pkg8, cve_2026_0001).
-   (4 answers)
-```
-
-Four of twelve — and nothing in the input told you which four.
-
-## Then the questions you actually have next
-
-**"Why pkg4? I need to tell the team what to bump."**
-
-```
-$ python3 datalog.py --explain 'exposed(pkg4, cve_2026_0001)' programs/00-supply-chain.dl
-?- explain exposed(pkg4, cve_2026_0001)
-   exposed(pkg4, cve_2026_0001)   [via exposed(S, C) :- service(S), uses(S, L), vulnerable(L, C).]
-     service(pkg4)   (base fact)
-     uses(pkg4, pkg21)   [via uses(X, Z) :- depends(X, Y), uses(Y, Z).]
-       depends(pkg4, pkg13)   (base fact)
-       uses(pkg13, pkg21)   [via uses(X, Y) :- depends(X, Y).]
-         depends(pkg13, pkg21)   (base fact)
-     vulnerable(pkg21, cve_2026_0001)   (base fact)
-```
-
-pkg4 → pkg13 → pkg21. Not an explanation *about* the answer — the
-derivation the answer came out of, which is what you paste into the
-ticket.
-
-**"Another CVE just dropped. Do I rerun everything?"**
-
-No. The engine keeps the 8,457 facts and repairs them:
-
-```python
->>> inc.insert("vulnerable(pkg40, cve_2026_0002).")
-{'inserted': 1, 'derived': 12}        # 0.03s, against 0.81s to rebuild
-```
-
-**"Is my policy even coherent?"** A different question again, and the
-engine answers it — that is
-[lesson 5](lessons/05-beyond-stratification.md), worked through on a
-benefits policy in `programs/00-eligibility.dl`.
 
 ## What's in here
 
