@@ -20,8 +20,8 @@ capital letters are variables. Run it and the engine derives every
 one wrote down.
 
 **Datalog is a query language where you state what follows from what,
-and evaluation is the working-out of all consequences.** Three properties
-define it:
+and evaluation is the working-out of all consequences.** The README
+names three properties; here is what each one costs and buys:
 
 1. **Declarative** — you never say *how* to compute (no loops, no
    ordering); the engine picks the strategy.
@@ -86,31 +86,21 @@ clauses (Lesson 9's closing note).
 Datalog has many parents but one namer. The mathematical object —
 Horn-clause logic with function symbols removed, read over a database —
 crystallised from several hands: Maarten van Emden and Robert Kowalski
-gave logic programs their least-model semantics in 1976 (Kowalski is now
-professor emeritus at Imperial College London, still writing on
-computational logic), and the field itself was convened by **Hervé
-Gallaire** and **Jack Minker**, whose 1977 workshop and 1978 book *Logic
-and Data Bases* made "logic meets databases" a discipline. Gallaire went
-on to senior research leadership at Xerox and later retired.
-Minker spent his career at the University of Maryland and was equally
-renowned outside computer science as a human-rights advocate for
-imprisoned Soviet scientists; he died in 2021.
+gave logic programs their least-model semantics in 1976, and the field
+itself was convened by **Hervé Gallaire** and **Jack Minker**, whose
+1977 workshop and 1978 book *Logic and Data Bases* made "logic meets
+databases" a discipline.
 
 The *name* — and much of the language's identity as a thing distinct
 from Prolog — is generally credited to **David Maier**, who coined
 "Datalog" in the early 1980s. Maier is one of database theory's central
 figures: author of *The Theory of Relational Databases* (1983),
-co-author with **David S. Warren** of *Computing with Logic* (1988), a
-builder of the GemStone object database and of stream-processing
-systems. After Stony Brook and the Oregon Graduate Institute he moved
-to Portland State University in Oregon, where he is the Maseeh Professor
-of Emerging Technologies. In 2018 he co-wrote, with
-Warren and colleagues, the retrospective *"Datalog: Concepts, History,
-and Outlook"* — the definitive account of the language's life, by the
-people who lived it. Warren, for his part, built XSB — the tabling
-engine that kept the well-founded semantics alive through the winter
-years (Act 3 above) — and is professor emeritus at Stony Brook
-University.
+co-author with **David S. Warren** of *Computing with Logic* (1988),
+and a builder of the GemStone object database. In 2018 he co-wrote,
+with Warren and colleagues, the retrospective *"Datalog: Concepts,
+History, and Outlook"* — the definitive account of the language's life,
+by people who lived it. Warren built XSB, the tabling engine that kept
+the well-founded semantics alive through the winter years of Act 3.
 
 So when this course's Lesson 9 shows you the function-symbol boundary,
 you are looking at the exact line Maier drew when he needed a name for
@@ -153,17 +143,18 @@ exists*, that is a property of your rules, true of rules nobody has
 ever written; when a model reports it, you cannot tell from one test
 whether you got reasoning or recall.
 
-The evidence supports a division of labour rather than a winner.
-Reasoning in natural-language tokens degrades steeply as problems grow
-— directed reachability is NL-complete and Horn-clause satisfiability is
-P-complete, and transformers with linear chain-of-thought provably
-cannot decide either (Merrill and Sabharwal, ICLR 2024). But the same
-models writing *code* that runs against data on disk barely degrade at
-all. The computation belongs outside the context window. **The model's
-job is to write the rules; the engine's job is to run them, and to
-check them.**
+There is also a complexity result worth carrying, because it says where
+the limit is rather than guessing at it. Directed graph reachability is
+NL-complete and Horn-clause satisfiability — which is what evaluating
+Datalog rules *is* — is P-complete. Merrill and Sabharwal (ICLR 2024)
+prove that transformers with a linear number of chain-of-thought steps
+can decide neither, naming both explicitly. Doing this kind of
+reasoning *in tokens* is not a training gap that will close; it is
+outside the shape of the computation. Which is why models sensibly
+write code instead, and why the README's argument is about what that
+code should be rather than about whether models can reason.
 
-Which inverts where the danger lies. Logic puzzles are the *safest*
+All of which inverts where the danger lies. Logic puzzles are the *safest*
 place to probe a model, because they are exactly where cheap
 verification made training effective. The risk sits wherever a
 confident answer cannot be checked in under a minute — and that is a

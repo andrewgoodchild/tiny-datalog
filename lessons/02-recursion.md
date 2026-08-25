@@ -120,6 +120,60 @@ facts — nineteen times the work, all of it rediscovering things it
 already knew. That ratio is the entire argument for the delta
 discipline, and it grows with the graph.
 
+## Two different sizes, two different curves
+
+There is a distinction hiding in everything above, and naming it makes
+the rest of the course legible. A Datalog program has two sizes — the
+**rules** and the **data** — and cost behaves completely differently in
+each.
+
+Hold the program fixed (the two `path` rules) and grow the data:
+
+```
+   49 edge facts ->   0.07s
+   99             ->   0.21s
+  199             ->   1.38s
+  399             ->  10.75s
+```
+
+Now hold the data fixed (40 facts over 12 nodes) and grow a single
+rule, one body atom at a time:
+
+```
+   3-atom body ( 4 variables) ->   0.04s
+   5-atom body ( 6 variables) ->   0.07s
+   7-atom body ( 8 variables) ->   0.29s
+   9-atom body (10 variables) ->   2.71s
+  11-atom body (12 variables) ->  31.34s
+```
+
+Eight times the data cost 150×. Four more atoms in one rule cost 800×,
+on data that never changed.
+
+That is the shape of the two standard measures:
+
+- **Data complexity** — program fixed, data varies. Datalog is
+  **PTIME-complete** here. Polynomial, and the exponent depends on the
+  rules you wrote, not on how much data you have.
+- **Combined complexity** — both vary. Datalog is
+  **EXPTIME-complete**, and the exponential lives in the number of
+  variables per rule, because each one multiplies the space of
+  candidate bindings to join over.
+
+This is why "Datalog is polynomial" and "Datalog is exponential" are
+both true and not in conflict, and it is the fact the whole field is
+organised around. Real workloads have small programs and enormous data:
+CodeQL runs a few hundred rules over a codebase with hundreds of
+millions of facts, and it is only viable because the axis that grows is
+the cheap one. It is also why Lesson 14 can call query minimisation
+worth an NP-complete analysis — you pay it once per rule and save on
+every row.
+
+(This engine's data curve is worse than the theory allows: nested-loop
+joins make it roughly cubic where an indexed engine would be closer to
+quadratic. The *shape* is right, the constant is not — see
+[lesson 11](11-under-the-hood.md).)
+
 ## Shapes of recursion
 
 **Right- vs left- vs non-linear.** These all compute transitive closure:

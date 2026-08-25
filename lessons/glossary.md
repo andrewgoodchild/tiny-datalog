@@ -68,6 +68,11 @@ cannot be derived, it is taken to be untrue. What makes negation
 computable, and what makes missing data dangerous. Contrast **OWA**.
 *(Lessons 3, 15)*
 
+**Combined complexity** — cost when both the rules and the data are
+allowed to vary. Datalog is EXPTIME-complete here, and the exponential
+lives in the number of variables per rule. Contrast **data
+complexity**. *(Lesson 2)*
+
 **Completion rules** — the saturation calculus that decides EL
 subsumption (CR1–CR4 plus reflexivity). Monotone rules run to fixpoint,
 which is why they compile to Datalog. *(Lesson 10)*
@@ -87,6 +92,12 @@ identifiers, numbers, or quoted strings. *(Lesson 1)*
 *on every database*. **Equivalence** is containment both ways.
 *(Lesson 14)*
 
+**Data complexity** — cost when the program is held fixed and only the
+data grows, which is the realistic case: small rule sets, enormous
+tables. Datalog is PTIME-complete here. The gap between this and
+**combined complexity** is why "Datalog is polynomial" and "Datalog is
+exponential" are both true. *(Lesson 2)*
+
 **Datalog** — a query language of function-free Horn clauses evaluated
 bottom-up. Declarative, recursive, and guaranteed to terminate.
 *(Lesson 0)*
@@ -98,6 +109,12 @@ semi-naive evaluation still hold. *(Lesson 6)*
 **DBSP** — the algebraic foundation for incremental computation (VLDB
 2023), generalising semi-naive evaluation to arbitrary changes. The
 Feldera engine implements it. *(Lesson 8)*
+
+**Decidable** — a question a terminating procedure can always answer.
+Datalog is built out of deliberate restrictions that keep questions
+decidable: termination, stratifiability, and containment for
+non-recursive queries are all decidable, and each becomes
+**undecidable** just outside the fence. *(Lessons 3, 9, 14)*
 
 **Default reasoning** — "P holds unless something says otherwise", the
 Tweety pattern: `flies(X) :- bird(X), not abnormal(X).` Requires CWA
@@ -228,6 +245,12 @@ gives minimal sets of base facts (**witnesses**); **provenance
 polynomials** (ℕ[X]) additionally keep multiplicity and are the free
 semiring, so everything else factors through them. *(Lesson 6)*
 
+**PTIME-complete** — as hard as any problem solvable in polynomial
+time, so (barring a complexity-theoretic surprise) inherently
+sequential: not parallelisable to polylogarithmic time. Datalog's data
+complexity is PTIME-complete, which is a statement about its power as
+well as its cost. *(Lesson 2)*
+
 **QSQR** — Query-Subquery Recursive, the set-at-a-time top-down
 evaluation strategy `tabling.py` implements. *(Lesson 13)*
 
@@ -281,12 +304,12 @@ reachable nodes in the dependency graph. Every cycle lives inside one,
 so stratifiability reduces to "no strict edge inside an SCC".
 *(Lesson 3)*
 
+**Substitution** — a mapping from variables to values, built up while
+matching a rule body. *(Lesson 1)*
+
 **Subsumption** — C ⊑ D: every possible instance of C must be an
 instance of D, in every world consistent with the definitions. A
 statement about definitions, not data. *(Lesson 10)*
-
-**Substitution** — a mapping from variables to values, built up while
-matching a rule body. *(Lesson 1)*
 
 **Tabling** — top-down evaluation that memoises each subgoal's answers
 in a **table**, so recursive calls read the table instead of
@@ -302,6 +325,12 @@ term. *(Lesson 1)*
 **Top-down evaluation** — start from the query and work backwards to
 the facts. Natively goal-directed; see **SLD resolution** and
 **tabling**. *(Lessons 9, 13)*
+
+**Undecidable** — no terminating procedure can answer it in general.
+Whether an arbitrary Horn-clause program halts (Lesson 9), and whether
+one *recursive* Datalog program contains another (Shmueli 1993, Lesson
+14), are both undecidable — which is precisely why this engine bans
+function symbols and `containment.py` refuses recursion. *(Lessons 9, 14)*
 
 **Unification** — making two terms equal by binding variables, where
 *both* sides may contain variables. Matching against a ground database
