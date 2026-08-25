@@ -1119,6 +1119,34 @@ class GoldenFileTests(unittest.TestCase):
                 self.assertEqual(lines, expected)
 
 
+class RepositoryClaimTests(unittest.TestCase):
+    """Claims the README makes about the repository itself, so they
+    cannot rot silently."""
+
+    SATELLITES = ["magic.py", "semantics.py", "semiring.py",
+                  "incremental.py", "prolog.py", "tabling.py",
+                  "subsumption.py", "containment.py"]
+
+    def test_no_satellite_module_exceeds_400_lines(self):
+        for name in self.SATELLITES:
+            with self.subTest(module=name):
+                with open(os.path.join(HERE, name)) as fh:
+                    self.assertLessEqual(len(fh.read().splitlines()), 400)
+
+    def test_incremental_reports_its_own_timing(self):
+        # the README quotes a repair time; the tool must actually print
+        # one, or the claim is unverifiable from the shell
+        r = subprocess.run(
+            [sys.executable, os.path.join(HERE, "incremental.py"),
+             "programs/00-supply-chain.dl",
+             "-u", "vulnerable(pkg100, cve_2026_0002)."],
+            capture_output=True, text=True, cwd=HERE)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("'inserted': 1, 'derived': 12", r.stdout)
+        self.assertRegex(r.stdout, r"in \d+\.\d+s")
+        self.assertIn("from-scratch rebuild", r.stdout)
+
+
 class ExerciseTests(unittest.TestCase):
     """Every runnable exercise answer, executed — so exercises/ cannot
     rot.  Numbers asserted here are the numbers quoted in the answer

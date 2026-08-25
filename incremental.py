@@ -36,6 +36,7 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+import time
 from collections import defaultdict
 
 from datalog import (DatalogError, Engine, Program, _aggregate_of,
@@ -227,8 +228,10 @@ _DEMO_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)),
 def _demo():
     with open(_DEMO_FILE) as fh:
         text = fh.read()
+    t0 = time.perf_counter()
     inc = IncrementalEngine(text)
-    print("Initial: %d path facts" % len(inc.rels["path"]))
+    print("Initial: %d path facts, materialised in %.3fs"
+          % (len(inc.rels["path"]), time.perf_counter() - t0))
     print()
     print('delete("edge(n3, n4).")   — n2\'s shortcut keeps most paths alive:')
     stats = inc.delete("edge(n3, n4).")
@@ -274,8 +277,16 @@ def main(argv=None):
             inc = IncrementalEngine(fh.read())
         print("materialised: %d facts" % inc.total_facts())
         for script in args.update:
+            t0 = time.perf_counter()
             stats = inc.apply(script)
-            print("%s\n  -> %r" % (script.strip(), stats))
+            elapsed = time.perf_counter() - t0
+            print("%s\n  -> %r in %.3fs" % (script.strip(), stats, elapsed))
+        if args.update:
+            t0 = time.perf_counter()
+            fresh = Engine(Program(parse(open(args.file).read())))
+            fresh.run()
+            print("  (a from-scratch rebuild of this program: %.3fs)"
+                  % (time.perf_counter() - t0))
     except DatalogError as exc:
         print("error: %s" % exc, file=sys.stderr)
         return 1

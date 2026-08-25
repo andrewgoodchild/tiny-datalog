@@ -1,5 +1,7 @@
 # tiny-datalog
 
+[![tests](https://github.com/andrewgoodchild/tiny-datalog/actions/workflows/ci.yml/badge.svg)](https://github.com/andrewgoodchild/tiny-datalog/actions/workflows/ci.yml)
+
 **A logic engine small enough to read in an afternoon, and a course
 that builds it up from nothing.**
 
@@ -73,8 +75,15 @@ $ python3 datalog.py --explain 'exposed(pkg4, cve_2026_0001)' programs/00-supply
 ```
 
 When tomorrow's CVE arrives, the engine repairs those 8,457 facts
-instead of recomputing them: `{'inserted': 1, 'derived': 12}`, 0.03s
-against 0.81s for a rebuild.
+instead of recomputing them:
+
+```
+$ python3 incremental.py programs/00-supply-chain.dl -u 'vulnerable(pkg100, cve_2026_0002).'
+materialised: 8766 facts
+vulnerable(pkg100, cve_2026_0002).
+  -> {'inserted': 1, 'derived': 12} in 0.034s
+  (a from-scratch rebuild of this program: 0.822s)
+```
 
 Nothing to install:
 
@@ -298,7 +307,7 @@ CLI and `--explain` another 400, and the eight satellite modules about
 quarter of it commentary.
 
 "Tiny" is a claim about the evaluator, and about each satellite module
-singly: none of the eight exceeds 380 lines. It is not a claim about
+singly: none of the eight exceeds 400 lines, which a test asserts. It is not a claim about
 the repository, which is nine modules because it teaches nine things.
 
 There is no dead code to golf away (checked); shrinking further means
