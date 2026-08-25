@@ -85,6 +85,16 @@ python3 tests.py        # 121 tests, ~2s
 
 ## Why the language choice decides what you can ask later
 
+Frontier language models are getting good at reasoning and logic. They
+have been trained on every logic trope in the canon, they can usually
+spot a contradiction in prose, and when they meet more data than fits
+in a context window they do the sensible thing: they write a program to
+solve it.
+
+So the question was never whether to run code. It is what the code
+should be, and that choice decides which questions you can still ask
+afterwards.
+
 Rules that encode policy tend to outlive the query that prompted them.
 They get reviewed, audited, inherited by someone who did not write
 them, and changed under pressure. Sooner or later somebody asks why a
@@ -104,8 +114,8 @@ cannot answer them. Datalog can, because it gave things up:
 
 (Containment and equivalence become undecidable once recursion is
 involved — Shmueli, 1993 — which is why `containment.py` handles
-conjunctive queries and refuses the rest. [Lesson 14](lessons/14-containment.md)
-covers the boundary.)
+conjunctive queries and refuses the rest.
+[Lesson 14](lessons/14-containment.md) covers the boundary.)
 
 Being declarative, recursive and terminating is not a feature list. It
 is the trade that makes rules analysable, and three things follow from
@@ -119,15 +129,7 @@ it:
 - **Provenance and incremental maintenance come from the semantics**
   rather than from extra code that would itself need verifying.
 
-That argument has always applied to rules a compliance team signs off
-on. It applies more now that language models write rules too.
-
-Models are good at logic. They have been trained on every trope in the
-canon, they spot contradictions in prose reliably, and given more data
-than they can hold they do the sensible thing and write a program. So
-the question was never whether to run code. It is what the code should
-be, and that choice decides which of the questions above you can still
-ask. Each feature here is a check worth having on rules you did not
+Which makes each feature here a check worth having on rules you did not
 write yourself:
 
 | The rules might be... | Caught by |
