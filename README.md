@@ -5,14 +5,22 @@ that builds it up from nothing.**
 
 ## What is Datalog?
 
-You deploy 12 services. They sit on 160 packages joined by 292
-dependency edges — each one individually boring, all of them together
-past what anyone holds in their head. A CVE lands on one package. Which
-services are exposed?
+A query language with exactly three properties worth memorising:
 
-In Datalog you write down what you know, and what follows from it.
+- **Declarative** — you state what follows from what, never how to
+  compute it. No loops, no ordering, no stopping condition.
+- **Recursive** — rules may refer to themselves, so "at any depth"
+  questions are the native shape rather than something bolted on.
+- **Terminating** — every program finishes. Always. A theorem, not a
+  convention.
 
-**Facts** — things that are simply true, one per line:
+Here is what that buys you.
+
+You deploy 12 services, sitting on 160 packages joined by 292
+dependency edges. A CVE lands on one package. Which services are
+exposed?
+
+You write down **facts** — things simply true:
 
 ```prolog
 depends(pkg4, pkg13).             % pkg4 pulls in pkg13
@@ -20,9 +28,8 @@ service(pkg4).                    % pkg4 is something we deploy
 vulnerable(pkg21, cve_2026_0001). % pkg21 has the CVE
 ```
 
-**Rules** — how to derive new facts from known ones. `:-` means "if",
-the comma means "and", and capital letters are variables standing for
-"any package", "any service":
+...and **rules** for deriving new facts. `:-` means "if", the comma
+means "and", capitals are variables:
 
 ```prolog
 % programs/00-supply-chain.dl
@@ -32,10 +39,10 @@ uses(X, Z) :- depends(X, Y), uses(Y, Z).      % ...and whatever that uses
 exposed(S, C) :- service(S), uses(S, L), vulnerable(L, C).
 ```
 
-Read the middle rule aloud: *X uses Z if X depends on Y and Y uses Z.*
-It refers to itself, which is the whole point — apply it over and over
-and it walks the dependency graph to any depth, without you saying how
-deep, in what order, or when to stop.
+The middle rule reads *X uses Z if X depends on Y and Y uses Z* — it
+refers to itself, and that is the whole trick. Applied over and over it
+walks the graph to any depth, without you saying how deep or when to
+stop.
 
 ```
 $ python3 datalog.py -q 'exposed(S, C)' programs/00-supply-chain.dl
@@ -47,30 +54,10 @@ $ python3 datalog.py -q 'exposed(S, C)' programs/00-supply-chain.dl
    (4 answers)
 ```
 
-Four of twelve, and nothing you can see in the file says which four.
-The 292 edges you *stated* imply **8,457** `uses` facts; the answer
-lives in those, not in what you wrote down. Being 95% right here means
-shipping a service you believed was clean.
-
-That is Datalog: **state what follows from what, and the engine works
-out all the consequences.** Three properties define it.
-
-- **Declarative.** You never say how to compute — no loops, no
-  ordering, no termination condition. Those three rules are the entire
-  program.
-- **Recursive.** "At any depth" questions — reachability, inheritance,
-  containment, dependency — are the native shape rather than something
-  bolted on.
-- **Terminating.** Every Datalog program finishes. Always. That is a
-  theorem, not a convention, bought by one deliberate restriction
-  ([lesson 9](lessons/09-horn-clauses.md) shows exactly which).
-
-Roughly: SQL's SELECT–JOIN plus real recursion, minus the ceremony. It
-is what CodeQL, Datomic, RDFox and Soufflé are underneath.
-
-## Then the questions you actually have next
-
-**"Why pkg4? I need to tell the team what to bump."**
+Four of twelve, and nothing you can see in the file says which four:
+the 292 edges you *stated* imply **8,457** `uses` facts, and the answer
+lives in those. Ask why, and you get the derivation the answer came out
+of — which is the remediation path, not a description of it:
 
 ```
 $ python3 datalog.py --explain 'exposed(pkg4, cve_2026_0001)' programs/00-supply-chain.dl
@@ -84,131 +71,74 @@ $ python3 datalog.py --explain 'exposed(pkg4, cve_2026_0001)' programs/00-supply
      vulnerable(pkg21, cve_2026_0001)   (base fact)
 ```
 
-pkg4 → pkg13 → pkg21. Not an explanation *about* the answer — the
-derivation the answer came out of, which is what you paste into the
-ticket.
+And when tomorrow's CVE arrives, the engine repairs the 8,457 facts
+rather than recomputing them — `{'inserted': 1, 'derived': 12}`, 0.03s
+against 0.81s to rebuild.
 
-**"Another CVE just dropped. Do I rerun everything?"**
+## Why a language from 1977 still matters
 
-No. The engine keeps the 8,457 facts and repairs them:
+Datalog is old. The field was convened by a 1977 workshop, the name
+dates to the early 1980s, and the techniques in this repository were
+mostly settled by 1991. So why now?
 
-```python
->>> inc.insert("vulnerable(pkg40, cve_2026_0002).")
-{'inserted': 1, 'derived': 12}        # 0.03s, against 0.81s to rebuild
-```
+Not because language models are bad at logic. They are *good* at it.
+They have been trained on every logic trope in the canon — Russell's
+paradox, the barber, the liar — and they spot contradictions in prose
+reliably. Hand a frontier model this repository's own paradox example
+and it solves it. Give one more data than it can hold, and it will do
+the sensible thing: **write a program.**
 
-**"Is my policy even coherent?"** A different question again, and the
-engine answers it — that is
-[lesson 5](lessons/05-beyond-stratification.md), worked through on a
-benefits policy in `programs/00-eligibility.dl`.
+Which is exactly the point. When the data is big enough, everyone ends
+up running code. The question stops being *whether* to write code and
+becomes **what you should have the code do** — and there, the choice of
+language decides what you are allowed to ask afterwards.
 
-## Why Datalog matters in a post-LLM world
+Have the model write forty lines of Python with a breadth-first search,
+and you get the same four services. Have it write Datalog, and you also
+get this:
 
-You have just watched an engine answer a question about 8,457 derived
-facts and show its working. The obvious modern question is why you
-would not simply ask a model — and the answer is not the one most
-people reach for first.
-
-Not the reason science fiction taught us. The trope — feed the
-machine a paradox and watch it seize — assumes the machine is a
-deductive system, where a contradiction propagates until something
-breaks. A language model has no propagation. A contradiction is just
-more text, and it glides straight past. You cannot crash it with a
-paradox because there is no inference engine in there to crash.
-
-Nor because models are bad at logic. They are conspicuously good at it,
-and for an unglamorous reason: logic puzzles are cheap to check, which
-makes them excellent reinforcement-learning targets, so the labs have
-trained on them heavily. Hand a frontier model a classic paradox and it
-will handle it — I tested exactly that on this repository's own example
-and it got everything right. Ask one to compute graph reachability *by
-writing code* and it scores in the high nineties.
-
-The reason is verification, which is what formal methods have always
-been for.
-
-Start from the hardest version of the objection: a model can just write
-Python. Forty lines with a breadth-first search gets the same four
-services. If that is the whole task, write the Python.
-
-What you cannot do is ask anything about the Python afterwards.
-**Datalog is a deliberately restricted language, and the restriction
-buys you a set of questions that are decidable about the rules
-themselves:**
-
-| Question about the generated rules | Datalog | Python |
+| Question about the rules themselves | Datalog | Python |
 |---|---|---|
 | Does it terminate? | yes, by construction | undecidable |
 | Are the rules circular? | decidable — names the cycle | — |
 | Is there exactly one consistent answer? | decidable | not even well-formed |
 | Is this rule redundant given that one? | decidable | undecidable |
-| Are these two rule sets equivalent? | decidable (conjunctive) | undecidable |
+| Are two rule sets equivalent? | decidable (conjunctive) | undecidable |
 
-A model writing Python hands you an answer you must trust. A model
-writing Datalog hands you an answer *plus* machine-checkable claims
-about the logic that produced it. That is the whole of the difference,
-and it exists because the language gave things up.
+Python hands you an answer you must trust. Datalog hands you an answer
+*plus* machine-checkable claims about the logic that produced it — and
+it can do that precisely because it gave things up. Being declarative,
+recursive and terminating is not a feature list; it is the trade that
+makes the rules analysable.
 
-Three consequences worth naming:
+Three consequences:
 
 - **The artifact is reviewable by someone who is not a programmer.**
   `eligible(P) :- member(P, H), qualifying_household(H), not employed(P).`
-  is nearly the policy sentence. The imperative equivalent is loops and
-  mutable state, which a caseworker or an auditor cannot check. When
-  machine-written rules govern people, who can read them matters more
-  than who can run them.
-- **Termination is a safety property.** If you are going to execute
-  rules a model wrote, "this halts whatever it generated" is worth a
-  great deal, and nothing gives you that for generated code.
-- **Provenance and incremental maintenance come from the semantics**
-  rather than from more generated code you would also have to verify.
+  is nearly the policy sentence. Loops and mutable state are not.
+- **Termination is a safety property** when you are executing rules a
+  model wrote.
+- **Provenance and incremental maintenance come from the semantics**,
+  not from more generated code you would also have to verify.
 
-And the boundary, stated plainly, because it is narrower than this
-field usually claims for itself. Datalog earns its place when **the
-rules outlive the query** — when they are policy rather than a script,
-when someone must review them, when an auditor will ask why, when the
-data keeps changing, and when *"are these rules even coherent"* is a
-question you need answered before trusting any answer they produce.
-For a one-off question, or anything arithmetic-heavy, or where nobody
-will ask why later, a model and forty lines of Python is the better
-tool. That is most problems.
-
-The evidence supports a division of labour rather than a winner:
-reasoning in natural-language tokens degrades steeply with problem size,
-while the same models writing code that runs against data on disk
-barely degrade at all ([numbers below](#should-you-just-ask-a-model-instead)).
-**The model's job is to write the rules; the engine's job is to run
-them and to check them.**
-
-That makes this repository's features look different than they did
-before. Each is a check you would want on machine-written rules:
+So each feature here is really a check you would want on machine-written
+rules:
 
 | The rules might be... | Caught by |
 |---|---|
-| circular — a condition depending on its own outcome | stratification, which names the cycle |
+| circular | stratification, which names the cycle |
 | self-contradictory | `--models` → *no stable model* |
 | silently ambiguous | `--models` → *several stable models* |
-| redundant — one rule subsuming another | `containment.py` |
-| unsound — an unbound variable | safety validation |
-| correct, but needing sign-off | `--explain` → the derivation, not an argument |
+| redundant | `containment.py` |
+| unsound | safety validation |
+| correct, but needing sign-off | `--explain` |
 
-The limit is worth stating too: an engine checks *coherence*, not
-intent. A rule set can pass every check above and still be the wrong
-policy. What formal methods buy is not correctness — it is making the
-remaining judgement cheap enough for a human to actually make.
-
-## What's in here
-
-The evaluator that answers all of the above is about 800 lines of
-dependency-free Python — genuinely an afternoon's read — surrounded by
-eight modules that each add one classical technique, and a 16-lesson
-course that builds the whole thing up from facts and rules.
-
-If Datalog is new to you, read
-[lesson 0](lessons/00-what-is-datalog.md) first: what it is, where it
-came from, and why sound inference is worth more rather than less in
-the age of language models. If a term here is unfamiliar,
-[the glossary](lessons/glossary.md) defines every one the course uses.
+Two honest limits. An engine checks *coherence*, not intent — a rule
+set can pass every check and still be the wrong policy. And this trade
+only pays when **the rules outlive the query**: policy rather than
+script, reviewed, audited, over changing data. For a one-off question,
+or anything arithmetic-heavy, forty lines of Python is the better tool.
+That is most problems.
 
 ## What you can ask it
 
@@ -254,37 +184,26 @@ narrated.
 
 ## Claims you can check
 
-Every performance claim in the lessons is reproducible from the shipped
-generator, including the one that goes the wrong way.
+Every performance claim here is reproducible from the shipped
+generator (`python3 benchmarks/generate.py chain 150 > chain150.dl`),
+including the one that goes the wrong way.
 
-```sh
-python3 benchmarks/generate.py chain 150 > chain150.dl
-```
+| Claim | Measured |
+|---|---|
+| Semi-naive beats naive, and the gap grows | chain-50: 0.7s → 0.07s (**10×**); chain-100: 10.8s → 0.23s (**47×**) |
+| Magic sets makes a *selective* query goal-directed | `path(n140, X)`: **66 facts vs 11,175**, 0.05s vs 0.62s |
+| Magic sets is not a free lunch | `path(n1, X)`: **11,325 facts vs 11,175**, 2.19s vs 0.62s |
 
-| Claim | How to check | Measured here |
-|---|---|---|
-| Semi-naive beats naive... | `--naive` vs default, chain-50 | 0.7s → 0.07s (**10×**) |
-| ...and the gap grows with depth | `--naive` vs default, chain-100 | 10.8s → 0.23s (**47×**) |
-| Magic sets makes a *selective* query goal-directed | `--magic -q 'path(n140, X)'`, chain-150 | **66 facts vs 11,175; 0.05s vs 0.62s** |
-| Magic sets is not a free lunch | `--magic -q 'path(n1, X)'`, chain-150 | **11,325 facts vs 11,175; 2.19s vs 0.62s** |
+The last two are the same rewriting on the same program. Magic sets
+pays in proportion to how much the query's bindings prune; when demand
+is the whole relation the guards are pure overhead.
+[Lesson 4](lessons/04-magic-sets.md) works through why.
 
-The last two rows are the same rewriting on the same program, and they
-are the honest pair. Magic sets pays off in proportion to how much the
-query's bindings actually prune: ask from the far end of a chain and
-demand stays local — 170× fewer facts and 12× faster. Ask from the near
-end and demand propagates the chain's whole length, so the rewritten
-program derives *more* facts than the original and pays a guard literal
-on every join. Nested-loop joins amplify that overhead — each magic guard is a scan
-rather than a lookup, which an index would fix — but the governing
-variable is demand, not indexing. [Lesson 4](lessons/04-magic-sets.md) works through why.
-
-Correctness claims are checked too, by a seeded differential fuzzer
-(`DifferentialFuzzTests`) that generates stratified programs and demands
-that semi-naive, naive, magic-sets and tabled evaluation agree on every
-query, and that incremental maintenance matches from-scratch
-recomputation under random insert/delete sequences. 400 programs per
-test run; `TINY_DATALOG_FUZZ=3000 python3 tests.py DifferentialFuzzTests`
-for a real soak.
+Correctness is checked by a seeded differential fuzzer that generates
+stratified programs and demands semi-naive, naive, magic-sets and
+tabled evaluation all agree, and that incremental maintenance matches
+recomputation under random updates. 400 programs per run;
+`TINY_DATALOG_FUZZ=3000 python3 tests.py DifferentialFuzzTests` soaks.
 
 ## Learning Datalog
 
@@ -309,47 +228,31 @@ DRed paper with thirty years of engineering on top.
 [Lesson 0](lessons/00-what-is-datalog.md) maps every technique in the
 course to where it ships.
 
-## What this is not
+## What this is not, and what is missing on purpose
 
-An engine to build a product on. Joins are nested-loop, stable-model
-search is exhaustive, evaluation is batch. For real workloads see
-Soufflé (static analysis), clingo (answer set programming), RDFox
-(knowledge graphs), or Feldera (incremental).
+Not an engine to build a product on. Joins are nested-loop,
+stable-model search is exhaustive, evaluation is batch. For real
+workloads see Soufflé, clingo, RDFox or Feldera.
 
-The code favours readability over speed, the algorithms are the textbook
-ones, and the error messages try to teach.
+Deliberate omissions, because saying why teaches more than lacking them
+quietly:
 
-## Deliberately missing
-
-Some absences are design decisions, and saying why teaches more than
-quietly lacking them would:
-
-- **Arithmetic and comparisons** (`X + 1`, `X < Y`). A built-in isn't a
-  relation you can enumerate — `less_than` has infinitely many rows — so
-  it must be *evaluated* at the moment its operands become bound. That
-  entangles correctness with join order, which this engine keeps
-  deliberately naive, and expressions force terms to become trees (the
-  function-symbol boundary again, from the inside). The principled route
-  is semantic attachments: a handler answering ground goals like
-  `lt(3, 7)` on demand. Building one is a good exercise.
-- **Indexes and join planning.** Every join is a nested loop on purpose:
-  the algorithms stay one-screen readable, and the gap to Soufflé's
-  compiled indexed joins is
-  [lesson 11](lessons/11-under-the-hood.md)'s honest-limits discussion,
-  not an accident.
-- **⊤, ⊥, role hierarchies and right identities** in the classifier.
-  What ships is plain EL. SNOMED CT needs ELH with right identities —
-  the extension ELK and Snorocket implement — so this classifier
-  demonstrates the calculus SNOMED-scale reasoners are built on without
-  being able to classify SNOMED itself. The completion-rule approach
-  generalises; these five rules do not cover it.
-- **A REPL and packaging.** Files and flags keep every example
-  reproducible from the shell, and zero packaging means the whole thing
-  is `git clone` + `python3`.
+- **Arithmetic and comparisons.** A built-in isn't a relation you can
+  enumerate, so it must be *evaluated* the moment its operands bind —
+  which entangles correctness with join order and forces terms to
+  become trees. The principled route is semantic attachments; building
+  one is a good exercise.
+- **Indexes and join planning.** Every join is a nested loop so the
+  algorithms stay one-screen readable. It is also why the magic-sets
+  timing above goes the way it does.
+- **⊤, ⊥, role hierarchies** in the classifier — what ships is plain
+  EL. SNOMED needs ELH with right identities, which is what ELK and
+  Snorocket implement and this does not.
+- **A REPL and packaging.** `git clone` and run.
 
 Aggregation used to be on this list;
-[lesson 12](lessons/12-aggregation.md) is what it looks like to promote
-an omission into a feature without breaking the design.
+[lesson 12](lessons/12-aggregation.md) is what promoting an omission
+into a feature looks like.
 
 ## Layout
 
@@ -382,31 +285,16 @@ tour.
 
 ### How big is it, honestly
 
-Line counts are `wc -l`, so you can check them:
+`wc -l`, so you can check: the evaluator is **801** lines
+(`datalog.py` 1–801), its CLI and `--explain` another 399, and eight
+satellite modules 2,092 — **3,292** total, of which 2,043 are code, 787
+commentary and 462 blank. `tests.py` adds 1,288 more, roughly one test
+line per 2.7 lines of toolkit.
 
-| | lines |
-|---|---|
-| the evaluator — AST, parser, safety checks, stratification, semi-naive (`datalog.py` 1–801) | 801 |
-| its CLI, result printing, and `--explain` (`datalog.py` 802–1200) | 399 |
-| eight satellite modules, one classical technique each | 2,092 |
-| **whole toolkit, nine files** | **3,292** |
-
-Of those 3,292 lines: 2,043 are code, 787 are commentary, 462 are
-blank. `tests.py` adds a further 1,288, which is the ratio the project
-is actually built on — roughly one line of test for every 2.7 lines of
-toolkit, and every shipped program, exercise answer and README command
-is executed by it.
-
-"Tiny" is a claim about the evaluator, and about each module taken on
-its own: none is longer than 380 lines, and every one is meant to be
-read start to finish. It is not a claim that the whole repository is
-small — it is nine modules because it teaches nine things.
-
-The commentary is not overhead to be trimmed. It is roughly a quarter
-of the file volume on purpose: this is a repository where the source is
-assigned reading, so the explanation lives next to the code rather than
-only in the lessons. There is no dead code to golf away (checked), and
-shrinking it further would mean deleting either a technique or an
+"Tiny" is a claim about the evaluator and about each module singly —
+none exceeds 380 lines — not about the repository, which is nine
+modules because it teaches nine things. There is no dead code to golf
+away (checked); shrinking further means deleting a technique or an
 explanation.
 
 ## License
