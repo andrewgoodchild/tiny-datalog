@@ -120,13 +120,25 @@ Two facts with **identical** why-values and different counts. That is a
 proof, not a hunch: any function of the why-value must give them the
 same answer, and the correct answers differ. No homomorphism can exist.
 
-The reason is structural. **Provenance polynomials** — ℕ[X], where each
-derivation contributes a monomial and multiplicities are kept — are the
-*free* commutative semiring on the base facts, so every other semiring's
-answer factors through them. Why-provenance is a **quotient** of that:
-it applies absorption (A + A·B = A) and forgets exponents, keeping which
-facts were needed and discarding how many ways they combined. Once
-information is quotiented away, no function recovers it.
+The reason is structural, and it has a name: this is **universal
+algebra**, the study of algebraic structures through their operations
+and equations. **Provenance polynomials** — ℕ[X], where each derivation
+contributes a monomial and multiplicities are kept — are the **free**
+commutative semiring on the base facts. Free is a precise promise:
+assign each base fact a value in *any* commutative semiring K, and that
+assignment extends to exactly one homomorphism ℕ[X] → K. That
+universal property is the whole "factors through" claim in one line —
+evaluate in polynomials once, and every semiring's answer is one
+homomorphism away, *because nothing else satisfies the equations more
+freely*.
+
+Why-provenance is a **quotient** of the free object: impose the extra
+equations of absorption (A + A·B = A) and idempotence, and the
+polynomial collapses to witness sets — keeping which facts were needed,
+discarding how many ways they combined. Quotients only ever merge;
+once information is identified away, no function recovers it. That is
+the entire impossibility proof above, restated as algebra: `count`
+needs a distinction the quotient erased.
 
 So the design-review answer: **materialise the polynomial and you may
 specialise to anything; materialise why-provenance and you may only

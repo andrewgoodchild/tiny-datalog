@@ -120,6 +120,36 @@ facts — nineteen times the work, all of it rediscovering things it
 already knew. That ratio is the entire argument for the delta
 discipline, and it grows with the graph.
 
+## The mathematics underneath: a lattice and a fixpoint
+
+The termination argument above deserves its proper name, because it is
+the course's first load of real mathematics and the rest quietly reuses
+it. Collect every possible set of facts into one structure, ordered by
+⊆ — the **powerset lattice**. Evaluation is one function on it, the
+**immediate consequence operator** `T_P`: feed it a set of facts, it
+returns everything derivable in one step. Two observations finish the
+job:
+
+- `T_P` is **monotone**: more facts in never means fewer facts out,
+  because a positive rule that fired keeps firing when the database
+  grows.
+- The lattice is **finite**: no rule invents constants, so there are
+  only finitely many possible facts (Lesson 9 is about what happens
+  when that stops being true).
+
+The **Knaster–Tarski theorem** says a monotone function on such a
+lattice has a **least fixpoint**, `lfp(T_P)` — and iterating from the
+empty set climbs to it: ∅ ⊆ T_P(∅) ⊆ T_P(T_P(∅)) ⊆ … must stop, and
+where it stops is the smallest set closed under the rules. That least
+fixpoint *is* the meaning of a Datalog program; naive and semi-naive
+are just two gaits for the same climb.
+
+Monotonicity is the load-bearing word. `not` is precisely the thing
+that breaks it — adding facts can *remove* conclusions — which is why
+Lesson 3 has to rebuild the guarantee stratum by stratum, running this
+argument once per layer. One theorem, applied as many times as the
+program has strata.
+
 ## Two different sizes, two different curves
 
 There is a distinction hiding in everything above, and naming it makes

@@ -81,8 +81,8 @@ seen from two sides.)
 
 1. Add `average(P, ...)`. You can't, with one aggregate per head. Build
    it from two rules (`sum` and `count`) and explain why the engine
-   can't divide for you (no arithmetic — see the README's "deliberately
-   missing" section).
+   can't divide for you (no arithmetic — a deliberate omission the
+   README explains).
 2. Predict `reach(alice, N)` in `spending.dl` before running it.
    Why does dana not appear at all?
 3. Write the forbidden program: make a predicate's count feed its own

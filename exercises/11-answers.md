@@ -21,7 +21,7 @@ force enumeration of an open domain); and evaluation as a filter in
 `_rule_substitutions`, exactly where negated literals filter. Note the
 order sensitivity you must handle: the check can only run once both
 variables are bound, which is why real engines treat built-ins as a
-scheduling problem. The README's "Deliberately missing" section is
+scheduling problem. The README's list of deliberate omissions is
 this exercise's design discussion.
 
 **3. `max_rounds` protection for `Engine`.**

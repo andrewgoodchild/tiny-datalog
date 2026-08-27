@@ -94,9 +94,9 @@ That closes the evaluation arc: four strategies, one semantics, and
 every pair of them checkable against each other by the conformance
 suite in `tests.py`. The remaining lessons step outside evaluation —
 [14](14-containment.md) asks what a query means on *every* database,
-[15](15-closed-and-open-worlds.md) asks what absence means, and
+[15](15-closed-and-open-worlds.md) asks what absence means,
 [16](16-writing-rules.md) is about authoring rules rather than running
-them.
+them, and [17](17-category-theory.md) names the mathematics.
 
 Next: [containment](14-containment.md). The last lesson asks a
 question evaluation never does: what does this query compute on

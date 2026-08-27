@@ -24,7 +24,7 @@ aunt_or_uncle(A, N) :- parent(P, N), sibling(P, A).
 Three literals as required. Same defect inherited: with no `X != Y`
 built-in, every parent is a sibling of themselves and therefore their
 own children's "aunt or uncle". The fix needs a disequality built-in —
-see the README's "Deliberately missing" section for why the engine
+see the README's list of deliberate omissions for why the engine
 doesn't have one, and lesson 11's exercise 2 for how you'd add it.
 
 **3. Predict `-q 'parent(X, carl)'`.**

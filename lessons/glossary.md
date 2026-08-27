@@ -49,12 +49,12 @@ counterpart to **DRed**'s demolish-first. *(Lesson 8)*
 
 **Base fact.** See **EDB**.
 
-**Body.** The part of a rule to the right of `:-`, a conjunction of
-literals. The **head** is to the left. *(Lesson 1)*
-
 **BFS (breadth-first search).** Explore a graph level by level. Used
 here only to reconstruct the shortest offending cycle when
 stratification fails. *(Lesson 11)*
+
+**Body.** The part of a rule to the right of `:-`, a conjunction of
+literals. The **head** is to the left. *(Lesson 1)*
 
 **Bottom-up evaluation.** Start from the facts and apply rules
 forwards until nothing new appears. What `datalog.py` does. Contrast
@@ -63,6 +63,11 @@ forwards until nothing new appears. What `datalog.py` does. Contrast
 **CALM theorem.** Consistency As Logical Monotonicity: a distributed
 program can be run without coordination exactly when it is monotone,
 which for Datalog means negation-free. *(Lesson 0)*
+
+**Canonical instance.** A query's own body, with its variables frozen
+into fresh constants: the smallest, most hostile database satisfying
+the query. Testing against it stands in for testing against all
+databases (Chandra–Merlin). *(Lesson 14)*
 
 **Chandra–Merlin theorem.** For conjunctive queries, Q2 contains Q1
 iff there is a **homomorphism** from Q2's body into Q1's body fixing
@@ -170,7 +175,17 @@ right identities. *(Lesson 10)*
 at which evaluation stops. The **least fixpoint** is the smallest such
 set, and is what a Datalog program means. *(Lesson 2)*
 
+**Free object.** An algebraic structure satisfying only the equations
+it must: any assignment of its generators into another structure of
+the same kind extends to exactly one homomorphism. The provenance
+polynomials ℕ[X] are the free commutative semiring, which is why every
+semiring's answer factors through them. *(Lesson 6)*
+
 **Function symbol.** See **Compound term**.
+
+**Functor.** A structure-preserving map between categories. In CQL a
+database instance *is* a functor from the schema to sets, so violating
+a constraint means failing to be an instance at all. *(Lesson 17)*
 
 **Gelfond–Lifschitz reduct.** Given a candidate model S, delete every
 rule whose negated atoms are in S and strip the remaining negations.
@@ -216,6 +231,20 @@ deletions need **DRed**. *(Lesson 8)*
 **Join.** Combining two relations on shared variables. In this engine
 a rule body *is* a join, performed by folding `_match` over its
 literals under one growing substitution. *(Lesson 1)*
+
+**Kan extension.** Category theory's universal way of extending a
+functor along another; CQL's data-migration operators Σ and Π are the
+left and right Kan extensions, and the chase computes the left one.
+*(Lesson 17)*
+
+**Knaster–Tarski theorem.** A monotone function on a complete lattice
+has a least fixpoint. Applied to the immediate consequence operator on
+the (finite) powerset lattice of facts, it is the two-line reason every
+Datalog program terminates with a unique meaning. *(Lesson 2)*
+
+**Lattice.** A partially ordered set where any two elements have a
+meet and a join; here, all possible fact-sets ordered by ⊆. The stage
+on which Knaster–Tarski performs. *(Lesson 2)*
 
 **Literal.** An atom, or a negated atom (`not p(X)`). *(Lesson 3)*
 

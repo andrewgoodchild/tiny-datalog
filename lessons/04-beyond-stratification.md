@@ -69,11 +69,11 @@ can settle, it settles; what is genuinely circular, it names as such.
 
 ## The café paradox
 
-(If you arrived from the README: this is that eligibility paradox with
-the roles made concrete. `eligibility-paradox.dl` is the same knot in
-benefits vocabulary, and both are the barber paradox underneath. The
-café version is the better one to *learn* on, because the story makes
-the circularity visible before the engine names it.)
+(The same knot ships in benefits vocabulary as
+`programs/eligibility-paradox.dl` — a household stops qualifying once a
+member claims — and both are the barber paradox underneath. The café
+version is the better one to *learn* on, because the story makes the
+circularity visible before the engine names it.)
 
 Now the capstone: the café paradox. A town's policy:
 anyone who does **not** live in a household that cooks its own meals may

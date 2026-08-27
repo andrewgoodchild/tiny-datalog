@@ -30,6 +30,30 @@ one finite search, because Q1's own body, with its variables frozen
 into distinct constants — is the hardest database Q1 can be run on. If
 Q2 can be satisfied there, it can be satisfied wherever Q1 is.
 
+## The model theory underneath
+
+Name the frame, because Lesson 17 will claim this lesson runs on it.
+**Model theory** studies the relationship between sentences and the
+structures that satisfy them; its workhorse map is the
+**homomorphism**, a function between structures that preserves every
+atomic fact. Two of its standard moves power this whole lesson:
+
+- **The canonical instance.** Freeze Q1's body — treat its variables
+  as fresh constants — and you get a database: the smallest, most
+  hostile model of Q1. It satisfies Q1 and nothing it isn't forced to.
+- **Preservation.** Conjunctive queries are *positive existential*
+  formulas, and those are exactly the formulas homomorphisms preserve:
+  if Q holds in A and A maps homomorphically into B, Q holds in B. (Add
+  negation and preservation fails — which is why this theory refuses
+  it.)
+
+Chandra–Merlin is those two moves composed: Q2 holds on *every*
+database Q1 matches iff Q2 holds on the canonical one, and "holds on
+the canonical one" is exactly "Q2's body maps homomorphically into
+Q1's." A statement about all models collapses to one finite check
+against the worst model — the same all-worlds-to-one-witness shape as
+Lesson 4's grounding envelope.
+
 ## You already wrote the search
 
 Open `datalog.py` and read `_match` again:

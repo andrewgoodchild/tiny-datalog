@@ -169,7 +169,7 @@ much larger territory than the one science fiction warned us about.
 |---|---|---|
 | 1977–1985 | facts, rules, joins, recursion, semi-naive | Lessons 1–2 · `datalog.py` |
 | 1986 | magic sets | Lesson 5 · `magic.py` |
-| 1988–1991 | stratification; stable models; well-founded | Lessons 3 & 5 · `semantics.py` |
+| 1988–1991 | stratification; stable models; well-founded | Lessons 3–4 · `semantics.py` |
 | 2007– | provenance semirings, recursive aggregation | Lesson 6 · `semiring.py` |
 | 2020s | probabilistic / neurosymbolic | Lesson 7 |
 | 1993 → 2023 | DRed → differential dataflow → DBSP | Lesson 8 · `incremental.py` |
@@ -178,53 +178,53 @@ much larger territory than the one science fiction warned us about.
 | 1978 → today | KL-ONE → description logics → OWL / SNOMED CT | Lesson 10 · `subsumption.py` |
 | throughout | closed vs open worlds — what absence means | Lesson 15 |
 | the practice | authoring rules others must review | Lesson 16 |
+| the mathematics | what the course is made of, and the road not taken | Lesson 17 |
 | 1990s → today | recursive aggregation; SLG tabling, the resolution strategy XSB implements | Lessons 12–13 · `tabling.py` |
 
 The repository is small on purpose, every algorithm named above is
 implemented in readable standard-library Python, and every example in
 every lesson is a file you can run.
 
-## Further reading, and one road not taken
+## Five places Datalog earns its living
 
-The course's mathematics is **lattice theory** (fixpoints — Lesson 2),
-**model theory** (homomorphisms and containment — Lesson 14), and
-**universal algebra** (semirings and their quotients — Lesson 6). Those
-are the tools the field actually reaches for, and every result in these
-lessons is stated in them.
+Not toy deployments — systems you can check, each mapped to the lesson
+that teaches its core idea.
 
-A reader arriving from category theory will notice that much of this
-*can* be recast categorically: instances and homomorphisms form a
-category, `lfp(T_P)` is an initial algebra, semiring specialisation is
-a functor. All true, and, for classical Datalog — none of it doing
-work the lattice-and-semiring toolkit wasn't already doing. Nothing in
-`datalog.py` would be different. It is worth saying plainly, because
-the vocabulary is attractive enough to mistake for content.
+1. **Code security at scale.** Semmle's QL — an object-oriented Datalog
+   for "analyzing source code to detect security vulnerabilities" —
+   became GitHub's **CodeQL**, which scans code across GitHub today.
+   The **Soufflé** dialect writes pointer analyses for Java and
+   control-flow analyses for Scheme. Recursion over a program's
+   dependency graph is Lessons 2 and 5's material.
+2. **Databases that speak it.** **Datomic** uses Datalog as its query
+   language on a distributed database; **LogicBlox** ran web-based
+   retail planning and insurance applications on it; and the **magic
+   sets** algorithm — Lesson 5 — is implemented inside IBM's DB2.
+3. **Knowledge graphs and medical terminology.** **RDFox** is a
+   main-memory triple store built on Datalog reasoning, with Lesson 8's
+   Backward/Forward as its deletion algorithm. And every release of
+   **SNOMED CT**, the ~350,000-concept clinical terminology behind
+   electronic health records, is classified by EL reasoners running the
+   saturation calculus Lesson 10 compiles to Datalog.
+4. **Industrial scheduling and configuration.** Answer set programming
+   — Lesson 4's stable models, industrialised — was first applied to
+   **product configuration** in 1998 (Soininen and Niemelä), and
+   solves **real-world train scheduling** (routing, scheduling and
+   optimisation together) with clingo's hybrid extensions (Abels et
+   al., arXiv 2003.08598).
+5. **Program verification.** Compilers and verifiers discharge safety
+   questions as **constrained Horn clauses** — Lesson 9's clause shape
+   plus arithmetic — solved by engines like Z3's Spacer, with an annual
+   solver competition (CHC-COMP) to keep everyone honest.
 
-Where categorical machinery genuinely earns its place is one step
-outside this repository, and it is worth seeing *why*, because it
-sharpens the point above into a criterion. The **Categorical Query
-Language** (CQL — Spivak and Wisnesky, the Topos Institute line) takes
-"a schema is a graph" literally and then further: a schema is a
-*category*, with foreign keys as morphisms and integrity constraints as
-path equations, and a database instance is a *functor* from it into
-sets — so an instance violating a constraint is not a bad database, it
-fails to be an instance at all. The payoff is **migration**: a mapping
-between schemas is a functor, and general theory hands you three
-migration operators (Δ pulls data back; its adjoints Σ and Π are
-principled merge and join, as Kan extensions). Merging two databases
-with Σ is constraint-preserving *by construction* — a guarantee an ETL
-script cannot make and relational algebra does not offer. There is the
-criterion: category theory pays rent when the problem is mappings
-*between* structures. Migrating data across schemas is exactly that;
-evaluating rules inside one schema is not, which is why the recasting
-above does no work and this does.
+The pattern across all five: small rule sets, large or changing data,
+and answers someone must be able to trust or audit — exactly the
+territory the README stakes out.
 
-The same boundary holds for **existential rules** (Datalog±), where
-the chase — the procedure CQL's Σ is computed by — is a left Kan
-extension. Both concern the fragment this engine deliberately does not
-implement, and both are live research rather than settled technique.
-If you add existentials, that is the road; until then, it is a
-signpost.
+For everything else, there is [the glossary](glossary.md), and for the
+mathematically curious there is [Lesson 17](17-category-theory.md) —
+what the course's mathematics actually is, and why the categorical
+recasting of it was a road deliberately not taken.
 
 Start here: [getting started](getting-started.md), then
 [Lesson 1](01-first-steps.md).

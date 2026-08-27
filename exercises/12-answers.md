@@ -12,8 +12,7 @@ average_parts(P, S, N)   :- spend_sum(P, S), spend_count(P, N).
 
 `average_parts(alice, 180, 2)`: the division is the consumer's job,
 because dividing requires arithmetic over *derived* values, which is a
-built-in, which is deliberately missing (README, "Deliberately
-missing"): a built-in must fire at the moment its operands bind, and
+built-in, which the README lists as a deliberate omission: a built-in must fire at the moment its operands bind, and
 this engine refuses to make join order semantically significant.
 
 **2. `reach(alice, N)`, and dana's absence.**

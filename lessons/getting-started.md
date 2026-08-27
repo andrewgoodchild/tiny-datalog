@@ -93,7 +93,7 @@ everything else assumes them: facts and rules, recursion, negation.
 | write rules for a real policy | 12 (aggregation), 15 (missing data), 16 (authoring) |
 | understand how evaluation works | 2, 5 (magic sets), 13 (tabling), 11 (the code) |
 | know what a rule set *means* | 4 (stable models), 15 (open vs closed worlds) |
-| get at the theory | 6 (semirings), 9 (Horn clauses), 14 (containment) |
+| get at the theory | 6 (semirings), 9 (Horn clauses), 14 (containment), 17 (category theory) |
 | see where it meets machine learning | 6, 7 (probabilistic) |
 | keep answers fresh as data changes | 8 (incremental) |
 | reason about definitions, not data | 10 (subsumption) |
@@ -117,6 +117,7 @@ everything else assumes them: facts and rules, recursion, negation.
 14. [Containment: the same search, one level up](14-containment.md)
 15. [Closed and open worlds](15-closed-and-open-worlds.md)
 16. [Writing rules that survive review](16-writing-rules.md)
+17. [The road not taken: category theory](17-category-theory.md)
 
 Three groupings worth knowing about, because each is a single idea told
 across several lessons: **3, 4 and 12** share one thesis (finish a
@@ -149,3 +150,4 @@ The lessons build up the whole repository feature by feature:
 14. [Containment: the same search, one level up](14-containment.md)
 15. [Closed and open worlds](15-closed-and-open-worlds.md)
 16. [Writing rules that survive review](16-writing-rules.md)
+17. [The road not taken: category theory](17-category-theory.md)

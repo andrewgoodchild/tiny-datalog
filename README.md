@@ -308,7 +308,7 @@ subsumption.py  KL-ONE-style EL classifier, compiled to Datalog
 containment.py  query containment and minimisation by homomorphism
 programs/       teaching programs, numbered by the lesson that uses
                 them (00-* are the README's examples)
-lessons/        getting started, glossary, and lessons 0–16
+lessons/        getting started, glossary, and lessons 0–17
 exercises/      worked answers, verified by the test suite
 cases/          golden test cases — add one without writing Python
 benchmarks/     scaled input generators (chain/tree/clique/grid)

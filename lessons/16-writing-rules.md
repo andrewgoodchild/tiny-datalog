@@ -177,3 +177,7 @@ actually do.
 4. Take a policy you actually work with, model its first paragraph, and
    run the five checks. The interesting output is not the answer — it
    is which question you could not express.
+
+Next (optional): [the road not taken](17-category-theory.md) — what
+the course's mathematics actually is, for readers who want the frame
+named.
