@@ -85,6 +85,9 @@ routes worth taking.
 
 **Start here, in order.** Lessons 1, 2 and 3 are the spine and
 everything else assumes them: facts and rules, recursion, negation.
+Then read [15](15-closed-and-open-worlds.md) — what `not` assumes,
+the other half of Lesson 3, numbered 15 only because its second half
+previews Lesson 10's classifier — and then Lesson 4.
 
 **Then pick a path.**
 
@@ -122,8 +125,9 @@ everything else assumes them: facts and rules, recursion, negation.
 Three groupings worth knowing about, because each is a single idea told
 across several lessons: **3, 4 and 12** share one thesis (finish a
 relation before you negate or summarise it); **9 and 13** are one
-argument about top-down evaluation; **10 and 15** are a technique
-followed by the lesson that examines what it assumed.
+argument about top-down evaluation; **15 and 10** are one contrast
+met twice — 15 shows closed against open worlds from the data side,
+and 10 builds the reasoner living on the other side of it.
 
 Hit a word you don't know? [glossary.md](glossary.md) defines every
 technical term the course uses, with the lesson that introduces it.

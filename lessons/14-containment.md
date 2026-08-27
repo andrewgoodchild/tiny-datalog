@@ -162,6 +162,6 @@ containment — four different fences, same reason for the fence.
    what happens when a view is inlined into another view, and why
    optimisers minimise *after* rewriting rather than before.)
 
-Next: [closed and open worlds](15-closed-and-open-worlds.md). The two
-reasoners in this repository disagree about what absence means, and
-the disagreement is the last thing the course has to teach.
+Next: [writing rules that survive review](16-writing-rules.md) —
+sixteen lessons on how engines evaluate rules, and one on authoring
+them.

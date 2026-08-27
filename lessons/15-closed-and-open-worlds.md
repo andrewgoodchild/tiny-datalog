@@ -1,14 +1,20 @@
 # Lesson 15 — Closed and open worlds
 
-You have now used two reasoners in this repository, and they disagree
-about the most basic question a knowledge system faces: **what does it
-mean that something isn't there?**
+This repository contains two reasoners, and they disagree about the
+most basic question a knowledge system faces: **what does it mean that
+something isn't there?**
 
-- `datalog.py` says: *absent means false.* If I cannot derive
-  `employed(dana)`, then `not employed(dana)` succeeds.
-- `subsumption.py` says: *absent means unknown.* If the ontology never
-  says fathers are tall, the classifier does not conclude they aren't.
-  It concludes nothing.
+- `datalog.py` — the engine you have been using — says: *absent means
+  false.* If I cannot derive `employed(dana)`, then `not
+  employed(dana)` succeeds.
+- `subsumption.py` — Lesson 10's ontology classifier, which you can
+  treat as a black box today — says: *absent means unknown.* If the
+  ontology never says fathers are tall, it does not conclude they
+  aren't. It concludes nothing.
+
+(Reading this straight after Lesson 3? Good — this is that lesson's
+missing half. The two demo commands below need no knowledge of how the
+classifier works, only of what it concludes.)
 
 Neither is wrong. They are answers to different questions, and knowing
 which one you are standing in is the difference between a benefits
@@ -239,5 +245,6 @@ one, the row just isn't there", you have found a bug waiting.
    demands one. What did the decomposition force you to decide that
    the schema let you postpone?
 
-Next: [writing rules](16-writing-rules.md) — sixteen lessons on how
-engines evaluate rules, and one on authoring them.
+Next: back to [beyond stratification](04-beyond-stratification.md)
+and Lesson 3's cliffhanger — the rejected programs that turn out to be
+meaningful, and the semantics that tells them apart.

@@ -142,7 +142,10 @@ Lesson 4 separates the two cases.
    work out why the *rules*, not the *data*, are what stratification
    looks at.
 
-Next: [beyond stratification](04-beyond-stratification.md), which
-picks up the cliffhanger above: what a rejected program *means*, and
-how to tell an unstratifiable-but-sensible one from a genuinely
-broken one.
+Next: [closed and open worlds](15-closed-and-open-worlds.md) — this
+lesson taught you the mechanics of `not`; that one is about what `not`
+*assumes*, and it needs nothing you don't already have. (It is
+numbered 15 because its second half contrasts with a reasoner built in
+Lesson 10 — read it now anyway.) The cliffhanger above — rejected
+programs that are nonetheless meaningful — resolves in
+[Lesson 4](04-beyond-stratification.md), immediately after.
