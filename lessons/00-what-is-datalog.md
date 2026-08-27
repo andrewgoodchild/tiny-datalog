@@ -201,14 +201,30 @@ work the lattice-and-semiring toolkit wasn't already doing. Nothing in
 the vocabulary is attractive enough to mistake for content.
 
 Where categorical machinery genuinely earns its place is one step
-outside this repository: at **existential rules** (Datalog±, the
-chase), where the chase is a left Kan extension, and at **functorial
-data migration** (schemas as categories, instances as functors,
-migration as Kan extensions, in the Categorical Query Language (CQL)
-and the Topos Institute line). Both
-concern the fragment this engine deliberately does not implement, and
-both are live research rather than settled technique. If you add
-existentials, that is the road; until then, it is a signpost.
+outside this repository, and it is worth seeing *why*, because it
+sharpens the point above into a criterion. The **Categorical Query
+Language** (CQL — Spivak and Wisnesky, the Topos Institute line) takes
+"a schema is a graph" literally and then further: a schema is a
+*category*, with foreign keys as morphisms and integrity constraints as
+path equations, and a database instance is a *functor* from it into
+sets — so an instance violating a constraint is not a bad database, it
+fails to be an instance at all. The payoff is **migration**: a mapping
+between schemas is a functor, and general theory hands you three
+migration operators (Δ pulls data back; its adjoints Σ and Π are
+principled merge and join, as Kan extensions). Merging two databases
+with Σ is constraint-preserving *by construction* — a guarantee an ETL
+script cannot make and relational algebra does not offer. There is the
+criterion: category theory pays rent when the problem is mappings
+*between* structures. Migrating data across schemas is exactly that;
+evaluating rules inside one schema is not, which is why the recasting
+above does no work and this does.
+
+The same boundary holds for **existential rules** (Datalog±), where
+the chase — the procedure CQL's Σ is computed by — is a left Kan
+extension. Both concern the fragment this engine deliberately does not
+implement, and both are live research rather than settled technique.
+If you add existentials, that is the road; until then, it is a
+signpost.
 
 Start here: [getting started](getting-started.md), then
 [Lesson 1](01-first-steps.md).
