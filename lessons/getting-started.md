@@ -6,7 +6,7 @@ install beyond Python 3.9+.
 ```sh
 git clone https://github.com/andrewgoodchild/tiny-datalog
 cd tiny-datalog
-python3 tests.py                     # 123 tests, should all pass
+python3 tests.py                     # 127 tests, should all pass
 python3 datalog.py programs/reachability.dl
 ```
 
@@ -40,7 +40,7 @@ input facts). The other modes:
 | `python3 datalog.py --naive --trace prog.dl` | naive evaluation with per-round derivation counts |
 | `python3 datalog.py --explain 'path(a, d)' prog.dl` | print a derivation tree — *why* is this fact true? |
 | `python3 tabling.py prog.dl -q 'goal(X)' -t` | tabled top-down evaluation (handles left recursion) |
-| `python3 incremental.py prog.dl -u 'f(a)~. f(b).'` | apply retractions/insertions to a live materialisation |
+| `python3 incremental.py prog.dl -u 'f(a)~. f(b).'` | apply retractions/insertions to a live materialisation (`--strategy bf` checks before deleting) |
 | `python3 semiring.py --semiring minplus prog.dl` | evaluate over a semiring (costs, counts, provenance, probabilities) |
 | `python3 incremental.py` | demo: repair derived facts on insert/delete instead of recomputing |
 | `python3 prolog.py prog.pl -q 'goal(X)'` | top-down Horn clauses *with* function symbols |

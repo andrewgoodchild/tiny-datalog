@@ -90,7 +90,7 @@ Nothing to install:
 
 ```sh
 git clone https://github.com/andrewgoodchild/tiny-datalog && cd tiny-datalog
-python3 tests.py        # 121 tests, ~2s
+python3 tests.py        # 127 tests, ~7s
 ```
 
 ## Why the language choice decides what you can ask later
@@ -312,7 +312,7 @@ lessons/        getting started, glossary, and lessons 0–16
 exercises/      worked answers, verified by the test suite
 cases/          golden test cases — add one without writing Python
 benchmarks/     scaled input generators (chain/tree/clique/grid)
-tests.py        121 tests: every shipped program and exercise answer is
+tests.py        127 tests: every shipped program and exercise answer is
                 executed, a conformance suite runs every query through
                 every applicable strategy, and a seeded fuzzer checks
                 the same property on random programs
