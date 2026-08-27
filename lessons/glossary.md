@@ -242,6 +242,12 @@ has a least fixpoint. Applied to the immediate consequence operator on
 the (finite) powerset lattice of facts, it is the two-line reason every
 Datalog program terminates with a unique meaning. *(Lesson 2)*
 
+**Labelled null.** Database theory's honest unknown: an invented
+witness ("someone, unspecified") that is *self-identical* across
+occurrences, unlike SQL's NULL. Produced by the chase for existential
+rules; `subsumption.py`'s `gen_N` names are miniature ones. *(Lessons
+15, 17)*
+
 **Lattice.** A partially ordered set where any two elements have a
 meet and a join; here, all possible fact-sets ordered by ⊆. The stage
 on which Knaster–Tarski performs. *(Lesson 2)*
@@ -273,6 +279,12 @@ improves on; `--naive` runs it. *(Lesson 2)*
 **Negation as failure.** `not p` succeeds when `p` cannot be derived.
 Not classical negation: it is a statement about the database, not the
 world. *(Lesson 3)*
+
+**Null.** Not one concept: SQL's single marker covers *unknown*,
+*inapplicable* and *withheld* (with a three-valued logic as the bill);
+programming's null reference is absence-as-crash; Datalog has none —
+optional data decomposes into optional relations, and absence itself
+carries the meaning (see **CWA**/**OWA**). *(Lesson 15)*
 
 **Occurs check.** Refusing to unify `X` with a term containing `X`,
 which would build an infinite term. `prolog.py` performs it; real

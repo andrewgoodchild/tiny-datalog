@@ -64,3 +64,31 @@ closed-world engine by making the absence into a positive fact about
 the checking process. That is the general technique: closed-world
 engines can represent open-world ignorance, but only if you model the
 ignorance explicitly rather than leaving it as a gap in a table.
+
+**5. Decomposing a nullable column.**
+
+Worked on the lesson's own example, `person(id, name, phone NULL)`.
+Auditing real data usually finds the one column carrying all three
+flavours at once: NULL because the phone was never asked for
+(*unknown*), because the record belongs to a company with no personal
+phone (*inapplicable*), and because the person opted out (*withheld*).
+One decomposition that separates them:
+
+```prolog
+person(p1, "iris").
+phone(p1, "555-0100").          % known
+phone_refused(p2).              % withheld — a fact about consent
+org_account(p3).                % inapplicable — a fact about kind
+```
+
+with "unknown" left as what it should be: the absence of all three.
+`no_phone_on_record(P) :- person(P, _), not has_phone(P),
+not phone_refused(P), not org_account(P).` names the follow-up queue.
+
+What the decomposition forces: each flavour becomes a *positive fact
+about a different subject* — the value, the consent, the entity's kind
+— where the schema had let one marker blur them. That is the lesson's
+thesis applied to schema design: if absence is meaningful, say which
+meaning, as data. (And the SQL original can't even ask the follow-up
+query safely: `phone IS NULL` finds all three populations at once.)
+
