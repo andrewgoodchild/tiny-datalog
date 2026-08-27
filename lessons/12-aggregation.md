@@ -51,6 +51,18 @@ to find its silent members (`alert(C) :- customer(C), not has_order(C).`).
 Whenever an aggregate drives a decision, ask what happens to the rows
 that produce no group at all.
 
+## Why an aggregate lives in the head
+
+There is a structural reason aggregation is head-only syntax here (and
+in Soufflé, which documents the same restriction): an aggregate answer
+has no *witness*. A fact like `path(a, d)` is supported by particular
+base facts you can point to; `total(alice, 180)` is supported by no
+single charge — it is a property of the whole group, and asking "which
+body fact justifies it" has no answer. That is why `--explain` prints
+the group rather than a premise chain (exercise 4), and why the
+aggregate sits in the head, where a rule states a *conclusion about*
+its body solutions rather than joining against one of them.
+
 ## Why aggregation is negation in disguise
 
 When is `total(alice, 180)` safe to conclude? Only when every

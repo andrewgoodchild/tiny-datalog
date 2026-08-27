@@ -6,9 +6,16 @@ away all but the ones starting at n5. Prolog would never do that: it
 starts from the query and only explores what's relevant. But Prolog can
 loop forever, and we don't want to give up termination or semi-naive.
 
+This blind spot is the standard complaint about bottom-up evaluation —
+it *derives many facts that are never used*. The cure has to preserve
+what bottom-up is good at, so it cannot simply be "run Prolog".
+
 **Magic sets** is the classical resolution (1986): *rewrite the program*
 so that bottom-up evaluation of the rewritten program does what top-down
-evaluation of the original would have done.
+evaluation of the original would have done. The rewritten program
+computes only what the query can observe: the magic predicates are a
+running record of *demand* — which bindings some subgoal actually asked
+for — and every original rule is guarded to fire only under demand.
 
 ## The idea in one example
 

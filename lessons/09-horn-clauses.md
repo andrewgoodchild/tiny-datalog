@@ -41,6 +41,17 @@ it is the proof procedure Prolog runs on.
 clause whose head **unifies** with it, and recursively prove that
 clause's body. This is SLD resolution: the heart of Prolog.
 
+The deep idea is that every clause supports **two readings at once**.
+Declaratively, `add(s(X), Y, s(Z)) :- add(X, Y, Z).` is a timeless
+implication — *if* the body holds, the head holds. Procedurally, it is
+an instruction: *to prove* the head, work through the clauses top to
+bottom, unify, and prove the body left to right. Prolog is the
+discovery that one text can be both, and the discipline of logic
+programming is writing clauses whose two readings agree. (Bottom-up
+Datalog only ever uses the declarative reading — which is why rule
+order never matters in the rest of this course, and starts mattering
+here.)
+
 ```sh
 $ python3 prolog.py programs/peano.pl -q 'add(s(zero), s(s(zero)), X)'
 ?- add(s(zero), s(s(zero)), X)

@@ -21,6 +21,14 @@ your data is genuinely the authority — [lesson 15](15-closed-and-open-worlds.m
 is about when it isn't, and what the alternative costs.
 Here `unreached` = {d}.
 
+In practice you should read `not` as a *filter*: build the positive
+candidates first (`node(X)`), then exclude the ones some other relation
+disqualifies. Written that way it feels no more exotic than SQL's `NOT
+EXISTS` — and for one-shot filters against finished relations, it
+isn't. The subtlety begins only when the relation you are excluding by
+is still being computed, and everything below is about drawing exactly
+that line.
+
 Two ground rules come with it:
 
 **Safety.** Every variable under `not` must be bound by a positive

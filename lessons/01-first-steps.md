@@ -59,6 +59,18 @@ $ python3 datalog.py -q 'grandparent(abe, X)' programs/family.dl
 ```
 
 A query is an atom with variables; the engine returns every match.
+The right way to read it is as a question with a blank in it. A
+variable is a placeholder, and `grandparent(abe, X)` asks "of whom is
+abe a grandparent? — fill in X for me." A ground query like
+`grandparent(abe, carl)` is the degenerate case: no blanks, so the
+answer is just yes or no. And the answers are *bindings*, not merely
+matches — the engine hands back the values that made the question true,
+which is what lets one query's answers feed another rule's body.
+
+That feeding is the quiet superpower. `grandparent` was itself derived,
+from two uses of `parent` — a derived fact is a first-class citizen,
+usable wherever a base fact is. Every later lesson is some elaboration
+of that one loop: derive, then derive *from* what you derived.
 Constants in the query act as filters.
 
 ## Asking why

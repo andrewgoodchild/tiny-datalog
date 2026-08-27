@@ -23,6 +23,17 @@ only the depth bound saves it (the answers arrive flagged "search
 truncated"). This isn't a quirk; it's the reason Prolog programmers
 memorise rule-ordering folklore.
 
+The tabling idea, in one sentence: when a subgoal calls a *variant of
+itself*, don't descend — that way lies the loop — instead read whatever
+answers that subgoal's table already has, and arrange to come back for
+the ones that haven't arrived yet. Production engines (XSB's SLG,
+SWI-Prolog's tabling) do the "come back" by *suspending* the looping
+call and *resuming* it each time its table gains an answer. This
+implementation does something simpler with the same meaning: re-run
+every query to fixpoint until no table grows — more recomputation,
+much less machinery, identical tables (exercise 2 measures the
+difference).
+
 ## The fix: give every subgoal a table
 
 ```sh
