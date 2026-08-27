@@ -146,7 +146,10 @@ an *ordered* semiring, then characterise which algebraic properties
 make the fixpoint converge and which ones let semi-naive evaluation
 still be sound. It is Lesson 3's stratification and this lesson's
 algebra treated as one question, and it is the frontier this module
-sits just underneath.
+sits just underneath. (The thread is personal as well as technical:
+Val Tannen, of the 2007 provenance-semirings paper this lesson rests
+on, is also an author of DBSP, Lesson 8's algebra of changes — the
+same mathematician, working the two sides of the missing subtraction.)
 
 ## What's deliberately missing
 

@@ -125,8 +125,10 @@ fixpoint in an *ordered semiring*, characterising when convergence and
 semi-naive evaluation still hold. *(Lesson 6)*
 
 **DBSP.** The algebraic foundation for incremental computation (VLDB
-2023), generalising semi-naive evaluation to arbitrary changes. The
-Feldera engine implements it. *(Lesson 8)*
+2023): programs become circuits over **Z-sets**, every operator gets a
+uniform derivative, and insertion and deletion stop being different
+algorithms. Generalises semi-naive evaluation to arbitrary changes; the
+Feldera engine implements it, programmed in SQL. *(Lesson 8)*
 
 **Decidable.** A question a terminating procedure can always answer.
 Datalog is built out of deliberate restrictions that keep questions
@@ -368,3 +370,9 @@ is genuinely circular. *(Lesson 4)*
 
 **Witness.** A minimal set of base facts sufficient to derive a
 conclusion; why-provenance returns the set of them. *(Lesson 6)*
+
+**Z-set.** A collection where each fact carries a signed integer
+multiplicity: +1 is an insertion, −1 a deletion, and a change is data
+flowing through the same operators as the facts themselves. The
+representation underneath **DBSP**, and what plain sets cannot express
+("this fact lost one of its two supports"). *(Lesson 8)*

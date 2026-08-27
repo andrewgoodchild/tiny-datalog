@@ -140,15 +140,38 @@ Two honest observations, one per direction:
 
 DRed pays teardown-and-rebuild; B/F pays proof search; and the deeper
 issue under both is that sets can't express "this fact lost one of its
-two supports." Modern
-systems (Differential Dataflow, DBSP: the 2023 boom in incremental
-computation) work with **Z-sets**: facts with signed multiplicities,
-where an insertion is +1, a deletion is −1, and the algebra of changes
-composes through joins, recursion, everything. Semi-naive evaluation and
-DRed are both special cases of one uniform derivative rule. That algebra
-needs subtraction, exactly the operation Lesson 6's semirings lack —
-which is why this module handles change and semiring.py handles values,
-and unifying them is a current research frontier.
+two supports." **DBSP** (Budiu, Chajed, McSherry, Ryzhyk, Tannen —
+VLDB 2023) dissolves the problem instead of solving it: represent
+relations as **Z-sets**, collections where every fact carries a signed
+integer multiplicity. An insertion is +1, a deletion is −1, and a
+*change is just data*, flowing through the same operators as everything
+else. Every operator — join, union, recursion — has a uniform
+derivative: given a change to the input, compute the change to the
+output algebraically. Semi-naive evaluation and DRed both fall out as
+special cases of one rule, and the entire strategy debate this lesson
+just measured evaporates, because there is no deletion algorithm to
+choose. Recursion is handled by making the fixpoint iteration itself a
+dimension changes can flow through (a stream of streams) — the part of
+the theory that genuinely goes beyond resumed semi-naive.
+
+This is shipping, not prospectus. The DBSP authors built **Feldera**, a
+Rust engine you program in SQL — including recursive views — whose
+contract is that the incrementally maintained answer is *identical* to
+recomputing from scratch on the current data. That is the same
+invariant this module's tests assert after every update, held at
+industrial scale. Its close relative **Materialize** is built on
+differential dataflow, the earlier operational form of the same
+insight; DBSP is best read as its algebraic formalisation, making
+"incrementalise this program" a mechanical transformation rather than
+per-operator engineering.
+
+One name ties this lesson to Lesson 6: Val Tannen is both the Tannen of
+Green–Karvounarakis–**Tannen** (the 2007 provenance-semirings paper)
+and a DBSP author. The connection is not biographical trivia — the
+algebra of changes needs subtraction, exactly the operation Lesson 6's
+semirings lack, which is why this module handles *change* and
+semiring.py handles *values*, and why unifying them is a current
+research frontier.
 
 ## What's deliberately missing
 
