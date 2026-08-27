@@ -5,6 +5,14 @@ about writing them, which is a different skill and the one the rest of
 the course implies: the README's whole case is that rules get reviewed,
 audited, and inherited by someone who did not write them.
 
+The drafting habits themselves were met one at a time along the way —
+negate one thing, not a relation with a spare variable (Lesson 3);
+negating base facts is free, negating derived predicates forces an
+order (Lesson 3); several models means a choice unmade (Lesson 4); mind
+the rows that produce no group (Lesson 12); ask whose authority says
+this is absent (Lesson 15). What no single lesson could show is the
+habits *working together on one policy*, which is this lesson's job.
+
 We will write a small policy badly twice, and let the engine find both
 faults.
 

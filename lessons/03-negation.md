@@ -28,6 +28,16 @@ literal in the same rule. `unreached(X) :- not reach(X).` is rejected —
 "everything that isn't reachable" over an open universe of constants is
 not a well-defined relation. The `node(X)` literal supplies the universe.
 
+Safety also catches a subtler drafting mistake: a variable that appears
+*only* under the `not`. `ok(P) :- member(P), not overdue(P, B).` is
+rejected, and rightly, because it is ambiguous between "P has no
+overdue loan at all" and "there is some book P doesn't have out" — two
+different policies. The fix is to project first (`has_overdue(P) :-
+overdue(P, _).`) and negate that. **Drafting habit: negate a
+proposition about one thing; a spare variable under `not` means you
+haven't finished modelling.** (Lesson 16 builds a whole policy around
+this mistake.)
+
 **Order of computation.** To evaluate `not reach(X)` you must be *done*
 computing `reach`. If you check `not reach(d)` while `reach` is still
 growing, you might say yes today and be wrong tomorrow.

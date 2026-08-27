@@ -42,6 +42,15 @@ Two semantic decisions worth knowing:
 - A group with no body solutions produces *no* fact — `count` never
   returns 0, because there is no group to attach it to.
 
+**Drafting habit:** the missing-zero is the aggregation bug people
+actually ship. "Alert when a customer has 0 orders" written as
+`alert(C) :- orders(C, count(N)), N = 0` can never fire — the customers
+you want are exactly the ones producing no group. You need the universe
+trick from Lesson 3: a positive predicate to range over, and negation
+to find its silent members (`alert(C) :- customer(C), not has_order(C).`).
+Whenever an aggregate drives a decision, ask what happens to the rows
+that produce no group at all.
+
 ## Why aggregation is negation in disguise
 
 When is `total(alice, 180)` safe to conclude? Only when every
