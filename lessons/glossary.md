@@ -41,6 +41,12 @@ a program. *(Lesson 1)*
 **Atom.** A predicate applied to terms: `parent(abe, bob)` or
 `path(X, Y)`. A **ground** atom has no variables. *(Lesson 1)*
 
+**Backward/Forward (B/F).** The 2015 deletion algorithm (Motik, Nenov,
+Piro, Horrocks; implemented in RDFox): compute the facts affected by a
+deletion, then confirm each by backward chaining for an alternative,
+well-founded derivation before removing anything. The check-first
+counterpart to **DRed**'s demolish-first. *(Lesson 8)*
+
 **Base fact.** See **EDB**.
 
 **Body.** The part of a rule to the right of `:-`, a conjunction of
@@ -142,7 +148,8 @@ question about its cycles. *(Lesson 3)*
 
 **DRed (delete and rederive).** The 1993 algorithm for deleting from a
 materialised view: over-delete everything reachable from the removed
-fact, then re-derive whatever still has support. *(Lesson 8)*
+fact, then re-derive whatever still has support. Contrast
+**Backward/Forward**, which checks before deleting. *(Lesson 8)*
 
 **EDB (extensional database).** The predicates defined by facts, i.e.
 your input data. Contrast **IDB**. *(Lesson 1)*

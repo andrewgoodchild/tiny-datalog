@@ -9,15 +9,24 @@ relations instead of recomputing them from scratch.
   fixpoint of the old facts, so every genuinely new derivation must use at
   least one inserted fact — exactly the delta discipline the engine
   already runs.
-* Deletion is DRed (delete-and-rederive, Gupta–Mumick–Subrahmanian 1993):
-  first over-delete everything that has *any* derivation through a
-  deleted fact, then re-derive the survivors that still have support from
-  what remains.
+* Deletion ships in two strategies, because the field did:
+  - DRed (delete-and-rederive, Gupta–Mumick–Subrahmanian 1993): first
+    over-delete everything that has *any* derivation through a deleted
+    fact, then re-derive the survivors that still have support from what
+    remains.
+  - Backward/Forward (Motik–Nenov–Piro–Horrocks 2015, the algorithm in
+    RDFox): compute the same affected set, but instead of tearing it
+    down, check each fact by *backward chaining* for an alternative
+    derivation before touching it.  Facts with independent support are
+    never disturbed.  The search must be well-founded — a fact may not
+    support itself through a cycle — which is the same reason counting
+    derivations fails on recursion (lesson 6's diverging count semiring).
 
-This two-phase dance is the teaching-sized ancestor of modern incremental
-view maintenance (Differential Dataflow, DBSP).  Positive programs only —
-incrementalising negation is exactly where the modern theory earns its
-keep.
+Both repair to exactly the recomputed state; they differ in where the
+work goes.  DRed pays teardown-plus-rebuild in proportion to derivation
+*redundancy*; B/F pays proof search in proportion to how hard survival
+is to confirm.  Positive programs only — incrementalising negation is
+exactly where the modern theory earns its keep.
 
 Run `python3 incremental.py` for a demo: delete one edge from a graph
 with an alternative route and watch DRed over-delete, then re-derive.
@@ -28,6 +37,7 @@ API
     inc.insert("edge(n2, n9).")   -> {"inserted": 1, "derived": 2}
     inc.delete("edge(n3, n4).")   -> {"deleted": 1, "over_deleted": 7,
                                       "rederived": 4, "net_removed": 3}
+    inc.delete(..., strategy="bf")  # {"affected": 7, "confirmed": 4, ...}
     inc.rels                       # always the same as recomputing fresh
 """
 
@@ -40,7 +50,7 @@ import time
 from collections import defaultdict
 
 from datalog import (DatalogError, Engine, Program, _aggregate_of,
-                     format_fact, parse, validate)
+                     _match, _sort_key, format_fact, parse, validate)
 
 
 class IncrementalEngine:
@@ -119,12 +129,14 @@ class IncrementalEngine:
                 "insert() received a retraction — use delete() or apply()")
         return self._insert_facts(self._facts_of(clauses))
 
-    def delete(self, facts_text):
+    def delete(self, facts_text, strategy="dred"):
         """Remove base facts (a trailing `~` is allowed but optional
-        here); repair derived relations with DRed."""
-        return self._delete_facts(self._facts_of(parse(facts_text)))
+        here); repair derived relations with DRed or Backward/Forward."""
+        deleter = (self._bf_delete_facts if strategy == "bf"
+                   else self._delete_facts)
+        return deleter(self._facts_of(parse(facts_text)))
 
-    def apply(self, script):
+    def apply(self, script, strategy="dred"):
         """Apply a mixed update script in one call: plain facts insert,
         `fact~.` retracts.  Deletions run first, then insertions;
         returns the combined stats.
@@ -136,7 +148,9 @@ class IncrementalEngine:
         deletes = [c for c in clauses if c.retract]
         inserts = [c for c in clauses if not c.retract]
         if deletes:
-            stats.update(self._delete_facts(self._facts_of(deletes)))
+            deleter = (self._bf_delete_facts if strategy == "bf"
+                       else self._delete_facts)
+            stats.update(deleter(self._facts_of(deletes)))
         if inserts:
             stats.update(self._insert_facts(self._facts_of(inserts)))
         return stats
@@ -213,6 +227,84 @@ class IncrementalEngine:
                 "rederived": rederived,
                 "net_removed": len(candidates) - rederived}
 
+    def _bf_delete_facts(self, facts):
+        """Backward/Forward: forward-propagate the affected set against
+        the intact database, then decide each affected fact by backward
+        proof search before removing anything.  `blocked` carries the
+        current proof path, so support is well-founded by construction —
+        a fact cannot survive by deriving itself around a cycle."""
+        for f in facts:
+            if f not in self.base:
+                raise DatalogError("can only delete base facts; %s is "
+                                   "not one" % format_fact(*f))
+        self.base -= set(facts)
+        frontier, affected = defaultdict(set), set()
+        for pred, tup in facts:
+            if tup in self.rels.get(pred, ()):
+                frontier[pred].add(tup)
+                affected.add((pred, tup))
+        while frontier:
+            nxt = defaultdict(set)
+            for pred, tup in self._delta_fires(frontier):
+                if tup in self.rels[pred] and (pred, tup) not in affected:
+                    affected.add((pred, tup))
+                    nxt[pred].add(tup)
+            frontier = nxt
+
+        by_head = defaultdict(list)
+        for r in self.rules:
+            by_head[r.head.pred].append(r)
+        proven, checks = {}, [0]
+
+        def usable(f, blocked):
+            if f in blocked:
+                return False
+            if f not in affected or f in self.base:
+                return True
+            if f in proven:
+                return proven[f]
+            return prove(f, blocked | {f})
+
+        def prove(f, blocked):
+            # only successes are cached: failure under a nonempty proof
+            # path may succeed by another route; False is recorded only
+            # after a top-level search exhausts them all
+            checks[0] += 1
+            pred, tup = f
+            for rule in by_head[pred]:
+                subst = _match(rule.head.args, tup, {})
+                if subst is not None and solve(rule.body, 0, subst, blocked):
+                    proven[f] = True
+                    return True
+            return False
+
+        def solve(body, i, subst, blocked):
+            if i == len(body):
+                return True
+            atom = body[i].atom
+            for tup in sorted(self.rels.get(atom.pred, ()), key=_sort_key):
+                ext = _match(atom.args, tup, subst)
+                if (ext is not None and usable((atom.pred, tup), blocked)
+                        and solve(body, i + 1, ext, blocked)):
+                    return True
+            return False
+
+        removed = 0
+        order = sorted(affected, key=lambda f: (f[0], _sort_key(f[1])))
+        for f in order:
+            alive = (f in self.base or proven.get(f) is True
+                     or (f not in proven and prove(f, {f})))
+            if alive:
+                continue
+            proven[f] = False
+            self.rels[f[0]].discard(f[1])
+            removed += 1
+        for pred in [p for p, ts in self.rels.items() if not ts]:
+            del self.rels[pred]
+        return {"deleted": len(facts), "affected": len(affected),
+                "confirmed": len(affected) - removed, "removed": removed,
+                "backward_checks": checks[0]}
+
     def total_facts(self):
         return sum(len(ts) for ts in self.rels.values())
 
@@ -268,6 +360,9 @@ def main(argv=None):
                          "'edge(n3, n4)~. edge(n2, n9).' (repeatable)")
     ap.add_argument("-p", "--print", dest="show", action="store_true",
                     help="print derived relations after the updates")
+    ap.add_argument("--strategy", choices=("dred", "bf"), default="dred",
+                    help="deletion strategy: DRed (default) or "
+                         "Backward/Forward")
     args = ap.parse_args(argv)
 
     if not args.file:
@@ -278,7 +373,7 @@ def main(argv=None):
         print("materialised: %d facts" % inc.total_facts())
         for script in args.update:
             t0 = time.perf_counter()
-            stats = inc.apply(script)
+            stats = inc.apply(script, args.strategy)
             elapsed = time.perf_counter() - t0
             print("%s\n  -> %r in %.3fs" % (script.strip(), stats, elapsed))
         if args.update:

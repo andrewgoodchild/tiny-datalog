@@ -258,9 +258,10 @@ regression test without writing Python.
 
 Static analysis at scale (CodeQL, Soufflé) is Datalog. Knowledge graphs
 (RDFox) are Datalog. Incremental view maintenance is a live commercial
-category: DRed (1993) is the algorithm in Lesson 8, and DBSP — the
-Z-set formulation behind Feldera — is the descendant that took a
-different route to the same problem.
+category: Lesson 8 implements both DRed (1993) and RDFox's
+Backward/Forward (2015), and DBSP — the Z-set formulation behind
+Feldera — is the descendant that took a different route to the same
+problem.
 [Lesson 0](lessons/00-what-is-datalog.md) maps every technique in the
 course to where it ships.
 
@@ -325,7 +326,7 @@ tour.
 
 The evaluator is about 800 lines (`datalog.py`, up to the
 command-line interface), the CLI and `--explain` another 400, and the eight satellite modules about
-2,100. Call it 3.3k lines of toolkit and 1.3k of tests, roughly a
+2,200. Call it 3.4k lines of toolkit and 1.4k of tests, roughly a
 quarter of it commentary.
 
 "Tiny" is a claim about the evaluator, and about each satellite module

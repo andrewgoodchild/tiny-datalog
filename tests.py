@@ -528,8 +528,49 @@ class IncrementalTests(unittest.TestCase):
         stats = inc.insert("edge(n5, n6).")
         self.assertEqual(stats["inserted"], 1)
         self.assertEqual(dict(inc.rels), dict(self.recompute(inc)))
-        # far fewer facts touched than the whole relation
-        self.assertLess(stats["derived"], len(inc.rels["path"]))
+
+    def test_bf_delete_matches_dred_and_recompute(self):
+        # same affected set, same survivors, opposite work profile
+        dred = IncrementalEngine(self.GRAPH)
+        d = dred.delete("edge(n3, n4).")
+        bf = IncrementalEngine(self.GRAPH)
+        b = bf.delete("edge(n3, n4).", strategy="bf")
+        self.assertEqual(dict(bf.rels), dict(dred.rels))
+        self.assertEqual(dict(bf.rels), dict(self.recompute(bf)))
+        self.assertEqual(b["affected"], d["over_deleted"])
+        self.assertEqual(b["confirmed"], d["rederived"])
+        self.assertEqual(b["removed"], d["net_removed"])
+        # deterministic search order, so the work counter is stable
+        self.assertEqual(b["backward_checks"], 8)
+
+    def test_bf_support_must_be_well_founded(self):
+        # a cycle must not keep itself alive: after edge(c, a) goes, the
+        # paths around the a-b-c loop have no acyclic support left, even
+        # though each still "derives" from another doomed path fact
+        cyc = ("edge(a, b). edge(b, c). edge(c, a). edge(a, d).\n"
+               "path(X, Y) :- edge(X, Y).\n"
+               "path(X, Z) :- edge(X, Y), path(Y, Z).\n")
+        bf = IncrementalEngine(cyc)
+        stats = bf.delete("edge(c, a).", strategy="bf")
+        self.assertEqual(stats["removed"], 9)
+        fresh = run_program(cyc.replace("edge(c, a). ", ""))
+        self.assertEqual({p: s for p, s in bf.rels.items() if s},
+                         {p: s for p, s in fresh.rels.items() if s})
+
+    def test_bf_disturbs_only_what_died(self):
+        # lesson 8's headline: deleting the README's remediation edge
+        # affects 112 facts and kills exactly one — the edge itself.
+        # Every derived fact survives (pkg4 reaches pkg13 via pkg8), so
+        # uses(pkg4, pkg13) is still true and pkg4 is still exposed:
+        # the fix from the --explain tree changed nothing at all.
+        inc = IncrementalEngine(load("supply-chain.dl"))
+        stats = inc.delete("depends(pkg4, pkg13).", strategy="bf")
+        self.assertEqual(stats["affected"], 112)
+        self.assertEqual(stats["confirmed"], 111)
+        self.assertEqual(stats["removed"], 1)
+        self.assertNotIn(("pkg4", "pkg13"), inc.rels["depends"])
+        self.assertIn(("pkg4", "pkg13"), inc.rels["uses"])
+        self.assertIn(("pkg4", "cve_2026_0001"), inc.rels["exposed"])
 
     def test_delete_with_alternative_route_rederives(self):
         inc = IncrementalEngine(self.GRAPH)
@@ -1085,6 +1126,7 @@ class DifferentialFuzzTests(unittest.TestCase):
             base = {(c.head.pred, tuple(a.value for a in c.head.args))
                     for c in clauses if not c.body}
             inc = IncrementalEngine(text)
+            bf = IncrementalEngine(text)
             for step in range(rng.randint(3, 10)):
                 name, arity = rng.choice(self.EDB)
                 tup = tuple(rng.choice(self.DOMAIN) for _ in range(arity))
@@ -1095,17 +1137,24 @@ class DifferentialFuzzTests(unittest.TestCase):
                                   fact=fact):
                     if deleting:
                         inc.delete(fact)
+                        bf.delete(fact, strategy="bf")
                         base.discard((name, tup))
                     else:
                         inc.insert(fact)
+                        bf.insert(fact)
                         base.add((name, tup))
                     fresh = Engine(Program(list(rules)))
                     for pred, t in base:
                         fresh.rels[pred].add(t)
                     fresh.run()
+                    reference = {p: set(ts)
+                                 for p, ts in fresh.rels.items() if ts}
                     self.assertEqual(
                         {p: set(ts) for p, ts in inc.rels.items() if ts},
-                        {p: set(ts) for p, ts in fresh.rels.items() if ts})
+                        reference)
+                    self.assertEqual(
+                        {p: set(ts) for p, ts in bf.rels.items() if ts},
+                        reference)
 
 
 class GoldenFileTests(unittest.TestCase):

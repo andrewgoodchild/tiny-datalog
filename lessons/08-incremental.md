@@ -40,7 +40,7 @@ Run the built-in demo:
 
 ```sh
 $ python3 incremental.py
-Initial: 10 path facts
+Initial: 10 path facts, materialised in 0.000s
 
 delete("edge(n3, n4).")   — n2's shortcut keeps most paths alive:
   {'deleted': 1, 'over_deleted': 7, 'rederived': 4, 'net_removed': 3}
@@ -78,10 +78,69 @@ change, the graph rarely changes, and the vulnerability feed changes
 daily. Recomputing a closure from scratch because one fact arrived is
 the thing incremental maintenance exists to stop.
 
+## Deleting without the demolition: Backward/Forward
+
+DRed's over-delete phase is honest about its own name. Watch it handle
+the deletion of `depends(pkg4, pkg13)` — the exact edge the README's
+`--explain` tree told you to bump:
+
+```sh
+$ python3 incremental.py programs/supply-chain.dl -u 'depends(pkg4, pkg13)~.'
+materialised: 8766 facts
+depends(pkg4, pkg13)~.
+  -> {'deleted': 1, 'over_deleted': 112, 'rederived': 111, 'net_removed': 1} in 0.846s
+```
+
+It tore down 112 facts and rebuilt 111 of them to remove **one** — the
+deleted edge itself. Every derived fact survived, because pkg4 also
+reaches pkg13 through pkg8. (Notice what that means for the security
+story: bumping the dependency from the derivation tree changed nothing.
+`uses(pkg4, pkg13)` is still true and pkg4 is still exposed. The
+`--explain` tree shows you *a* route; Lesson 6's why-provenance is the
+tool that shows you *every* witness set you would have to break.)
+
+The 2015 successor — **Backward/Forward** (Motik, Nenov, Piro and
+Horrocks; the algorithm inside RDFox) — refuses to demolish first. It
+computes the same affected set, then checks each fact by *backward
+chaining* for an alternative derivation before touching it:
+
+```sh
+$ python3 incremental.py programs/supply-chain.dl -u 'depends(pkg4, pkg13)~.' --strategy bf
+materialised: 8766 facts
+depends(pkg4, pkg13)~.
+  -> {'deleted': 1, 'affected': 112, 'confirmed': 111, 'removed': 1, 'backward_checks': 112} in 1.529s
+```
+
+Same end state (the tests check both against a fresh recomputation, on
+this program and on hundreds of fuzzed ones), but the 111 survivors were
+never disturbed: no teardown, no rebuild, one removal. That matters in
+a real system where every touched fact means locks taken, indexes
+updated, and downstream consumers notified.
+
+Two honest observations, one per direction:
+
+- **Wall-clock goes the other way here.** On this engine B/F is
+  *slower* (about 1.5s to DRed's 0.85s on the run above) even though it
+  touches almost nothing, because each backward step is a scan — this
+  engine has no indexes, so goal-directed probing pays the same tax
+  magic sets paid in Lesson 5. The number B/F optimises is facts
+  disturbed, and it wins on wall-clock only once lookups are cheap.
+- **The backward search must be well-founded.** A path fact around a
+  cycle can "derive" another doomed path fact forever; support only
+  counts if it bottoms out in facts that don't need the deleted one.
+  The implementation carries the current proof path and refuses to let
+  a fact support itself through it — and this is the same phenomenon as
+  Lesson 6's diverging count semiring. Counting-based maintenance
+  (track how many derivations support each fact, decrement on delete)
+  is the third classical strategy, and cyclic derivations are exactly
+  why it is restricted to non-recursive rules: on a cycle, the count
+  never honestly reaches zero.
+
 ## Why this is the road to DBSP
 
-DRed's weakness is recomputation in phase 2, and the deeper issue is that
-sets can't express "this fact lost one of its two supports." Modern
+DRed pays teardown-and-rebuild; B/F pays proof search; and the deeper
+issue under both is that sets can't express "this fact lost one of its
+two supports." Modern
 systems (Differential Dataflow, DBSP: the 2023 boom in incremental
 computation) work with **Z-sets**: facts with signed multiplicities,
 where an insertion is +1, a deletion is −1, and the algebra of changes
@@ -107,6 +166,11 @@ programs rather than getting them quietly wrong.
    `net_removed` (a well-connected graph). What does that say about
    DRed's worst case?
 3. Why does `insert()` never need a re-derive phase? One sentence.
+4. Run exercise 2's diamond deletion under `--strategy bf` and predict
+   `backward_checks` before you look. Then construct the opposite case:
+   a graph where B/F must do *many* failed checks because everything
+   affected genuinely dies. Which strategy would you pick for each, and
+   what single property of the graph decides it?
 
 Next: [Horn clauses](09-horn-clauses.md). The boundary the whole
 language lives on.

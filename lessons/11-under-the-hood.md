@@ -11,7 +11,7 @@ paraphrase.
 | `magic.py` | the magic-sets rewriting | Lesson 5 |
 | `semantics.py` | grounding, stable models, well-founded model | Lesson 4 |
 | `semiring.py` | Kleene iteration over semirings | Lessons 6–7 |
-| `incremental.py` | insertion propagation + DRed | Lesson 8 |
+| `incremental.py` | insertion propagation; DRed and Backward/Forward deletion | Lesson 8 |
 | `prolog.py` | unification + SLD resolution | Lesson 9 |
 | `subsumption.py` | EL normalisation, compiled to Datalog | Lesson 10 |
 | `tabling.py` | tabled top-down evaluation (Query-Subquery Recursive) | Lesson 13 |
