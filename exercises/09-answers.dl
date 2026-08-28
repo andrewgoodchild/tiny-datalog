@@ -1,8 +1,8 @@
-% Lesson 8 — runnable answer (exercise 2): a well-connected diamond
+% Lesson 9 — runnable answer (exercise 2): a well-connected diamond
 % where DRed's over-delete is much larger than the true damage.
 % Deleting edge(s, m1) implicates every path through m1 — but every one
 % of them survives via m2 and is re-derived.
-%   python3 incremental.py exercises/08-answers.dl -u 'edge(s, m1)~.'
+%   python3 incremental.py exercises/09-answers.dl -u 'edge(s, m1)~.'
 
 edge(s, m1).   edge(s, m2).
 edge(m1, t).   edge(m2, t).

@@ -1,4 +1,4 @@
-# Lesson 15 — Closed and open worlds
+# Lesson 4 — Closed and open worlds
 
 This repository contains two reasoners, and they disagree about the
 most basic question a knowledge system faces: **what does it mean that
@@ -7,14 +7,14 @@ something isn't there?**
 - `datalog.py` — the engine you have been using — says: *absent means
   false.* If I cannot derive `employed(dana)`, then `not
   employed(dana)` succeeds.
-- `subsumption.py` — Lesson 10's ontology classifier, which you can
+- `subsumption.py` — Lesson 11's ontology classifier, which you can
   treat as a black box today — says: *absent means unknown.* If the
   ontology never says fathers are tall, it does not conclude they
   aren't. It concludes nothing.
 
-(Reading this straight after Lesson 3? Good — this is that lesson's
-missing half. The two demo commands below need no knowledge of how the
-classifier works, only of what it concludes.)
+(This is Lesson 3's missing half. The two demo commands below need no
+knowledge of how the classifier works, only of what it concludes —
+Lesson 11 builds it properly.)
 
 Neither is wrong. They are answers to different questions, and knowing
 which one you are standing in is the difference between a benefits
@@ -79,7 +79,7 @@ question was actually asked.
 `subsumption.py` reasons about definitions rather than data, and there
 is no "complete" list of everything true about fathers. So it makes the
 opposite assumption: unstated means unknown. It will never tell you
-`father ⊑ not tall`; it cannot even express that (Lesson 10's limits
+`father ⊑ not tall`; it cannot even express that (Lesson 11's limits
 section, no ⊥, no negation at all).
 
 The consequence is worth seeing rather than being told, because it is
@@ -188,7 +188,7 @@ marker mean":
   placeholder witness. Unlike SQL's NULL, two occurrences of the same
   labelled null are *known equal*: it is an unknown individual, not an
   unknown value, and positive queries can treat it as an ordinary
-  constant (the certain-answers story — Lesson 14's homomorphisms
+  constant (the certain-answers story — Lesson 15's homomorphisms
   doing the work). This repository mints miniature ones: the `gen_N`
   names `subsumption.py` invents during normalisation are exactly
   this, Skolem constants with identity.
@@ -234,7 +234,7 @@ one, the row just isn't there", you have found a bug waiting.
 3. Construct a Datalog program where adding a single fact removes two
    conclusions and adds a third. (Hint: chain a default off another
    default.)
-4. Lesson 4's well-founded semantics has a third truth value,
+4. Lesson 5's well-founded semantics has a third truth value,
    *undefined*. Is that the same thing as the open world's "unknown"?
    Argue both sides, then say which of the two the `pending` predicate
    above is closer to.
@@ -245,6 +245,6 @@ one, the row just isn't there", you have found a bug waiting.
    demands one. What did the decomposition force you to decide that
    the schema let you postpone?
 
-Next: back to [beyond stratification](04-beyond-stratification.md)
-and Lesson 3's cliffhanger — the rejected programs that turn out to be
-meaningful, and the semantics that tells them apart.
+Next: [beyond stratification](05-beyond-stratification.md) — Lesson
+3's cliffhanger: the rejected programs that turn out to be meaningful,
+and the semantics that tells them apart.

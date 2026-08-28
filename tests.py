@@ -558,7 +558,7 @@ class IncrementalTests(unittest.TestCase):
                          {p: s for p, s in fresh.rels.items() if s})
 
     def test_bf_disturbs_only_what_died(self):
-        # lesson 8's headline: deleting the README's remediation edge
+        # lesson 9's headline: deleting the README's remediation edge
         # affects 112 facts and kills exactly one — the edge itself.
         # Every derived fact survives (pkg4 reaches pkg13 via pkg8), so
         # uses(pkg4, pkg13) is still true and pkg4 is still exposed:
@@ -687,7 +687,7 @@ class PrologTests(unittest.TestCase):
 
 
 class ClosedAndOpenWorldTests(unittest.TestCase):
-    """Lesson 15: the two engines disagree about what absence means, and
+    """Lesson 4: the two engines disagree about what absence means, and
     the disagreement is observable."""
 
     def test_missing_data_produces_a_confident_wrong_answer(self):
@@ -939,7 +939,7 @@ class ConformanceTests(unittest.TestCase):
 
 
 class ContainmentTests(unittest.TestCase):
-    """Chandra–Merlin containment and minimisation (lesson 14)."""
+    """Chandra–Merlin containment and minimisation (lesson 15)."""
 
     @staticmethod
     def rule(text):
@@ -995,12 +995,12 @@ class ContainmentTests(unittest.TestCase):
 
 
 class SemiringHomomorphismTests(unittest.TestCase):
-    """Lesson 6: when may provenance be specialised after the fact?"""
+    """Lesson 7: when may provenance be specialised after the fact?"""
 
     def test_why_to_minplus_is_a_homomorphism(self):
         r = subprocess.run(
             [sys.executable, os.path.join(HERE, "exercises",
-                                          "06-homomorphism.py")],
+                                          "07-homomorphism.py")],
             capture_output=True, text=True, cwd=HERE)
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertIn("agrees on every fact", r.stdout)
@@ -1276,7 +1276,7 @@ class ExerciseTests(unittest.TestCase):
                          {("win", ("a",)), ("win", ("c",))})
 
     def test_lesson6_modified_routes(self):
-        text = self.ex("06-answers.dl")
+        text = self.ex("07-answers.dl")
         self.assertEqual(
             run_semiring(text, "minplus").value("path", ("a", "e")), 6)
         self.assertEqual(
@@ -1287,14 +1287,14 @@ class ExerciseTests(unittest.TestCase):
     def test_lesson7_exact_probability_script(self):
         r = subprocess.run(
             [sys.executable, os.path.join(HERE, "exercises",
-                                          "07-exact-prob.py")],
+                                          "08-exact-prob.py")],
             capture_output=True, text=True, cwd=HERE)
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertIn("0.934450", r.stdout)
         self.assertIn("exact >= Viterbi: True", r.stdout)
 
     def test_lesson8_diamond_overdelete(self):
-        inc = IncrementalEngine(self.ex("08-answers.dl"))
+        inc = IncrementalEngine(self.ex("09-answers.dl"))
         stats = inc.delete("edge(s, m1).")
         self.assertEqual((stats["over_deleted"], stats["rederived"],
                           stats["net_removed"]), (6, 4, 2))
@@ -1313,7 +1313,7 @@ class ExerciseTests(unittest.TestCase):
         self.assertFalse(incomplete)   # finite failure, not a timeout
 
     def test_lesson10_grandmother_and_dad(self):
-        ont = subsumption.load(self.ex("10-answers.dl"))
+        ont = subsumption.load(self.ex("11-answers.dl"))
         self.assertEqual(ont.direct_subsumers()["grandmother"], {"mother"})
         self.assertIn(("dad", "father"), ont.equivalences())
 
@@ -1325,7 +1325,7 @@ class ExerciseTests(unittest.TestCase):
         self.assertEqual(m.rels["magic#ancestor#bf"], {("bob",), ("carl",)})
 
     def test_lesson12_average_parts(self):
-        engine = run_program(self.ex("12-answers.dl"))
+        engine = run_program(self.ex("13-answers.dl"))
         self.assertEqual(engine.rels["average_parts"],
                          {("alice", 180, 2), ("bob", 990, 2)})
 

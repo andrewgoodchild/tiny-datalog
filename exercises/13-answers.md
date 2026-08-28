@@ -1,45 +1,57 @@
 # Lesson 13 — answers
 
-**1. Tables vs magic facts for `ancestor(bob, X)` on
-`programs/family.dl`.**
+Runnable rules for exercise 1: `exercises/13-answers.dl`.
 
-Measured, side by side:
+**1. `average` from `sum` and `count`.**
 
-| tabling (`-t`) | magic (`--magic --trace`) |
-|---|---|
-| table `ancestor(bob, _)` | `magic#ancestor#bf(bob)` |
-| table `ancestor(carl, _)` | `magic#ancestor#bf(carl)` |
-| table `parent(bob, _)`, `parent(carl, _)` | (EDB literals aren't adorned) |
+```prolog
+spend_sum(P, sum(A))     :- charge(P, C, A).
+spend_count(P, count(C)) :- charge(P, C, A).
+average_parts(P, S, N)   :- spend_sum(P, S), spend_count(P, N).
+```
 
-The `ancestor` call patterns and the magic facts are the same set
-{bob, carl}, the compile-time/run-time duality made concrete. The
-only difference is bookkeeping style: tabling also tables EDB subgoals,
-where magic sets leaves EDB literals untouched.
+`average_parts(alice, 180, 2)`: the division is the consumer's job,
+because dividing requires arithmetic over *derived* values, which is a
+built-in, which the README lists as a deliberate omission: a built-in must fire at the moment its operands bind, and
+this engine refuses to make join order semantically significant.
 
-**2. Why more rounds than answers?**
+**2. `reach(alice, N)`, and dana's absence.**
 
-Iterative QSQR re-solves *every* table from scratch each round, and a
-new answer discovered deep in one rule chain only propagates one
-"level" per outer round, so rounds track derivation depth, not answer
-count. Real SLG engines suspend a consumer exactly where it blocked and
-resume it when its table gains an answer, doing each piece of work
-once.
+`reach(alice, 3)`: alice is connected to bob, carol, and dana. dana
+produces *no* `reach` fact at all — she knows no one, so the body has
+no solutions for her, so there is no group. `count` never returns 0
+because a zero-count group has nothing to attach the zero to; if you
+want "dana: 0" you need a universe predicate and negation, which is a
+nice extra exercise.
 
-**3. Why do tables reset per query?**
+**3. The forbidden program.**
 
-`query()` rebuilds `self.tables` because answers are *per call
-pattern*, and a fresh query's patterns may overlap the old ones —
-keeping them would be correct (tables are monotone truths) but requires
-knowing when a table is *complete* versus still growing. Production
-systems keep a shared "table space" with completion tracking for
-exactly this reuse, and it is their central engineering artifact.
+```prolog
+p(a, 1).
+q(count(X)) :- q(Y), p(X, N).
+```
 
-**4. Can tabling create fewer tables than magic creates magic facts?**
+```
+REJECTED: program is not stratifiable — aggregation occurs inside a
+recursive cycle: q --agg--> q.
+```
 
-For the IDB, no — by construction they are the same demand set: a table
-is created exactly when a subgoal pattern is demanded, and a magic fact
-is derived exactly when a bound-argument tuple is demanded, through the
-same left-to-right binding flow. The honest asymmetry runs the other
-way: tabling also creates tables for EDB subgoals (see exercise 1), so
-its table *count* can exceed the magic-fact count, never undercut the
-demand it represents.
+Why no answer could be stable, in one sentence: the count is only
+correct once `q` is complete, but the count itself adds to `q` —
+"complete" can never arrive, the same knot as `p :- not p` with
+counting in place of negation.
+
+**4. `--explain` on an aggregate.**
+
+```
+total(bob, 990)   [via total(P, sum(A)) :- charge(P, C, A).]
+  = sum over 2 body solutions of A: [90, 900]
+```
+
+Instead of premises, the tree shows the *group*: one entry per body
+solution, in a list rather than a set, because two solutions
+contributing equal values are two contributions. An aggregate fact
+isn't supported by any single body fact: remove either charge and the
+conclusion doesn't weaken, it *changes*. That non-monotonicity is
+exactly why aggregation lives a stratum up, and why its explanation is
+a collection, not a chain.

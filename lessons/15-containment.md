@@ -1,4 +1,4 @@
-# Lesson 14 — Containment: the same search, one level up
+# Lesson 15 — Containment: the same search, one level up
 
 > **Self-contained.** Needs lessons 1–3 only, despite the number.
 
@@ -52,7 +52,7 @@ database Q1 matches iff Q2 holds on the canonical one, and "holds on
 the canonical one" is exactly "Q2's body maps homomorphically into
 Q1's." A statement about all models collapses to one finite check
 against the worst model — the same all-worlds-to-one-witness shape as
-Lesson 4's grounding envelope.
+Lesson 5's grounding envelope.
 
 ## You already wrote the search
 
@@ -121,7 +121,7 @@ humans are small, and the exponential lives in the number of atoms, not
 the size of the data. Optimisers apply minimisation once per query and
 then evaluate the minimised form over millions of rows, so an expensive
 analysis buys cheap execution: the same trade magic sets makes in
-Lesson 5.
+Lesson 6.
 
 ## Where the theory stops
 
@@ -131,7 +131,7 @@ Two boundaries, both sharp:
   Add `not` and containment becomes a different (and harder) problem;
   `containment.py` refuses such rules rather than answering wrongly.
 - **Recursion.** Containment of *recursive* Datalog programs is
-  undecidable (Shmueli). This is the same wall Lesson 9 hit from the
+  undecidable (Shmueli). This is the same wall Lesson 10 hit from the
   other side: the question is decidable exactly where the language is
   restricted enough, and Datalog's recursion is expressive enough to
   break it. Uniform containment: a stronger, sufficient condition — is
@@ -139,8 +139,8 @@ Two boundaries, both sharp:
 
 Notice the pattern the course keeps returning to: a question about all
 possible worlds becomes a finite computation only when the language is
-deliberately weakened. Function symbols (Lesson 9), negation-in-cycles
-(Lesson 3), aggregation-in-cycles (Lesson 12), and now recursion in
+deliberately weakened. Function symbols (Lesson 10), negation-in-cycles
+(Lesson 3), aggregation-in-cycles (Lesson 13), and now recursion in
 containment — four different fences, same reason for the fence.
 
 ## Exercises

@@ -1,7 +1,7 @@
 % The DRed demo graph — a chain with a shortcut.  Deleting edge(n3, n4)
 % implicates seven facts (the edge itself plus six paths); four of the
 % paths survive via the n2 -> n4 shortcut and are re-derived.  Used by
-% `python3 incremental.py` and lesson 8.
+% `python3 incremental.py` and lesson 9.
 
 edge(n1, n2).  edge(n2, n3).  edge(n3, n4).  edge(n4, n5).
 edge(n2, n4).                 % alternative route around n3

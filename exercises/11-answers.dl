@@ -1,7 +1,7 @@
-% Lesson 10 — runnable answers (exercises 1 and 4): the family ontology
+% Lesson 11 — runnable answers (exercises 1 and 4): the family ontology
 % plus grandmother (exercise 1) and a syntactically different definition
 % that the classifier discovers is equivalent to father (exercise 4).
-%   python3 subsumption.py exercises/10-answers.dl
+%   python3 subsumption.py exercises/11-answers.dl
 
 role(has_child).
 

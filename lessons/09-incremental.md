@@ -1,4 +1,4 @@
-# Lesson 8 — Incremental maintenance: don't recompute the world
+# Lesson 9 — Incremental maintenance: don't recompute the world
 
 Databases change. If one edge appears in a million-edge graph, rerunning
 the whole fixpoint to update `path` is absurd: the answer differs by a
@@ -54,7 +54,7 @@ facts genuinely dependent on the dead edge stay dead. The engine then
 verifies the repaired state equals a from-scratch recomputation (so do
 the tests, for every scenario).
 
-Note the connection to Lesson 6: DRed's phase 1 over-approximates "facts
+Note the connection to Lesson 7: DRed's phase 1 over-approximates "facts
 whose provenance mentions the deleted fact." If you *kept* provenance,
 you could delete more surgically — that observation, pushed all the way,
 is counting-based maintenance and eventually DBSP.
@@ -96,7 +96,7 @@ deleted edge itself. Every derived fact survived, because pkg4 also
 reaches pkg13 through pkg8. (Notice what that means for the security
 story: bumping the dependency from the derivation tree changed nothing.
 `uses(pkg4, pkg13)` is still true and pkg4 is still exposed. The
-`--explain` tree shows you *a* route; Lesson 6's why-provenance is the
+`--explain` tree shows you *a* route; Lesson 7's why-provenance is the
 tool that shows you *every* witness set you would have to break.)
 
 The 2015 successor — **Backward/Forward** (Motik, Nenov, Piro and
@@ -123,14 +123,14 @@ Two honest observations, one per direction:
   *slower* (about 1.5s to DRed's 0.85s on the run above) even though it
   touches almost nothing, because each backward step is a scan — this
   engine has no indexes, so goal-directed probing pays the same tax
-  magic sets paid in Lesson 5. The number B/F optimises is facts
+  magic sets paid in Lesson 6. The number B/F optimises is facts
   disturbed, and it wins on wall-clock only once lookups are cheap.
 - **The backward search must be well-founded.** A path fact around a
   cycle can "derive" another doomed path fact forever; support only
   counts if it bottoms out in facts that don't need the deleted one.
   The implementation carries the current proof path and refuses to let
   a fact support itself through it — and this is the same phenomenon as
-  Lesson 6's diverging count semiring. Counting-based maintenance
+  Lesson 7's diverging count semiring. Counting-based maintenance
   (track how many derivations support each fact, decrement on delete)
   is the third classical strategy, and cyclic derivations are exactly
   why it is restricted to non-recursive rules: on a cycle, the count
@@ -165,10 +165,10 @@ insight; DBSP is best read as its algebraic formalisation, making
 "incrementalise this program" a mechanical transformation rather than
 per-operator engineering.
 
-One name ties this lesson to Lesson 6: Val Tannen is both the Tannen of
+One name ties this lesson to Lesson 7: Val Tannen is both the Tannen of
 Green–Karvounarakis–**Tannen** (the 2007 provenance-semirings paper)
 and a DBSP author. The connection is not biographical trivia — the
-algebra of changes needs subtraction, exactly the operation Lesson 6's
+algebra of changes needs subtraction, exactly the operation Lesson 7's
 semirings lack, which is why this module handles *change* and
 semiring.py handles *values*, and why unifying them is a current
 research frontier.
@@ -195,5 +195,5 @@ programs rather than getting them quietly wrong.
    affected genuinely dies. Which strategy would you pick for each, and
    what single property of the graph decides it?
 
-Next: [Horn clauses](09-horn-clauses.md). The boundary the whole
+Next: [Horn clauses](10-horn-clauses.md). The boundary the whole
 language lives on.

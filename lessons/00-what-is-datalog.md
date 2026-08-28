@@ -28,7 +28,7 @@ names three properties; here is what each one costs and buys:
 2. **Recursive** — reachability, hierarchies, and dependency closures are
    native, not bolted on.
 3. **Terminating**, every Datalog program finishes. Always. This is a
-   theorem, not a convention, and Lesson 9 shows the price paid for it.
+   theorem, not a convention, and Lesson 10 shows the price paid for it.
 
 If you know SQL: Datalog is roughly "SELECT–JOIN plus real recursion,
 minus the ceremony." If you know Prolog: Datalog is Prolog without
@@ -38,7 +38,7 @@ For a program that looks like actual work rather than a textbook
 figure, read `programs/eligibility.dl`: a benefits policy with an
 exemption clause, which the engine can both evaluate and *justify*
 (`--explain 'eligible(bob)'`). You will be able to write it yourself
-after lesson 3, and to explain how `--explain` works after lesson 11.
+after lesson 3, and to explain how `--explain` works after lesson 12.
 
 ## A short history, in five acts
 
@@ -76,11 +76,11 @@ exactly what needs no coordination.
 
 **The present (2020s).** The active research threads: **semiring
 provenance** (one program computing costs, counts, and evidence —
-Lesson 6), **incremental computation** (DBSP and differential dataflow —
-Lesson 8's DRed is their ancestor), **neurosymbolic AI** (Scallop:
-differentiable Datalog inside neural networks — Lesson 7 is the on-ramp),
+Lesson 7), **incremental computation** (DBSP and differential dataflow —
+Lesson 9's DRed is their ancestor), **neurosymbolic AI** (Scallop:
+differentiable Datalog inside neural networks — Lesson 8 is the on-ramp),
 equality saturation (egglog), and verification via constrained Horn
-clauses (Lesson 9's closing note).
+clauses (Lesson 10's closing note).
 
 ## Who invented Datalog?
 
@@ -103,7 +103,7 @@ History, and Outlook"*: the definitive account of the language's life,
 by people who lived it. Warren built XSB, the tabling engine that kept
 the well-founded semantics alive through the winter years of Act 3.
 
-So when this course's Lesson 9 shows you the function-symbol boundary,
+So when this course's Lesson 10 shows you the function-symbol boundary,
 you are looking at the exact line Maier drew when he needed a name for
 "Prolog's logic, a database's discipline."
 
@@ -124,7 +124,7 @@ It also assumes models are weak at logic, and they are not. Logic
 puzzles are cheap to verify, which makes them ideal reinforcement
 learning targets, so the labs have trained on them hard. On top of that,
 the classic paradoxes are among the most written-about objects in the
-Western canon: the café paradox in Lesson 4 *is* the barber paradox
+Western canon: the café paradox in Lesson 5 *is* the barber paradox
 *is* Russell's paradox, discussed in logic textbooks for a century. Hand
 a frontier model that puzzle and it will do fine. It was never a probe.
 
@@ -168,18 +168,18 @@ much larger territory than the one science fiction warned us about.
 | Era | Idea | Where here |
 |---|---|---|
 | 1977–1985 | facts, rules, joins, recursion, semi-naive | Lessons 1–2 · `datalog.py` |
-| 1986 | magic sets | Lesson 5 · `magic.py` |
-| 1988–1991 | stratification; stable models; well-founded | Lessons 3–4 · `semantics.py` |
-| 2007– | provenance semirings, recursive aggregation | Lesson 6 · `semiring.py` |
-| 2020s | probabilistic / neurosymbolic | Lesson 7 |
-| 1993 → 2023 | DRed → differential dataflow → DBSP | Lesson 8 · `incremental.py` |
-| 1965–1972 | Horn clauses, resolution, Prolog | Lesson 9 · `prolog.py` |
-| 1977 | conjunctive-query containment (Chandra–Merlin) | Lesson 14 · `containment.py` |
-| 1978 → today | KL-ONE → description logics → OWL / SNOMED CT | Lesson 10 · `subsumption.py` |
-| throughout | closed vs open worlds — what absence means | Lesson 15 |
+| 1986 | magic sets | Lesson 6 · `magic.py` |
+| 1988–1991 | stratification; stable models; well-founded | Lessons 3 & 5 · `semantics.py` |
+| 2007– | provenance semirings, recursive aggregation | Lesson 7 · `semiring.py` |
+| 2020s | probabilistic / neurosymbolic | Lesson 8 |
+| 1993 → 2023 | DRed → differential dataflow → DBSP | Lesson 9 · `incremental.py` |
+| 1965–1972 | Horn clauses, resolution, Prolog | Lesson 10 · `prolog.py` |
+| 1977 | conjunctive-query containment (Chandra–Merlin) | Lesson 15 · `containment.py` |
+| 1978 → today | KL-ONE → description logics → OWL / SNOMED CT | Lesson 11 · `subsumption.py` |
+| throughout | closed vs open worlds — what absence means | Lesson 4 |
 | the practice | authoring rules others must review | Lesson 16 |
 | the mathematics | what the course is made of, and the road not taken | Lesson 17 |
-| 1990s → today | recursive aggregation; SLG tabling, the resolution strategy XSB implements | Lessons 12–13 · `tabling.py` |
+| 1990s → today | recursive aggregation; SLG tabling, the resolution strategy XSB implements | Lessons 13–14 · `tabling.py` |
 
 The repository is small on purpose, every algorithm named above is
 implemented in readable standard-library Python, and every example in
@@ -195,25 +195,25 @@ that teaches its core idea.
    became GitHub's **CodeQL**, which scans code across GitHub today.
    The **Soufflé** dialect writes pointer analyses for Java and
    control-flow analyses for Scheme. Recursion over a program's
-   dependency graph is Lessons 2 and 5's material.
+   dependency graph is Lessons 2 and 6's material.
 2. **Databases that speak it.** **Datomic** uses Datalog as its query
    language on a distributed database; **LogicBlox** ran web-based
    retail planning and insurance applications on it; and the **magic
-   sets** algorithm — Lesson 5 — is implemented inside IBM's DB2.
+   sets** algorithm — Lesson 6 — is implemented inside IBM's DB2.
 3. **Knowledge graphs and medical terminology.** **RDFox** is a
-   main-memory triple store built on Datalog reasoning, with Lesson 8's
+   main-memory triple store built on Datalog reasoning, with Lesson 9's
    Backward/Forward as its deletion algorithm. And every release of
    **SNOMED CT**, the ~350,000-concept clinical terminology behind
    electronic health records, is classified by EL reasoners running the
-   saturation calculus Lesson 10 compiles to Datalog.
+   saturation calculus Lesson 11 compiles to Datalog.
 4. **Industrial scheduling and configuration.** Answer set programming
-   — Lesson 4's stable models, industrialised — was first applied to
+   — Lesson 5's stable models, industrialised — was first applied to
    **product configuration** in 1998 (Soininen and Niemelä), and
    solves **real-world train scheduling** (routing, scheduling and
    optimisation together) with clingo's hybrid extensions (Abels et
    al., arXiv 2003.08598).
 5. **Program verification.** Compilers and verifiers discharge safety
-   questions as **constrained Horn clauses** — Lesson 9's clause shape
+   questions as **constrained Horn clauses** — Lesson 10's clause shape
    plus arithmetic — solved by engines like Z3's Spacer, with an annual
    solver competition (CHC-COMP) to keep everyone honest.
 

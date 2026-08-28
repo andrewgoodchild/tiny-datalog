@@ -17,7 +17,7 @@ unreached(X) :- node(X), not reach(X).
 `not reach(X)` succeeds when `reach(X)` is *not derivable* — negation as
 failure, a closed-world reading: what I cannot prove, I take to be
 false.  That reading is doing a lot of work, and it is safe only when
-your data is genuinely the authority — [lesson 15](15-closed-and-open-worlds.md)
+your data is genuinely the authority — [lesson 4](04-closed-and-open-worlds.md)
 is about when it isn't, and what the alternative costs.
 Here `unreached` = {d}.
 
@@ -116,7 +116,7 @@ Note carefully what this does and doesn't mean. It's a *syntactic*
 verdict: this engine's evaluation strategy can't order the computation.
 It does **not** by itself mean the program is meaningless. This very
 program has two perfectly sensible "solutions" ({win(a)} and {win(b)}).
-Making that precise needs better semantics, which is Lesson 4.
+Making that precise needs better semantics, which is Lesson 5.
 
 Meanwhile the truly pathological case looks the same syntactically
 (`programs/barber.dl`):
@@ -129,7 +129,7 @@ shaves(barber, X) :- person(X), not shaves(X, X).
 The barber shaves exactly those who don't shave themselves. Does the
 barber shave the barber? Russell's paradox as a Datalog program — also
 rejected, and here the rejection is hiding something genuinely broken.
-Lesson 4 separates the two cases.
+Lesson 5 separates the two cases.
 
 
 ## Exercises
@@ -142,10 +142,8 @@ Lesson 4 separates the two cases.
    work out why the *rules*, not the *data*, are what stratification
    looks at.
 
-Next: [closed and open worlds](15-closed-and-open-worlds.md) — this
-lesson taught you the mechanics of `not`; that one is about what `not`
-*assumes*, and it needs nothing you don't already have. (It is
-numbered 15 because its second half contrasts with a reasoner built in
-Lesson 10 — read it now anyway.) The cliffhanger above — rejected
-programs that are nonetheless meaningful — resolves in
-[Lesson 4](04-beyond-stratification.md), immediately after.
+Next: [closed and open worlds](04-closed-and-open-worlds.md) — this
+lesson taught the mechanics of `not`; the next is about what `not`
+*assumes*. The cliffhanger above — rejected programs that are
+nonetheless meaningful — resolves in
+[Lesson 5](05-beyond-stratification.md), straight after.

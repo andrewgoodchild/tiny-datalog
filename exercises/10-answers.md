@@ -1,40 +1,32 @@
 # Lesson 10 — answers
 
-Runnable ontology (exercises 1 and 4): `exercises/10-answers.dl`.
-
-**1. Predict grandmother's classification.**
-
-`grandmother ⊑ mother*` — directly under mother (woman ∧ ∃has_child.
-parent ⊑ woman ∧ ∃has_child.person = mother, since every parent is a
-person), and through mother, under woman, parent, and person. The
-mirror image of grandfather ⊑ father, and the classifier finds it
-unaided.
-
-**2. Why doesn't `isa(father, tall)` make every man tall?**
-
-`isa` states a *necessary* condition: every father is tall. Inference
-flows upward from father only. Nothing says tall things are
-fathers, and nothing connects man to tall at all. A `define(father,
-and(man, tall, ...))` would be different: definitions are necessary
-AND sufficient, so any concept provably man-and-tall-with-a-child would
-then classify *under* father. Primitive vs defined is the whole game in
-KL-ONE: only definitions let the classifier discover.
-
-**3. Goal-directed subsumption via `--emit` + magic.**
+**1. `mult` forwards and backwards.**
 
 ```sh
-python3 subsumption.py --emit programs/family-ontology.dl > /tmp/ont.dl
-python3 datalog.py --magic --trace -q 'subs(grandfather, parent)' /tmp/ont.dl
+python3 prolog.py programs/peano.pl -q 'mult(s(s(zero)), s(s(zero)), X)'
+   X = s(s(s(s(zero))))          # 2 × 2 = 4
+python3 prolog.py programs/peano.pl -q 'mult(X, s(s(zero)), s(s(s(s(zero)))))'
+   X = s(s(zero))                # 4 ÷ 2 = 2, by running × in reverse
 ```
 
-The magic facts that appear are `magic#subs#bb(grandfather, parent)`
-and the subgoals demand discovers from it: the classifier's work
-narrowed to one subsumption question. (Tabling the same query shows the
-same sets as tables: lesson 13's punchline, in ontology form.)
+Division as reversed multiplication — unification's party trick, and
+verified by the test suite.
 
-**4. A discovered equivalence.**
+**2. Why does ancestor behave identically under both engines?**
 
-`exercises/10-answers.dl` defines `dad` as "a person who is a man with
-a child who is a person" — syntactically different from father,
-semantically identical, and the classifier prints `dad ≡ father`.
-Equivalence discovery is just subsumption run both ways.
+It is function-free and every SLD derivation for it terminates (the
+recursion consumes a `parent` fact each step), so top-down enumerates
+exactly the finite answer set that bottom-up computes — on the Datalog
+fragment with terminating derivations, the two strategies are two
+routes to the same least model. The divergence between engines only
+appears when function symbols (lesson 10) or left recursion (lesson 14)
+enter.
+
+**3. Does `lt(X, zero)` fail finitely?**
+
+Yes, no depth bound needed. Both `lt` clauses have `s(N)` as their
+second argument, and `zero` unifies with neither, so resolution has
+zero matching clauses and fails immediately. This is *finite failure*:
+the honest kind of "no", as opposed to the depth-bound's "unproven".
+The test suite asserts both the empty answer set and the
+`incomplete = False` flag.

@@ -134,7 +134,7 @@ job:
   because a positive rule that fired keeps firing when the database
   grows.
 - The lattice is **finite**: no rule invents constants, so there are
-  only finitely many possible facts (Lesson 9 is about what happens
+  only finitely many possible facts (Lesson 10 is about what happens
   when that stops being true).
 
 The **Knaster–Tarski theorem** says a monotone function on such a
@@ -197,14 +197,14 @@ both true and not in conflict, and it is the fact the whole field is
 organised around. Real workloads have small programs and enormous data:
 CodeQL runs a few hundred rules over a codebase with hundreds of
 millions of facts, and it is only viable because the axis that grows is
-the cheap one. It is also why Lesson 14 can call query minimisation
+the cheap one. It is also why Lesson 15 can call query minimisation
 worth an NP-complete analysis: you pay it once per rule and save on
 every row.
 
 (This engine's data curve is worse than the theory allows: nested-loop
 joins make it roughly cubic where an indexed engine would be closer to
 quadratic. The *shape* is right, the constant is not — see
-[lesson 11](11-under-the-hood.md).)
+[lesson 12](12-under-the-hood.md).)
 
 ## Shapes of recursion
 

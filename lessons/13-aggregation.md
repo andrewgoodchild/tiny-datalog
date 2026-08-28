@@ -1,4 +1,4 @@
-# Lesson 12 — Aggregation: counting without contradiction
+# Lesson 13 — Aggregation: counting without contradiction
 
 Datalog derives facts; real questions often want *summaries* — how many,
 how much, the least, the most. This lesson adds aggregation to the
@@ -84,7 +84,7 @@ Aggregating a *recursive* relation is perfectly fine; it just lands in
 the next stratum (`reach(P, count(Q)) :- connected(P, Q).` in the
 example program). What's forbidden is the summary feeding back into what
 it summarises. (Letting *monotone* aggregation recurse safely — min
-inside shortest-path — is precisely the semiring story of Lesson 6 and
+inside shortest-path — is precisely the semiring story of Lesson 7 and
 the current research thread behind it; the two lessons are one idea
 seen from two sides.)
 
@@ -103,5 +103,5 @@ seen from two sides.)
 4. `--explain 'total(bob, 990)'` — what does the tree show instead of
    premises, and why can't an aggregate have a normal premise list?
 
-Next: [tabling](13-tabling.md). The third way to evaluate, and the
+Next: [tabling](14-tabling.md). The third way to evaluate, and the
 secret identity of magic sets.

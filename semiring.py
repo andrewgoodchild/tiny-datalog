@@ -105,7 +105,7 @@ class MinPlusSemiring(Semiring):
 class CountSemiring(Semiring):
     """(+, x) over the naturals: number of distinct derivations.  Weights
     are ignored — every base fact counts once.  (Reading weights as
-    multiplicities would give bag semantics; see lessons/06-semirings.md.)
+    multiplicities would give bag semantics; see lessons/07-semirings.md.)
     Diverges when derivations are unbounded (cycles) — by design."""
     name = "count"
     zero, one = 0, 1
@@ -122,7 +122,7 @@ class CountSemiring(Semiring):
 
 class ViterbiSemiring(Semiring):
     """(max, x) over [0, 1]: probability of the most likely single
-    derivation.  See lessons/07-probabilistic.md for why this — and not
+    derivation.  See lessons/08-probabilistic.md for why this — and not
     "add up the probabilities" — is the honest semiring."""
     name = "viterbi"
     zero, one = 0.0, 1.0
@@ -212,7 +212,7 @@ class SemiringEngine:
                 raise DatalogError(
                     "semiring evaluation does not compose with head "
                     "aggregation (a semiring already IS the aggregation "
-                    "— see lessons 6 and 12): %s" % r)
+                    "— see lessons 7 and 13): %s" % r)
             for lit in r.body:
                 if lit.negated:
                     raise DatalogError(

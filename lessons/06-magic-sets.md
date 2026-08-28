@@ -1,4 +1,4 @@
-# Lesson 5 — Magic sets: asking questions efficiently
+# Lesson 6 — Magic sets: asking questions efficiently
 
 Bottom-up evaluation has a blind spot. Ask `path(n5, X)` — "what can n5
 reach?", and the engine computes *every* path in the graph, then throws
@@ -126,5 +126,5 @@ baseline just to print its comparison line, so time the query *without*
    binding failed to buy. Then find the crossover: how far along the
    chain must the query start before magic wins on wall-clock?
 
-Next: [semirings](06-semirings.md), which asks what a derivation
+Next: [semirings](07-semirings.md), which asks what a derivation
 carries besides truth.

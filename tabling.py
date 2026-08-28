@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 tabling.py — tabled top-down evaluation: the third vertex of the
-evaluation triangle.  (Lesson 13; tour in Lesson 11's spirit.)
+evaluation triangle.  (Lesson 14; tour in Lesson 12's spirit.)
 
 The course has shown three ways to answer a Datalog query:
 

@@ -8,9 +8,9 @@ audited, and inherited by someone who did not write them.
 The drafting habits themselves were met one at a time along the way —
 negate one thing, not a relation with a spare variable (Lesson 3);
 negating base facts is free, negating derived predicates forces an
-order (Lesson 3); several models means a choice unmade (Lesson 4); mind
-the rows that produce no group (Lesson 12); ask whose authority says
-this is absent (Lesson 15). What no single lesson could show is the
+order (Lesson 3); several models means a choice unmade (Lesson 5); mind
+the rows that produce no group (Lesson 13); ask whose authority says
+this is absent (Lesson 4). What no single lesson could show is the
 habits *working together on one policy*, which is this lesson's job.
 
 We will write a small policy badly twice, and let the engine find both
@@ -151,7 +151,7 @@ and only one of them will get updated when the policy changes.
 **Absence you did not model.** `not suspended(P)` means the suspension
 table never said so. If suspensions live in a system that was down when
 you loaded the data, everybody borrows, and every derivation is
-immaculate. Lesson 15 is entirely about this, and the habit it leaves
+immaculate. Lesson 4 is entirely about this, and the habit it leaves
 you with is the one to carry into review: *when you see `not`, ask
 whose authority says this is absent.*
 
@@ -165,7 +165,7 @@ actually do.
 ## Exercises
 
 1. Add "a member with more than two overdue loans is suspended
-   automatically". You cannot count without Lesson 12's aggregation —
+   automatically". You cannot count without Lesson 13's aggregation —
    write it with `count`, then check whether the program still
    stratifies and explain the result.
 2. Draft 2 had two rules where one silently overrode the other. Write a

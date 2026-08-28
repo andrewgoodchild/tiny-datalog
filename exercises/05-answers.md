@@ -1,61 +1,31 @@
 # Lesson 5 — answers
 
-**1. `ancestor(abe, X)` with and without `--magic` on
-`programs/family.dl`.**
+**1. `--models` on the barber (`programs/barber.dl`).**
 
-Measured: magic derives **11 IDB facts vs 14** under full evaluation.
-The margin is modest because abe is the root — nearly everything is
-relevant to him. Ask from the leaf instead (`ancestor(bob, X)`) and the
-pruning is dramatic: 1 `ancestor#bf` fact and 2 magic facts, against
-the same 14. Demand-driven evaluation pays off in proportion to how
-*specific* the demand is.
+Undefined: exactly `shaves(barber, barber)`, the self-referential
+atom. True *despite the paradox*: `shaves(barber, plato)` (plato
+doesn't shave himself, so the barber definitely shaves him). The
+well-founded model quarantines the paradox to the one atom that
+embodies it; note also that the program has **no stable model at all** —
+two-valued semantics cannot contain the damage the way three-valued
+semantics can.
 
-**2. The rewriting for `ancestor(X, dana)` (adornment `fb`), by hand.**
+**2. win/move on an acyclic chain a→b→c→d.**
 
-The head binds only the second argument, so bindings flow differently:
+Exactly **one** stable model: `{win(a), win(c)}`. d has no moves
+(loses), so c wins; b's only move reaches a winner (b loses), so a
+wins. The two-models ambiguity of the cyclic version came entirely
+from the cycle — acyclic game trees have determined outcomes, and the
+stable semantics computes precisely the game-theoretic answer.
 
-```prolog
-% base rule: nothing binds X before parent is scanned
-ancestor#fb(X, Y) :- magic#ancestor#fb(Y), parent(X, Y).
-% recursive rule: parent(X, Y) binds both, so the inner call is bb
-magic#ancestor#bb(Y, Z) :- magic#ancestor#fb(Z), parent(X, Y).
-ancestor#fb(X, Z) :- magic#ancestor#fb(Z), parent(X, Y), ancestor#bb(Y, Z).
-% ...plus the bb specialisation's own copies of both rules
-magic#ancestor#fb(dana).
-```
+**3. A third café reading: `household_cooks` as an EDB fact.**
 
-One query, two adornments (`fb` and `bb`) — check every line against
-`--magic --trace -q 'ancestor(X, dana)'`.
-
-**3. When does magic not help? Two different failures.**
-
-*(a) Nothing bound.* `-q 'ancestor(X, Y)'` — adornment `ff`, the magic
-seed is a zero-arity fact that is simply "true", and every guard
-passes. Measured: **12 IDB facts vs 14**. The rewriting reproduces
-nearly the full computation plus its own bookkeeping. Magic sets
-exploits *bindings*; with none there is nothing to exploit. (Same in
-SQL: predicate pushdown with no predicate pushes nothing.)
-
-*(b) Bound, but the binding prunes nothing.* On chain-150,
-`-q 'path(n1, X)'` is bound, and still loses badly: **11,325 facts and
-2.19s, against 11,175 facts and 0.62s** for plain evaluation. The
-binding is real but useless, because everything downstream of n1 is
-genuinely demanded: the magic set grows to all 150 nodes, so the
-rewriting adds 150 magic facts and a guard literal per rule and prunes
-nothing. Compare `-q 'path(n140, X)'`: 66 facts and 0.05s, a 12× win. The
-governing quantity is how much demand is *smaller* than the relation.
-
-*The crossover.* Measured on chain-150 against 0.63s for plain
-evaluation:
-
-| query start | magic time | |
-|---|---|---|
-| n1 | 2.18s | lose |
-| n40 | 1.16s | lose |
-| n75 | 0.53s | win (just) |
-| n110 | 0.18s | win |
-| n140 | 0.05s | win |
-
-The crossover sits near the chain's midpoint, and the advantage
-compounds as demand shrinks. That curve, not a single number — is the
-honest answer to "is magic sets faster?"
+Assert `household_cooks(cafe_house).` as data (deleting the rules that
+derive it) and the program is trivially stratified: Bob eats at home.
+Omit it and Bob eats free in the café. Both worlds are consistent —
+because *you* decided the contested fact instead of letting the rules
+decide it circularly. That is the third way out of a paradox: don't
+define the fixed point, assert it. (Compare: the constraint reading
+`programs/cafe-constraint.dl` derives it from who cooks; the
+paradox reading lets it depend on who eats. Modelling choices, three
+of them, three different formal fates.)

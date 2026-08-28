@@ -94,7 +94,7 @@ nothing extra to ask.
 Use it whenever a result surprises you; it is the fastest debugging
 tool in the repository, and it gets more interesting as the programs
 do (recursive derivations nest, and negated conditions are shown as
-explicitly as positive ones). [Lesson 11](11-under-the-hood.md)
+explicitly as positive ones). [Lesson 12](12-under-the-hood.md)
 explains how it is built, once you have seen enough evaluation for the
 mechanism to be interesting.
 

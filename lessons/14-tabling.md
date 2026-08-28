@@ -1,9 +1,9 @@
-# Lesson 13 — Tabling: top-down without the cliff
+# Lesson 14 — Tabling: top-down without the cliff
 
 The course has answered queries three ways, each with a flaw it owns
 honestly: bottom-up (Lesson 2) computes everything whether you asked or
-not; magic sets (Lesson 5) fixes that by rewriting the program before
-running bottom-up; SLD (Lesson 9) is natively goal-directed but repeats
+not; magic sets (Lesson 6) fixes that by rewriting the program before
+running bottom-up; SLD (Lesson 10) is natively goal-directed but repeats
 subgoals endlessly and falls off a cliff on left recursion. Tabling is
 the fourth strategy — top-down, goal-directed, and it terminates.
 
@@ -81,7 +81,7 @@ beautiful
 theorems, and you can now verify it with two shell commands.
 
 What this module leaves out — negation. Tabling under negation is SLG
-resolution, which computes the well-founded semantics of Lesson 4;
+resolution, which computes the well-founded semantics of Lesson 5;
 building it is how XSB earned its place in the history told in
 Lesson 0.
 
@@ -104,13 +104,10 @@ Lesson 0.
 That closes the evaluation arc: four strategies, one semantics, and
 every pair of them checkable against each other by the conformance
 suite in `tests.py`. The remaining lessons step outside evaluation —
-[14](14-containment.md) asks what a query means on *every* database,
+[15](15-containment.md) asks what a query means on *every* database,
 [16](16-writing-rules.md) is about authoring rules rather than
 running them, and [17](17-category-theory.md) names the mathematics.
-([15](15-closed-and-open-worlds.md), on what absence means, belongs to
-the negation arc — the reading order sends you there straight after
-Lesson 3.)
 
-Next: [containment](14-containment.md). The last lesson asks a
+Next: [containment](15-containment.md). The last lesson asks a
 question evaluation never does: what does this query compute on
 *every* database?

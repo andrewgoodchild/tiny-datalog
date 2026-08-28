@@ -20,7 +20,7 @@ relations instead of recomputing them from scratch.
     derivation before touching it.  Facts with independent support are
     never disturbed.  The search must be well-founded — a fact may not
     support itself through a cycle — which is the same reason counting
-    derivations fails on recursion (lesson 6's diverging count semiring).
+    derivations fails on recursion (lesson 7's diverging count semiring).
 
 Both repair to exactly the recomputed state; they differ in where the
 work goes.  DRed pays teardown-plus-rebuild in proportion to derivation

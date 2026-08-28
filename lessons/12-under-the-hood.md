@@ -1,6 +1,6 @@
-# Lesson 11 — Under the hood: how this engine is built
+# Lesson 12 — Under the hood: how this engine is built
 
-Ten lessons used the engine; this one reads it. Everything is plain
+Eleven lessons used the engine; this one reads it. Everything is plain
 Python with no dependencies, written to be read, and the code's own
 comments carry much of the story, so this lesson is a map, not a
 paraphrase.
@@ -8,14 +8,14 @@ paraphrase.
 | File | What it implements | Taught in |
 |---|---|---|
 | `datalog.py` | syntax tree, parser, safety, stratification, semi-naive engine, command line | Lessons 1–3 |
-| `magic.py` | the magic-sets rewriting | Lesson 5 |
-| `semantics.py` | grounding, stable models, well-founded model | Lesson 4 |
-| `semiring.py` | Kleene iteration over semirings | Lessons 6–7 |
-| `incremental.py` | insertion propagation; DRed and Backward/Forward deletion | Lesson 8 |
-| `prolog.py` | unification + SLD resolution | Lesson 9 |
-| `subsumption.py` | EL normalisation, compiled to Datalog | Lesson 10 |
-| `tabling.py` | tabled top-down evaluation (Query-Subquery Recursive) | Lesson 13 |
-| `containment.py` | homomorphism search: containment and minimisation | Lesson 14 |
+| `magic.py` | the magic-sets rewriting | Lesson 6 |
+| `semantics.py` | grounding, stable models, well-founded model | Lesson 5 |
+| `semiring.py` | Kleene iteration over semirings | Lessons 7–8 |
+| `incremental.py` | insertion propagation; DRed and Backward/Forward deletion | Lesson 9 |
+| `prolog.py` | unification + SLD resolution | Lesson 10 |
+| `subsumption.py` | EL normalisation, compiled to Datalog | Lesson 11 |
+| `tabling.py` | tabled top-down evaluation (Query-Subquery Recursive) | Lesson 14 |
+| `containment.py` | homomorphism search: containment and minimisation | Lesson 15 |
 
 ## The core, in one pass (`datalog.py`)
 
@@ -33,7 +33,7 @@ in `_Parser`'s docstring.
 **Safety is range restriction** (`validate`): every head variable and
 every variable under `not` must be bound by a positive body literal.
 This is what keeps every relation finite. The same function enforces the
-function-symbol ban: the Datalog boundary from Lesson 9 is four lines
+function-symbol ban: the Datalog boundary from Lesson 10 is four lines
 of `isinstance(a, Struct)`.
 
 **Stratification is a graph problem.** Build predicate dependency edges,
@@ -121,7 +121,7 @@ with the undefined zone read off the gap.
 iteration recomputes every value each round, because semi-naive needs to
 *subtract* what's already known and semirings don't have subtraction.
 That absence is not a bug in the module; it is the observation that
-leads to DBSP (Lesson 8's closing note).
+leads to DBSP (Lesson 9's closing note).
 
 **`incremental.py` reuses the engine's own delta machinery** in both
 directions: insertion is `_eval_rule(delta_occ=...)` pointed at new
@@ -172,7 +172,7 @@ algorithm's *idea* fits on one screen.
 The nested-loop choice has a visible consequence worth knowing about:
 it makes magic sets' guard literals relatively expensive, which is part
 of why a poorly-pruning magic query can run *slower* than plain
-evaluation (Lesson 5 measures this). An engine's optimisations are not
+evaluation (Lesson 6 measures this). An engine's optimisations are not
 independent of each other — indexing changes which rewritings pay off,
 which is exactly the kind of interaction a readable implementation lets
 you observe rather than take on faith.
@@ -194,5 +194,5 @@ you observe rather than take on faith.
    `programs/family.dl` for `ancestor(bob, X)`. Check yourself
    against `--magic --trace`.
 
-Next: [aggregation](12-aggregation.md) and [tabling](13-tabling.md) —
+Next: [aggregation](13-aggregation.md) and [tabling](14-tabling.md) —
 two extensions built on everything above.

@@ -1,6 +1,6 @@
-# Lesson 7 — Probabilistic Datalog, honestly
+# Lesson 8 — Probabilistic Datalog, honestly
 
-> **Follows on from lesson 6.** Assumes you have met semirings.
+> **Follows on from lesson 7.** Assumes you have met semirings.
 
 Give facts probabilities and you have the on-ramp to neurosymbolic AI:
 a neural network estimates fact confidences, a logic program reasons over
@@ -51,7 +51,7 @@ because the answer genuinely depends on *which sets of links* each route
 uses.
 
 But we already have machinery for "which sets of facts support this" —
-why-provenance, from Lesson 6. That is exactly how real systems do it:
+why-provenance, from Lesson 7. That is exactly how real systems do it:
 **Scallop** (PLDI 2023) evaluates over provenance semirings (typically
 top-k proofs) and only then converts evidence sets to probabilities by
 weighted model counting; because the provenance values are differentiable
@@ -61,12 +61,12 @@ neural network and be trained end-to-end.
 So the honest summary:
 
 So what *is* the total probability? You compute it from the witness
-sets, not from a semiring. `exercises/06-homomorphism.py`'s companion
+sets, not from a semiring. `exercises/07-homomorphism.py`'s companion
 does exactly that — enumerate the 2⁵ worlds, keep the ones where s
 reaches t, sum their probabilities:
 
 ```
-$ python3 exercises/07-exact-prob.py
+$ python3 exercises/08-exact-prob.py
 exact P(s reaches t)  = 0.934450   (enumeration over 32 worlds)
 Viterbi (best route)  = 0.810000
 exact >= Viterbi: True
@@ -79,7 +79,7 @@ semiring cannot see.
 
 That enumeration is exponential, which is why real systems compute it
 from *provenance* rather than from possible worlds: get the witness
-sets once (lesson 6), then hand them to a weighted model counter. That
+sets once (lesson 7), then hand them to a weighted model counter. That
 is the architecture Scallop uses, and the reason its provenance is
 differentiable is what lets the whole pipeline sit inside a neural
 network.
@@ -101,5 +101,5 @@ network.
    its `@` probability). Compare with the Viterbi number — why must the
    exact answer always be at least as large?
 
-Next: [incremental maintenance](08-incremental.md) — repairing answers
+Next: [incremental maintenance](09-incremental.md) — repairing answers
 when the facts change.

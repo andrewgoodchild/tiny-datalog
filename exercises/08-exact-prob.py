@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Lesson 7, exercise 3 — the exact probability that s reaches t in
+"""Lesson 8, exercise 3 — the exact probability that s reaches t in
 programs/prob-reach.dl, by enumerating all 2^5 worlds (each link
 independently up with its @ probability).
 
@@ -7,7 +7,7 @@ The Viterbi semiring reports the best single route; the exact value
 must be at least that, because "some route works" includes "the best
 route works".  Run:
 
-    python3 exercises/07-exact-prob.py
+    python3 exercises/08-exact-prob.py
 """
 
 import itertools

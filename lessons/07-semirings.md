@@ -1,10 +1,10 @@
-# Lesson 6 — Semirings: what a derivation carries
+# Lesson 7 — Semirings: what a derivation carries
 
-> **Heavier going than lessons 1–5.** This one uses a little algebra —
+> **Heavier going than lessons 1–6.** This one uses a little algebra —
 > semirings, quotients, a small impossibility proof. If that is not
 > your background, read to the end of "One program, four questions",
 > then skip to the summary box before the exercises. The result you
-> need for lessons 7 and 8 is just: *the same program computes
+> need for lessons 8 and 9 is just: *the same program computes
 > different things if you change what a derivation carries.*
 
 So far a fact is just true or false. But a derivation *carries* things:
@@ -52,7 +52,7 @@ That last one is **why-provenance**: the minimal sets of base facts each
 sufficient to derive the conclusion — "which inputs does this answer
 depend on," answered by the evaluator itself. Delete all the facts in one
 witness set and the answer survives via another; delete one fact from
-*every* set and it dies. (Lesson 8 turns exactly that observation into an
+*every* set and it dies. (Lesson 9 turns exactly that observation into an
 algorithm.)
 
 The `bool` semiring reproduces plain Datalog — run it and compare with
@@ -92,7 +92,7 @@ h(b)`, `h(a × b) = h(a) × h(b)`, and it preserves 0 and 1. Then
 specialising after the fact gives the same answer as evaluating in `K'`
 from the start, on every program.
 
-`exercises/06-homomorphism.py` checks two candidates and gets two
+`exercises/07-homomorphism.py` checks two candidates and gets two
 different answers.
 
 **why → minplus works.** A witness set costs the sum of its facts; a
@@ -100,7 +100,7 @@ set of alternatives costs the cheapest. That sends why's `plus` (set
 union) to `min` and its `times` (pairwise union) to `+`:
 
 ```
-$ python3 exercises/06-homomorphism.py
+$ python3 exercises/07-homomorphism.py
 why -> minplus, over 06-routes.dl:
   path(a, b)     h(why)=1     minplus=1     ok
   ...
@@ -160,7 +160,7 @@ still be sound. It is Lesson 3's stratification and this lesson's
 algebra treated as one question, and it is the frontier this module
 sits just underneath. (The thread is personal as well as technical:
 Val Tannen, of the 2007 provenance-semirings paper this lesson rests
-on, is also an author of DBSP, Lesson 8's algebra of changes — the
+on, is also an author of DBSP, Lesson 9's algebra of changes — the
 same mathematician, working the two sides of the missing subtraction.)
 
 ## What's deliberately missing
@@ -171,7 +171,7 @@ same mathematician, working the two sides of the missing subtraction.)
 - **Semi-naive.** The engine recomputes each round rather than tracking
   deltas — differences of semiring values need subtraction, which
   semirings don't have. Making *that* work is precisely the DBSP insight
-  (Lesson 8 discusses it).
+  (Lesson 9 discusses it).
 
 
 ## Exercises
@@ -184,12 +184,12 @@ same mathematician, working the two sides of the missing subtraction.)
 3. Design a semiring for "the *longest* path" and explain why it
    diverges on cyclic graphs for the same reason counting does.
 4. Write `h : why → minplus` yourself before reading
-   `exercises/06-homomorphism.py`, and check it against
+   `exercises/07-homomorphism.py`, and check it against
    `--semiring minplus` on `routes.dl`. Which of the two semiring
    axioms is the one you have to think about?
 5. Construct your own program where `why → count` fails — two
    derivations of one fact from one set of base facts. Then explain
    why the same trick cannot break `why → bool`.
 
-Next: [probabilistic Datalog](07-probabilistic.md). The semiring that
+Next: [probabilistic Datalog](08-probabilistic.md). The semiring that
 almost works, and why its failure matters.

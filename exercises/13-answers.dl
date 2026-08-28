@@ -1,8 +1,8 @@
-% Lesson 12 — runnable answer (exercise 1): average from sum and count.
+% Lesson 13 — runnable answer (exercise 1): average from sum and count.
 % The engine cannot divide for you — arithmetic over derived values is a
 % built-in, and built-ins are deliberately missing (see the README) —
 % so the answer is the honest one: derive both components.
-%   python3 datalog.py exercises/12-answers.dl
+%   python3 datalog.py exercises/13-answers.dl
 
 charge(alice, groceries, 120).
 charge(alice, transport, 60).

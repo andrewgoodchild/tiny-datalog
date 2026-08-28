@@ -1,4 +1,4 @@
-# Lesson 4 — Beyond stratification: stable models and the café paradox
+# Lesson 5 — Beyond stratification: stable models and the café paradox
 
 Lesson 3 ended on a cliffhanger. The engine rejects any program with
 negation inside a recursive cycle, but among the rejected programs some
@@ -140,6 +140,6 @@ answer.
 3. Invent a third reading of the café: make `household_cooks` an EDB
    fact you assert or don't. What happens in each case?
 
-Next: [magic sets](05-magic-sets.md), which leaves semantics behind
+Next: [magic sets](06-magic-sets.md), which leaves semantics behind
 and asks a performance question: how do you stop computing the whole
 world when you only asked one thing?

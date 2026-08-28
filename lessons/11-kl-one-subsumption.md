@@ -1,4 +1,4 @@
-# Lesson 10 — KL-ONE and subsumption: reasoning about definitions
+# Lesson 11 — KL-ONE and subsumption: reasoning about definitions
 
 Everything so far reasoned about *facts*: which tuples are in which
 relations. This lesson's question is one level up: what follows from
@@ -25,7 +25,7 @@ reasoning (a "TBox," about concepts), not *assertional* reasoning (an
 "ABox," about individuals). Datalog answers "which tuples?"; subsumption
 answers "which definitions entail which?"
 
-## The tradeoff saga: the same lesson as Lesson 9, rediscovered
+## The tradeoff saga: the same lesson as Lesson 10, rediscovered
 
 KL-ONE's own subsumption algorithm was *structural*: normalise both
 definitions, compare part by part. Then came the shock results: Brachman
@@ -34,7 +34,7 @@ language flip subsumption from polynomial to intractable, and
 Schmidt-Schauß (1989) proved subsumption in full KL-ONE **undecidable**.
 The field's response created **description logics**: pick your fragment
 deliberately, and know its price. It is exactly the move Datalog made by
-banning function symbols — Lesson 9's boundary, drawn through a
+banning function symbols — Lesson 10's boundary, drawn through a
 different logic.
 
 The fragment this lesson implements is **EL**: conjunction (`and`) and
@@ -106,7 +106,7 @@ fixpoint, and goal-directed subsumption checks are magic sets.
 Note what the classifier does *not* say. Nothing in the output claims
 `father ⊑ not tall`; unstated simply means unproven. That is the **open
 world assumption**, and it is the opposite of the one `datalog.py` has
-been making for nine lessons. [Lesson 15](15-closed-and-open-worlds.md)
+been making for nine lessons. [Lesson 4](04-closed-and-open-worlds.md)
 puts the two side by side, because the difference is observable: add an
 axiom here and conclusions only grow, while adding a fact to a Datalog
 program can take one away.
@@ -147,4 +147,4 @@ role chains is a research-grade one.
    another (hint: two syntactically different definitions of the same
    thing: the classifier reports `≡`).
 
-Next: [under the hood](11-under-the-hood.md) — how all of it is built.
+Next: [under the hood](12-under-the-hood.md) — how all of it is built.

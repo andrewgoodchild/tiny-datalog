@@ -1,47 +1,40 @@
 # Lesson 11 — answers
 
-**1. The two `--trace` columns, and what naive lacks.**
+Runnable ontology (exercises 1 and 4): `exercises/11-answers.dl`.
 
-The delta column (`+9 path`) counts facts that are *new* this round;
-the naive-mode column (`(24 tuples derived)`) counts every derivation
-performed, new or not, and it grows each round while the deltas
-shrink, because naive evaluation rederives the entire relation-so-far
-every time. What `_eval_stratum_naive` lacks is one thing: the
-restriction of one body position to the previous round's delta
-(`_eval_rule(delta_occ=i, delta=...)`), the single argument-pair that
-is the whole of semi-naive.
+**1. Predict grandmother's classification.**
 
-**2. Adding `X != Y`.**
+`grandmother ⊑ mother*` — directly under mother (woman ∧ ∃has_child.
+parent ⊑ woman ∧ ∃has_child.person = mother, since every parent is a
+person), and through mother, under woman, parent, and person. The
+mirror image of grandfather ⊑ father, and the classifier finds it
+unaided.
 
-The sketch (deliberately not merged — it's your exercise): a `neq`
-token or reserved predicate in the parser; a safety rule that both
-arguments must be bound by earlier positive literals (an unbound
-disequality would mean "for some value they differ" — always true — or
-force enumeration of an open domain); and evaluation as a filter in
-`_rule_substitutions`, exactly where negated literals filter. Note the
-order sensitivity you must handle: the check can only run once both
-variables are bound, which is why real engines treat built-ins as a
-scheduling problem. The README's list of deliberate omissions is
-this exercise's design discussion.
+**2. Why doesn't `isa(father, tall)` make every man tall?**
 
-**3. `max_rounds` protection for `Engine`.**
+`isa` states a *necessary* condition: every father is tall. Inference
+flows upward from father only. Nothing says tall things are
+fathers, and nothing connects man to tall at all. A `define(father,
+and(man, tall, ...))` would be different: definitions are necessary
+AND sufficient, so any concept provably man-and-tall-with-a-child would
+then classify *under* father. Primitive vs defined is the whole game in
+KL-ONE: only definitions let the classifier discover.
 
-You can add the parameter, but no Datalog program can ever need it:
-finitely many constants → finitely many possible facts → a monotone
-loop must stop. To *need* the guard you'd have to invent new values
-mid-derivation, and `validate` refuses function symbols before
-evaluation starts. The exercise's answer is the proof pattern:
-termination lives in the language definition, not the loop.
+**3. Goal-directed subsumption via `--emit` + magic.**
 
-**4. Hand-simulating the magic rewriting of `ancestor(bob, X)`.**
-
-```prolog
-ancestor#bf(X, Y) :- magic#ancestor#bf(X), parent(X, Y).
-magic#ancestor#bf(Y) :- magic#ancestor#bf(X), parent(X, Y).
-ancestor#bf(X, Z) :- magic#ancestor#bf(X), parent(X, Y), ancestor#bf(Y, Z).
-magic#ancestor#bf(bob).
+```sh
+python3 subsumption.py --emit programs/family-ontology.dl > /tmp/ont.dl
+python3 datalog.py --magic --trace -q 'subs(grandfather, parent)' /tmp/ont.dl
 ```
 
-Evaluation: magic = {bob, carl} (the demanded start points), then
-`ancestor#bf(bob, carl)` and nothing else — 3 IDB facts where full
-evaluation derives 14. Check against `--magic --trace`.
+The magic facts that appear are `magic#subs#bb(grandfather, parent)`
+and the subgoals demand discovers from it: the classifier's work
+narrowed to one subsumption question. (Tabling the same query shows the
+same sets as tables: lesson 14's punchline, in ontology form.)
+
+**4. A discovered equivalence.**
+
+`exercises/11-answers.dl` defines `dad` as "a person who is a man with
+a child who is a person" — syntactically different from father,
+semantically identical, and the classifier prints `dad ≡ father`.
+Equivalence discovery is just subsumption run both ways.

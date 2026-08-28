@@ -1,4 +1,4 @@
-# Lesson 9 — Horn clauses: the boundary Datalog lives on
+# Lesson 10 — Horn clauses: the boundary Datalog lives on
 
 Every rule in this repository is a **Horn clause**: a formula with at
 most one positive literal, `b₁ ∧ … ∧ bₙ → h`. Datalog is Horn-clause
@@ -97,10 +97,10 @@ cut, arithmetic, or I/O. Just resolution.
 | function symbols | banned | yes |
 | termination | guaranteed | undecidable |
 | all answers at once | yes (fixpoint) | enumerated, maybe forever |
-| goal-directed | via magic sets (Lesson 5) | natively |
+| goal-directed | via magic sets (Lesson 6) | natively |
 | data structures | none — facts only | lists, trees, numbers |
 
-Magic sets (Lesson 5) is this table's punchline: it imports top-down's
+Magic sets (Lesson 6) is this table's punchline: it imports top-down's
 goal-direction into bottom-up evaluation *without* importing the
 non-termination — possible only because the function-symbol ban keeps
 everything finite.
@@ -124,5 +124,5 @@ for nine lessons.
 3. `lt(X, zero)` should fail. Does it fail *finitely* here? Explain
    why the depth bound isn't needed for this one.
 
-Next: [KL-ONE and subsumption](10-kl-one-subsumption.md) — Datalog's
+Next: [KL-ONE and subsumption](11-kl-one-subsumption.md) — Datalog's
 *other* neighbour, and this one compiles back in.
