@@ -74,50 +74,14 @@ engine check — is exactly the shape of modern ontology work: extraction
 is cheap now, and the classifier is the verifier that keeps the
 extracted terminology coherent.
 
-## The tradeoff saga: the same lesson as Lesson 10, rediscovered
-
-KL-ONE's own subsumption algorithm was *structural*: normalise both
-definitions, compare part by part. Then came the shock results: Brachman
-and Levesque (1984) showed that seemingly tiny additions to the concept
-language flip subsumption from polynomial to intractable, and
-Schmidt-Schauß (1989) proved subsumption in full KL-ONE **undecidable**.
-The field's response created **description logics**: pick your fragment
-deliberately, and know its price. It is exactly the move Datalog made by
-banning function symbols — Lesson 10's boundary, drawn through a
-different logic.
-
-There is a twist in that saga worth its own paragraph, because it
-decided what SNOMED could be. KL-ONE and its descendants were built
-around the **value restriction** — ∀, which English renders as
-"only": `all(eats, plant)` defines the vegan, someone
-*everything* they eat is a plant — with existentials admitted only in
-stunted forms; the FL ("frame language") family that the 1984
-complexity analysis studied is exactly that shape. For twenty years the
-field took "all" to be the indispensable construct and "some" the
-dispensable one. The 2000s inverted the bet. Keep only conjunction and
-the **existential restriction** — ∃, "some": `some(finding_site,
-femur)` says there *is* a site, and it is the femur — and subsumption
-stays polynomial even over arbitrarily large, cyclic axiom sets
-(Baader 2003; then Baader, Brandt and Lutz's *Pushing the EL
-Envelope*, 2005, which stretched the fragment to EL++ without losing
-tractability). Keep only value restrictions instead — the logic FL₀ —
-and with general axiom sets subsumption is EXPTIME-complete. The
-construct the founders treated as the essence turned out to be the
-expensive one.
-
-That inversion is why medicine fits. Clinical statements are
-existential to the bone — a fracture has *some* site, an infection has
-*some* causative agent, a procedure acts on *some* body structure —
-and essentially never universal: no definition needs "all findings" of
-anything. A terminology that speaks only in "some" lands, by luck of
-its subject matter, in exactly the tractable fragment.
-
 The fragment this lesson implements is **EL**: conjunction (`and`) and
 existential restriction (`some`), nothing else. Subsumption in EL is
 polynomial, and EL is no toy: it is the tractable core underneath the
 OWL 2 EL profile, the family that reasoners like ELK and Snorocket
 scale to SNOMED CT, the ~350,000-concept clinical terminology used in
-health records worldwide.
+health records worldwide. Why *this* fragment of all fragments — and
+how close the field came to betting on the opposite one — is the
+tradeoff saga near the end of the lesson; first, the machinery.
 
 ## The punchline: subsumption compiles to Datalog
 
@@ -217,6 +181,44 @@ logic* (EL concept definitions) into Datalog: normalisation mints fresh
 names for nested expressions, and the entire reasoning calculus becomes
 five ordinary rules. When a problem's inference rules are monotone, "compile
 it to Datalog" is a general-purpose trick — worth remembering.
+
+## The tradeoff saga: the same lesson as Lesson 10, rediscovered
+
+KL-ONE's own subsumption algorithm was *structural*: normalise both
+definitions, compare part by part. Then came the shock results: Brachman
+and Levesque (1984) showed that seemingly tiny additions to the concept
+language flip subsumption from polynomial to intractable, and
+Schmidt-Schauß (1989) proved subsumption in full KL-ONE **undecidable**.
+The field's response created **description logics**: pick your fragment
+deliberately, and know its price. It is exactly the move Datalog made by
+banning function symbols — Lesson 10's boundary, drawn through a
+different logic.
+
+There is a twist in that saga worth its own paragraph, because it
+decided what SNOMED could be. KL-ONE and its descendants were built
+around the **value restriction** — ∀, which English renders as
+"only": `all(eats, plant)` defines the vegan, someone
+*everything* they eat is a plant — with existentials admitted only in
+stunted forms; the FL ("frame language") family that the 1984
+complexity analysis studied is exactly that shape. For twenty years the
+field took "all" to be the indispensable construct and "some" the
+dispensable one. The 2000s inverted the bet. Keep only conjunction and
+the **existential restriction** — ∃, "some": `some(finding_site,
+femur)` says there *is* a site, and it is the femur — and subsumption
+stays polynomial even over arbitrarily large, cyclic axiom sets
+(Baader 2003; then Baader, Brandt and Lutz's *Pushing the EL
+Envelope*, 2005, which stretched the fragment to EL++ without losing
+tractability). Keep only value restrictions instead — the logic FL₀ —
+and with general axiom sets subsumption is EXPTIME-complete. The
+construct the founders treated as the essence turned out to be the
+expensive one.
+
+That inversion is why medicine fits. Clinical statements are
+existential to the bone — a fracture has *some* site, an infection has
+*some* causative agent, a procedure acts on *some* body structure —
+and essentially never universal: no definition needs "all findings" of
+anything. A terminology that speaks only in "some" lands, by luck of
+its subject matter, in exactly the tractable fragment.
 
 ## The road the rules camp took: F-logic
 
