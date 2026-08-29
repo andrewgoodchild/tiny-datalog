@@ -25,6 +25,7 @@ win(X) :- move(X, Y), not win(Y).
 ```
 $ python3 datalog.py --models programs/win.dl
 Syntactic check: not stratifiable (win --not--> win).
+  (Syntactic only — an unstratifiable program may still have stable models.)
 Stable models: 2
   model 1: win(a).
   model 2: win(b).
@@ -67,19 +68,38 @@ guess. It's three-valued, every fact comes out *true*, *false*, or
 and `win(b)` undefined; for `p :- not p.` it makes p undefined. What it
 can settle, it settles; what is genuinely circular, it names as such.
 
+Both semantics ship in this engine, so the practical question is
+**when to reach for which**, and the answer is clean once Lesson 2's
+complexity vocabulary is in hand. The well-founded model always
+exists, is unique, and is computable in polynomial time — so it is the
+semantics for *query answering*: policies, audits, "what does this
+rule set entail," where you need one dependable verdict per fact and
+`undefined` is itself an answer. Stable models may not exist, may be
+many, and finding them is NP-hard — which is not a defect but a
+*feature budget*: their multiplicity is what lets a program's models
+*be* the solutions to a combinatorial problem. That is answer set
+programming's whole trade, and Lesson 0's industrial deployments —
+train scheduling, product configuration — live exactly there: search
+problems wearing rule clothing. Ask "what follows?", use the
+well-founded model; ask "what are the possibilities?", enumerate the
+stable ones.
+
 ## The café paradox
 
 (The same knot ships in benefits vocabulary as
 `programs/eligibility-paradox.dl` — a household stops qualifying once a
-member claims — and both are the barber paradox underneath. The café
-version is the better one to *learn* on, because the story makes the
-circularity visible before the engine names it.)
+member claims — and both are the barber paradox underneath. What the
+café adds is not legibility but **bystanders**: the barber's village
+has one villager, while the café has Alan, Alice and Carol, whose
+meals stay settled while exactly Bob's facts go undefined. That is
+what makes "the paradox is localised" *visible*, and it is the
+property the three-encoding table below depends on.)
 
-Now the capstone: the café paradox. A town's policy:
-anyone who does **not** live in a household that cooks its own meals may
-eat free in the café. The café is operated by one of the households, and
-Bob: a member of that household — is assigned to cook the café's meals.
-Where will Bob take his meals?
+Now the café paradox itself. A town's policy: anyone who does **not**
+live in a household that cooks its own meals may eat free in the café.
+The café is operated by one of the households, and Bob — a member of
+that household — is assigned to cook the café's meals. Where will Bob
+take his meals?
 
 Encode "a household cooks its own meals" as being about the meals its
 members actually eat (`programs/cafe-paradox.dl`), and you get a cycle:
@@ -185,7 +205,8 @@ answer.
 
 ## Under the hood: `semantics.py` in three functions
 
-**`semantics.py` is three short functions** once you see the shape:
+**`semantics.py` is two short functions and two one-liners** once you
+see the shape:
 `ground_program` instantiates rules over an envelope (the least model
 with all negations granted — provably a superset of every stable model,
 which is what makes exhaustive search sound), `_gamma` is the
@@ -204,7 +225,6 @@ learning instead of enumeration.
    the *village* (facts only — the rule stays) so that a stable model
    exists. Two different one-line repairs work; find both, and say
    what each corresponds to in Russell's terms.
-   Which fact is undefined? Which is *true* despite the paradox?
 2. Give win/move an acyclic move graph (a chain). How many stable models
    now? What does that say about where the ambiguity came from?
 3. Invent a third reading of the café: make `household_cooks` an EDB
