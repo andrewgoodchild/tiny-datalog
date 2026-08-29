@@ -17,7 +17,9 @@ memorising:
 - **Terminating.** Every program finishes. Always. That is a theorem,
   not a convention.
 
-Here is what that buys you.
+Datalog is useful when a query is recursive and SQL is fighting you,
+or when someone has to sign off on the answer and "the tests pass" is
+not enough. Here is what that buys you.
 
 You deploy 12 services, sitting on 160 packages joined by 292
 dependency edges. A CVE (Common Vulnerabilities and Exposures entry, a
@@ -236,11 +238,11 @@ regression test without writing Python.
 
 ## Where these techniques ship
 
-Implementers typically reach for Datalog when a query is recursive and
-SQL is fighting them, when someone has to sign off on a decision their
-code made and "the tests pass" is not an answer, or when a rule set
-has grown past the point where anyone can review it. Those three
-situations are what the deployments below have in common.
+Teams reach for Datalog when a query is recursive and SQL is fighting
+them, when someone has to sign off on a decision their code made and
+"the tests pass" is not an answer, or when a rule set has grown past
+the point where anyone can review it. Those three situations are what
+the deployments below have in common.
 
 Static analysis at scale (CodeQL, Soufflé) is Datalog. Knowledge graphs
 (RDFox) are Datalog. Incremental view maintenance is a live commercial
