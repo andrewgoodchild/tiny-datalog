@@ -88,8 +88,9 @@ different logic.
 
 There is a twist in that saga worth its own paragraph, because it
 decided what SNOMED could be. KL-ONE and its descendants were built
-around the **value restriction** — ∀, "all": `all(has_child, doctor)`
-says *every* child is a doctor — with existentials admitted only in
+around the **value restriction** — ∀, which English renders as
+"only": `all(eats, plant)` defines the vegetarian, someone
+*everything* they eat is a plant — with existentials admitted only in
 stunted forms; the FL ("frame language") family that the 1984
 complexity analysis studied is exactly that shape. For twenty years the
 field took "all" to be the indispensable construct and "some" the
