@@ -178,11 +178,15 @@ generator grows ontologies:
 $ python3 benchmarks/generate.py ontology 300 > /tmp/ont300.dl
 ```
 
-On those 300 chained definitions the compiled path classifies in about
-3 seconds and the native path in about 10 milliseconds — some 300×,
-and the ratio grows with size. Nothing semantic separates them; the
-difference is Lesson 7's indexing tax paid once per join versus data
-structures built for exactly these five rule shapes. That is the whole
+The classifier now prints its own time, so the claim is the tool's,
+not this paragraph's: on those 300 chained definitions the compiled
+path reports about 4 seconds and `--fast` about 2 milliseconds — three
+orders of magnitude, and the gap grows with size. (Time the whole
+*process* and you will see nearer 60×: once the reasoner costs
+milliseconds, interpreter startup and parsing dominate the wall clock
+— itself a lesson about what to measure.) Nothing semantic separates
+the two paths; the difference is Lesson 7's indexing tax paid once per
+join versus data structures built for exactly these rule shapes. That is the whole
 story of every "compiled to Datalog" system in miniature: the
 compilation buys you semantics, cross-checking and a free evaluator on
 day one, and when the day comes that speed matters, the calculus is
@@ -232,7 +236,7 @@ normal form. Adding ⊥ was exactly the tractable exercise it looks
 like — CR5 and CR6 are what it took; adding role chains is a
 research-grade one.
 
-## The tradeoff saga: the same lesson as Lesson 11, rediscovered
+## The tradeoff saga: pick your fragment, and know its price
 
 KL-ONE's own subsumption algorithm was *structural*: normalise both
 definitions, compare part by part. Then came the shock results: Brachman
@@ -246,9 +250,9 @@ different logic.
 
 There is a twist in that saga worth its own paragraph, because it
 decided what SNOMED could be. KL-ONE and its descendants were built
-around the **value restriction** — ∀, which English renders as
-"only": `all(eats, plant)` defines the vegan: someone all of whose food is
-plants — with existentials admitted only in
+around the **value restriction** (∀, which English renders as "only":
+`all(eats, plant)` defines the vegan, someone all of whose food is
+plants), with existentials admitted only in
 stunted forms; the FL ("frame language") family that the 1984
 complexity analysis studied is exactly that shape. For twenty years the
 field took "all" to be the indispensable construct and "some" the
@@ -294,37 +298,22 @@ change the checker, not the model.
 
 The description-logic line was not the frame tradition's only heir.
 **F-logic** (Kifer and Lausen, 1989) folded frames into deductive
-databases instead: objects with attributes as first-class logical
-syntax —
+databases instead — objects with attributes as first-class syntax,
+`bob : person[age -> 42]`, rules over all of it, even variables
+ranging over attribute names. It looks higher-order and is not: a
+molecule is sugar for `attr(bob, age, 42)` with `isa`/`sub` alongside,
+and the object machinery is two bridge rules any reader of Lesson 2
+can write. F-logic is to Datalog what objects are to relations — this
+lesson's compile-to-Datalog thesis run in reverse — and where it
+exceeds the core it lands on this course's own machinery: overridable
+inheritance needs Lesson 5's well-founded semantics, and its flagship
+implementation compiles to Lesson 15's tabling engine.
 
-```
-bob : person[age -> 42, works_for -> ibm].
-person :: agent.                              % subclass
-```
-
-— with rules over all of it, including variables ranging over
-attribute names and classes, which looks alarmingly higher-order. The
-alarm is false, and the reason is this lesson's own thesis run in
-reverse: F-logic's rule fragment **compiles to Datalog** over a fixed
-three-predicate vocabulary. A molecule is sugar for `attr(bob, age,
-42)`, `isa(bob, person)`, `sub(person, agent)`, and the object
-machinery is two bridge rules any reader of Lesson 2 can write —
-subclass transitivity and membership inheritance. Even quantifying
-over attributes is just a variable in `attr`'s second column. F-logic is to Datalog what objects are to relations: the same
-engine under a schema-flexible surface. Where it genuinely exceeds the
-core, it lands on machinery from this course — its overridable
-inheritance needs the well-founded semantics (Lesson 5), and its
-flagship implementation, FLORA-2, compiles to XSB, David Warren's
-tabling engine (Lesson 15).
-
-In the Semantic Web wars, F-logic carried the closed-world rules camp
-against this lesson's open-world classifiers; OWL went to the
-description logics, and F-logic's consolation was the W3C rule
-interchange format, whose frame syntax is F-logic outright. The
-epilogue has a fine irony: F-logic's *compilation target* — entity,
-attribute, value, membership — is the data model that won everywhere
-(RDF triples, Datomic's datoms, property graphs). The industry
-rejected the logic and adopted the encoding.
+In the Semantic Web wars F-logic carried the closed-world rules camp;
+OWL went to the description logics. The epilogue has a fine irony:
+F-logic's *compilation target* — entity, attribute, value — is the
+data model that won everywhere (RDF triples, Datomic's datoms). The
+industry rejected the logic and adopted the encoding.
 
 ## Exercises
 

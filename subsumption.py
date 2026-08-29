@@ -59,6 +59,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+import time
 
 from collections import defaultdict
 
@@ -67,7 +68,6 @@ from datalog import (Atom, Const, DatalogError, Engine, Literal, Program,
 
 _RESERVED = {"subs", "link", "concept", "isa1", "isa2", "isa_some",
              "some_isa", "bot"}
-
 
 class Ontology:
     """An EL TBox, normalised on load into the four axiom forms:
@@ -394,10 +394,8 @@ class Ontology:
                        for c, sup in supers.items()
                        for d in sup if c in supers[d]})
 
-
 def load(text):
     return Ontology.from_text(text)
-
 
 # ---------------------------------------------------------------------------
 # CLI
@@ -427,7 +425,12 @@ def main(argv=None):
         if args.emit:
             sys.stdout.write(ont.emit())
             return 0
+        t0 = time.perf_counter()
         supers = ont.classify(fast=args.fast)
+        elapsed = time.perf_counter() - t0
+        print("(classified in %.3fs via %s)" % (
+            elapsed, "native saturation" if args.fast
+            else "the compiled Datalog program"))
         direct = ont.direct_subsumers()
     except DatalogError as exc:
         print("error: %s" % exc, file=sys.stderr)
