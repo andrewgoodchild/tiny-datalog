@@ -1330,6 +1330,43 @@ class LessonOutputTests(unittest.TestCase):
         self.assertGreater(ncmd, 40)
 
 
+class WhyNotTests(unittest.TestCase):
+    """--explain on an absent ground fact reports, per candidate rule,
+    the first literal the join dies at; a negated blocker gets its
+    complement explained inline."""
+
+    def lines(self, text, pred, tup):
+        from datalog import whynot
+        return "\n".join(whynot(run_program(text), pred, tup))
+
+    def test_negated_blocker_explains_the_complement(self):
+        out = self.lines(load("lending.dl"), "may_borrow", ("kim",))
+        self.assertIn("blocked at: not suspended(kim)", out)
+        self.assertIn("suspended(kim)   (base fact)", out)
+        # jon dies at a DERIVED blocker, whose derivation is inlined
+        out = self.lines(load("lending.dl"), "may_borrow", ("jon",))
+        self.assertIn("has_overdue(jon)   [via", out)
+        self.assertIn("overdue(jon, book_a)   (base fact)", out)
+        self.assertIn("blocked at: staff(jon) -- no matching fact", out)
+
+    def test_positive_blocker_shows_partial_bindings(self):
+        out = self.lines(load("eligibility.dl"), "eligible", ("zeb",))
+        self.assertIn("blocked at: member(zeb, H) -- no matching fact", out)
+
+    def test_edb_absence_is_reported_plainly(self):
+        out = self.lines("p(a). q(X) :- p(X).", "p", ("z",))
+        self.assertIn("not a stated fact", out)
+
+    def test_trace_reports_sizes_and_hottest_rules(self):
+        r = subprocess.run(
+            [sys.executable, os.path.join(HERE, "datalog.py"), "--trace",
+             os.path.join(HERE, "programs", "supply-chain.dl")],
+            capture_output=True, text=True)
+        self.assertIn("sizes: exposed=4, uses=8457", r.stdout)
+        self.assertIn("hottest rules:", r.stdout)
+        self.assertIn("uses(X, Z) :- depends(X, Y), uses(Y, Z).", r.stdout)
+
+
 class RepositoryClaimTests(unittest.TestCase):
     """Claims the README makes about the repository itself, so they
     cannot rot silently."""

@@ -379,7 +379,13 @@ arrival. `--explain` (Lesson 1) is built on nothing else: to justify a
 fact, find a rule instance whose premises all carry *earlier* stamps
 than the conclusion. Because facts only arrive when derivable from
 what came before, such an instance always exists and the tree is
-well-founded by construction — no cycle can justify itself.
+well-founded by construction — no cycle can justify itself. The same
+machinery runs in reverse for *absent* facts: `--explain` on a fact
+that is not derived walks each candidate rule's body and names the
+first literal the join dies at (Lesson 17 puts it to work). And
+`--trace` closes with two lines of accounting — each stratum's final
+relation sizes, and the hottest rules with their share of the run —
+which is usually all the profiling a slow program needs.
 
 ## Exercises
 

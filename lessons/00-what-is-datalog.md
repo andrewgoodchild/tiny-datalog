@@ -228,6 +228,7 @@ And a second index, for the reader arriving stuck rather than curious
 | returning a disjunction and calling the reasoning NP-hard | [5](05-beyond-stratification.md) |
 | precomputing derived facts by hand and asserting them | [10](10-incremental.md) |
 | brute-force searching a whole database per query | [7](07-magic-sets.md) |
+| unable to ask why a fact is *missing* | [17](17-writing-rules.md) |
 
 The pattern across all five: small rule sets, large or changing data,
 and answers someone must be able to trust or audit — exactly the
@@ -264,6 +265,7 @@ and the lesson that builds the machinery:
 | Does absence mean false, or just unrecorded? | `python3 datalog.py programs/missing-data.dl` | [4](04-closed-and-open-worlds.md) |
 | Can it do arithmetic? | `python3 datalog.py -q 'plus(X, Y, n4)' programs/bounded-arithmetic.dl` | [14](14-arithmetic.md) |
 | Can it say "for all"? | `python3 datalog.py -q 'sub(rich, stream)' programs/record-subtyping.dl` | [6](06-for-all.md) |
+| Why did you *not* conclude that? | `python3 datalog.py --explain 'may_borrow(kim)' programs/lending.dl` | [17](17-writing-rules.md) |
 | How do I write rules someone else can sign off? | `python3 datalog.py --explain 'may_borrow(iris)' programs/lending.dl` | [17](17-writing-rules.md) |
 
 Provenance, in full:

@@ -64,6 +64,7 @@ from __future__ import annotations
 import argparse
 import re
 import sys
+import time
 from collections import defaultdict, deque
 from dataclasses import dataclass
 
@@ -618,6 +619,9 @@ class Engine:
         # derivation trees (a fact's premises always carry lower stamps)
         self.first_seen = {}
         self._stamp = 0
+        # cumulative evaluation seconds per rule (--trace reports the
+        # hottest ones -- the join that is eating your run)
+        self.rule_time = defaultdict(float)
 
     def run(self):
         for fact in self.program.facts:
@@ -642,9 +646,11 @@ class Engine:
         # Round 1: evaluate every rule of the stratum against the full db.
         delta = defaultdict(set)
         for rule in rules:
+            t0 = time.perf_counter()
             for tup in self._produce(rule):
                 if tup not in self.rels[rule.head.pred]:
                     delta[rule.head.pred].add(tup)
+            self.rule_time[rule] += time.perf_counter() - t0
         self._absorb(delta, stat)
 
         # Recursive rules: a positive body literal names a stratum predicate.
@@ -663,12 +669,14 @@ class Engine:
             new_delta = defaultdict(set)
             for rule, occs in recursive:
                 head = rule.head.pred
+                t0 = time.perf_counter()
                 for i in occs:
                     if not delta.get(rule.body[i].atom.pred):
                         continue
                     for tup in self._eval_rule(rule, delta_occ=i, delta=delta):
                         if tup not in self.rels[head]:
                             new_delta[head].add(tup)
+                self.rule_time[rule] += time.perf_counter() - t0
             delta = new_delta
             self._absorb(delta, stat)
 
@@ -683,10 +691,12 @@ class Engine:
             delta = defaultdict(set)
             produced = 0
             for rule in rules:
+                t0 = time.perf_counter()
                 for tup in self._produce(rule):
                     produced += 1
                     if tup not in self.rels[rule.head.pred]:
                         delta[rule.head.pred].add(tup)
+                self.rule_time[rule] += time.perf_counter() - t0
             stat["produced"].append(produced)
             self._absorb(delta, stat)
             if not delta:
@@ -851,6 +861,16 @@ def _print_stats(engine):
                 print("    round %d: %s%s" % (n, deltas, extra))
             else:
                 print("    round %d: no new facts — fixpoint%s" % (n, extra))
+        sizes = ", ".join("%s=%d" % (p, len(engine.rels.get(p, ())))
+                          for p in stat["preds"])
+        print("    sizes: %s" % sizes)
+    hot = sorted(engine.rule_time.items(), key=lambda kv: -kv[1])[:3]
+    if hot and hot[0][1] >= 0.01:
+        print("  hottest rules:")
+        total = sum(engine.rule_time.values()) or 1.0
+        for rule, secs in hot:
+            print("    %5.2fs  (%2.0f%%)  %s"
+                  % (secs, 100 * secs / total, rule))
 
 
 def _atom_sort_key(atom):
@@ -1025,13 +1045,90 @@ def explain(engine, pred, tup, indent=0, shown=None, lines=None):
     return lines
 
 
+def whynot(engine, pred, tup, lines=None):
+    """Why is this ground fact NOT derived?  For each rule that could
+    head it, walk the body in evaluation order and report the first
+    literal the join dies at.  When the blocker is a negated literal,
+    the negated atom *holds* -- so its positive derivation is the
+    culprit, and it is explained inline (the complement's why)."""
+    lines = [] if lines is None else lines
+    label = format_atom(pred, tup)
+    rules = [r for r in engine.program.rules if r.head.pred == pred]
+    if not rules:
+        lines.append("%s is not a stated fact, and no rule derives %s."
+                     % (label, pred))
+        return lines
+    lines.append("%s is not derived.  Per rule:" % label)
+    headless = 0
+    for rule in rules:
+        if _aggregate_of(rule.head):
+            lines.append("  via %s" % rule)
+            lines.append("    blocked: no body solutions produce this "
+                         "group (an empty group yields no fact)")
+            continue
+        seed = _match(rule.head.args, tup, {})
+        if seed is None:
+            headless += 1
+            continue
+        lines.append("  via %s" % rule)
+        substs = [dict(seed)]
+        ordered = sorted(range(len(rule.body)),
+                         key=lambda i: rule.body[i].negated)
+        blocked = None
+        for i in ordered:
+            lit = rule.body[i]
+            if lit.negated:
+                survivors = [s for s in substs
+                             if engine._instantiate(lit.atom, s)
+                             not in engine.rels.get(lit.atom.pred, _EMPTY)]
+            else:
+                rel = engine.rels.get(lit.atom.pred, _EMPTY)
+                survivors = []
+                for s in substs:
+                    for t in rel:
+                        m = _match(lit.atom.args, t, s)
+                        if m is not None:
+                            survivors.append(m)
+            if not survivors:
+                blocked = (lit, substs[0])
+                break
+            substs = survivors
+        if blocked is None:
+            lines.append("    (this rule does derive it -- "
+                         "the fact should exist; please report)")
+            continue
+        lit, s = blocked
+        shown = Atom(lit.atom.pred,
+                     tuple(Const(s[a.name]) if isinstance(a, Var)
+                           and a.name in s else a for a in lit.atom.args))
+        if lit.negated:
+            inst = engine._instantiate(lit.atom, s)
+            lines.append("    blocked at: not %s -- %s holds:"
+                         % (shown, format_atom(lit.atom.pred, inst)))
+            for l in explain(engine, lit.atom.pred, inst):
+                lines.append("      " + l)
+        else:
+            lines.append("    blocked at: %s -- no matching fact" % shown)
+    if headless:
+        lines.append("  (%d rule%s for %s cannot match this head and "
+                     "%s skipped)" % (headless, "" if headless == 1 else "s",
+                                      pred,
+                                      "was" if headless == 1 else "were"))
+    return lines
+
+
 def _run_explain(q, engine):
     atom = _parse_query_atom(q, engine.program.arity)
     matches = sorted(match_answers(atom, engine.rels.get(atom.pred, ())),
                      key=_sort_key)
     print("?- explain %s" % atom)
     if not matches:
-        print("   (no matching facts)")
+        if all(isinstance(a, Const) for a in atom.args):
+            tup = tuple(a.value for a in atom.args)
+            for line in whynot(engine, atom.pred, tup):
+                print("   " + line)
+        else:
+            print("   (no matching facts)")
         return
     for tup in matches:
         for line in explain(engine, atom.pred, tup):

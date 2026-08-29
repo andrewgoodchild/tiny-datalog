@@ -149,6 +149,28 @@ $ python3 datalog.py --explain 'may_borrow(iris)' programs/lending.dl
      not suspended(iris)   (absent from its completed stratum)
 ```
 
+One more question became askable the moment the drafts were fixed:
+the *negative* one. Kim no longer borrows — but a caseworker will ask
+why not, and "the rules don't derive it" is no answer. Ask the engine:
+
+```
+$ python3 datalog.py --explain 'may_borrow(kim)' programs/lending.dl
+?- explain may_borrow(kim)
+   may_borrow(kim) is not derived.  Per rule:
+     via may_borrow(P) :- member(P), not has_overdue(P), not suspended(P).
+       blocked at: not suspended(kim) -- suspended(kim) holds:
+         suspended(kim)   (base fact)
+     via may_borrow(P) :- staff(P), not suspended(P).
+       blocked at: not suspended(kim) -- suspended(kim) holds:
+         suspended(kim)   (base fact)
+```
+
+Every rule that could have granted it, and the exact premise where
+each one died — with the blocking fact's own derivation inlined when
+the blocker is a negation that *held*. Why-not is the other half of
+provenance, and it turns "the answer looks wrong" into "this literal,
+this fact."
+
 ## The checklist
 
 Five questions, all mechanical, all cheap. Run them before you ask
@@ -191,6 +213,10 @@ before it multiplies** — X pinned to a service, X's dependencies
 enumerated once, Y found *through* the shared dependency, then
 checked. Same answers, four and a half times faster than no guard,
 nearly seven times faster than the clumsy guard.
+
+(Diagnosing this no longer needs a stopwatch: `--trace` ends by
+naming the hottest rules with their share of the run, and the
+unguarded rule above shows up at the top of that list instantly.)
 
 Two honest notes. This engine joins strictly left to right (Lesson 2's
 *Under the hood*), so literal order is entirely yours; engines with

@@ -153,7 +153,7 @@ the better tool, and that covers most problems.
 ## What else you can ask it
 
 The worked example above is one row of a table. Lesson 0 ends with the
-full version — 19 questions, each with the command that answers it and
+full version — 20 questions, each with the command that answers it and
 the lesson that builds the machinery:
 [lesson 0](lessons/00-what-is-datalog.md).
 
@@ -292,7 +292,7 @@ used.
 ### How big is it, honestly
 
 The evaluator is about 800 lines (`datalog.py`, up to the
-command-line interface), the CLI and `--explain` another 400, and the eight satellite modules about
+command-line interface), the CLI, `--explain` and why-not another 500, and the eight satellite modules about
 2,200. Call it 3.4k lines of toolkit and 1.4k of tests, roughly a
 quarter of it commentary.
 
