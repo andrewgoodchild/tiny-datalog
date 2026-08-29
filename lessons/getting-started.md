@@ -110,7 +110,7 @@ a given purpose.
 10. [Incremental maintenance](10-incremental.md)
 11. [Horn clauses: the boundary Datalog lives on](11-horn-clauses.md)
 12. [KL-ONE and subsumption](12-kl-one-subsumption.md)
-13. [Aggregation: counting without contradiction](13-aggregation.md)
+13. [Aggregation, and the lattices beyond it](13-aggregation.md)
 14. [Arithmetic: the price of numbers](14-arithmetic.md)
 15. [Tabling: top-down without the cliff](15-tabling.md)
 16. [Containment: the same search, one level up](16-containment.md)

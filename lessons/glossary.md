@@ -24,6 +24,11 @@ on. *(Lesson 7)*
 `total(P, sum(A)) :- charge(P, C, A).`, where the remaining head
 arguments are the implicit GROUP BY. *(Lesson 13)*
 
+**AGM bound.** The tight limit (Atserias–Grohe–Marx) on how large a
+conjunctive query's output can be given its relation sizes. Pairwise
+join plans can exceed it asymptotically on intermediate results;
+**worst-case optimal joins** cannot. *(Lesson 7)*
+
 **Alternating fixpoint.** Van Gelder's method for computing the
 well-founded model: iterate the (antimonotone) Gelfond–Lifschitz
 operator twice, which is monotone, and read the undefined atoms off the
@@ -446,6 +451,12 @@ is genuinely circular. *(Lesson 5)*
 
 **Witness.** A minimal set of base facts sufficient to derive a
 conclusion; why-provenance returns the set of them. *(Lesson 8)*
+
+**Worst-case optimal join.** A join algorithm (leapfrog triejoin is
+the widely implemented one) whose running time is bounded by the AGM
+bound — the largest the *answer* could be — rather than by the size of
+any intermediate. The cure for the half of the performance story magic
+sets does not touch. *(Lesson 7)*
 
 **Z-set.** A collection where each fact carries a signed integer
 multiplicity: +1 is an insertion, −1 a deletion, and a change is data

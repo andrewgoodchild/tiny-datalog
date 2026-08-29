@@ -137,7 +137,9 @@ single rule's joins execute. For rules with three or more body atoms,
 any plan built from pairwise joins can produce intermediates
 asymptotically larger than the final answer — no join order saves you —
 and the fix is a different execution strategy entirely: **worst-case
-optimal joins**, which bound the work by the answer's possible size.
+optimal joins** (the bound on the answer's possible size is the **AGM
+bound**; the algorithm most engines implement is **leapfrog
+triejoin**), which cap the work by what the output could be.
 That is the result Lesson 0 credits LogicBlox with handing database
 theory, and it is the half of the performance story this engine's
 deliberate nested-loop omission is really skipping.

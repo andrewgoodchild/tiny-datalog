@@ -1,4 +1,4 @@
-# Lesson 13 — Aggregation: counting without contradiction
+# Lesson 13 — Aggregation, and the lattices beyond it
 
 Datalog derives facts; real questions often want *summaries* — how many,
 how much, the least, the most. This lesson adds aggregation to the
@@ -116,8 +116,8 @@ facts; a **lattice** changes what a fact *is* — the relation holds one
 best-so-far value per key, refined monotonically. Both are "Datalog
 plus algebra"; they generalise different halves of the evaluator.
 (And their intersection with Lesson 10 is live research: incrementally
-maintaining recursive lattice aggregation is what DRed's descendants
-are being extended to now.)
+maintaining recursive lattice aggregation is what DRed's descendants —
+**DRedL** is the searchable name — were built for.)
 
 
 ## Exercises

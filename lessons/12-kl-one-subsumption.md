@@ -187,6 +187,12 @@ story of every "compiled to Datalog" system in miniature: the
 compilation buys you semantics, cross-checking and a free evaluator on
 day one, and when the day comes that speed matters, the calculus is
 already the specification the fast implementation is tested against.
+That last clause has a name — **differential testing** — and it is
+this repository's favourite move: naive against semi-naive, DRed
+against Backward/Forward, four evaluation strategies against each
+other in the fuzzer, and now two classifiers. A slow, obviously-right
+implementation is never wasted work; it is the oracle every fast one
+answers to.
 
 ## The assumption, recognised
 
