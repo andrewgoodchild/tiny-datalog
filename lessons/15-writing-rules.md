@@ -22,8 +22,11 @@ faults.
 > suspended. Staff may borrow whether or not they have overdue loans —
 > but a suspension applies to everybody.
 
-Four people: Iris and Jon are members, Kim is a member and staff, Lena
-is a member and suspended. Jon has an overdue book.
+Four people. Iris is an ordinary member in good standing. Jon is a
+member with an overdue book. Kim is a member, on the staff — and
+suspended. Lena is a member, on the staff, and has an overdue book of
+her own. So the roster contains one clean case and three tests: an
+overdue member, a suspended staffer, and an overdue staffer.
 
 ## Draft 1, and the engine refuses it
 
@@ -73,10 +76,13 @@ $ python3 datalog.py -q 'may_borrow(P)' draft2.dl
 ?- may_borrow(P)
    may_borrow(iris).
    may_borrow(kim).
-   (2 answers)
+   may_borrow(lena).
+   (3 answers)
 ```
 
-Kim is suspended. Why is she borrowing?
+Iris is right, and Lena is right — staff, overdue, borrowing anyway is
+exactly what the exemption is for. But Kim is suspended, and the
+policy says suspension applies to everybody. Why is she borrowing?
 
 ```
 $ python3 datalog.py --explain 'may_borrow(kim)' draft2.dl
@@ -111,14 +117,25 @@ may_borrow(P) :- staff(P), not suspended(P).
 $ python3 datalog.py -q 'may_borrow(P)' programs/lending.dl
 ?- may_borrow(P)
    may_borrow(iris).
-   may_borrow(kim).
+   may_borrow(lena).
    (2 answers)
 ```
 
-Same two names, different reasons, and now Kim borrows *because she is
-unsuspended staff* rather than because a rule forgot to check. Lena is
-out, Jon is out. Ask why Iris qualifies and every condition is stated,
-including the negative ones:
+Kim is gone — and only Kim. The count dropping from three to two is
+what a test would have caught; which name dropped, and why, is what
+the derivations show. Lena still borrows, and her tree is the
+exemption doing its honest work, guard included:
+
+```
+$ python3 datalog.py --explain 'may_borrow(lena)' programs/lending.dl
+?- explain may_borrow(lena)
+   may_borrow(lena)   [via may_borrow(P) :- staff(P), not suspended(P).]
+     staff(lena)   (base fact)
+     not suspended(lena)   (absent from its completed stratum)
+```
+
+Ask why Iris qualifies and every condition is stated, including the
+negative ones:
 
 ```
 $ python3 datalog.py --explain 'may_borrow(iris)' programs/lending.dl

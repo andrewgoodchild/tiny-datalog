@@ -285,8 +285,9 @@ tests.py        127 tests: every shipped program and exercise answer is
 ```
 
 The code is part of the course: comments explain the algorithms as
-they happen, and every lesson ends with an *Under the hood* section
-reading the piece of the implementation it used.
+they happen, and the lessons that introduce machinery end with an
+*Under the hood* section reading the piece of the implementation they
+used.
 
 ### How big is it, honestly
 

@@ -95,8 +95,8 @@ Use it whenever a result surprises you; it is the fastest debugging
 tool in the repository, and it gets more interesting as the programs
 do (recursive derivations nest, and negated conditions are shown as
 explicitly as positive ones). The *Under the hood* section below says
-how this file's machinery is built; every lesson from here on ends
-with one.
+how this file's machinery is built; the lessons that introduce new
+machinery each end with one.
 
 ## How evaluation works (the short version)
 

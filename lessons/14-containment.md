@@ -54,7 +54,7 @@ Q1's." A statement about all models collapses to one finite check
 against the worst model — the same all-worlds-to-one-witness shape as
 Lesson 5's grounding envelope.
 
-## You already wrote the search
+## Under the hood: you already wrote the search
 
 Open `datalog.py` and read `_match` again:
 

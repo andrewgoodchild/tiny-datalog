@@ -176,19 +176,19 @@ class ClassicExamplesTests(unittest.TestCase):
             run_program("member(iris). may_borrow(P) :- member(P), "
                         "not overdue(P, B).")
         self.assertIn("not overdue(P, B)", str(cm.exception))
-        # draft 2 runs but lets a suspended staff member borrow
-        draft2 = run_program("""
-            member(kim). staff(kim). suspended(kim).
-            has_overdue(P) :- overdue(P, _).
-            may_borrow(P) :- member(P), not has_overdue(P), not suspended(P).
-            may_borrow(P) :- staff(P).
-        """)
-        self.assertIn(("kim",), draft2.rels["may_borrow"])
+        # draft 2 = the shipped facts with the staff rule unguarded; it
+        # wrongly lets kim (staff AND suspended) borrow
+        draft2 = run_program(load("lending.dl").replace(
+            "may_borrow(P) :- staff(P), not suspended(P).",
+            "may_borrow(P) :- staff(P)."))
+        self.assertEqual(draft2.rels["may_borrow"],
+                         {("iris",), ("kim",), ("lena",)})
         tree = "\n".join(explain(draft2, "may_borrow", ("kim",)))
         self.assertIn("may_borrow(P) :- staff(P).", tree)
-        # the shipped draft 3 fixes it
+        self.assertNotIn("suspended", tree)
+        # draft 3 removes exactly kim; lena keeps the exemption's benefit
         final = run_program(load("lending.dl"))
-        self.assertEqual(final.rels["may_borrow"], {("iris",), ("kim",)})
+        self.assertEqual(final.rels["may_borrow"], {("iris",), ("lena",)})
 
     def test_eligibility_policy(self):
         # the README's opening example: negation as an exemption, and a
