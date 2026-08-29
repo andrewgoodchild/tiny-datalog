@@ -5,6 +5,13 @@
 **A logic engine small enough to read in an afternoon, and a course
 that builds it up from nothing.**
 
+You might be here because a query you need is recursive and SQL is
+fighting you; because someone has to sign off on a decision your code
+made and "the tests pass" is not an answer; or because a rule set has
+grown past the point where anyone can review it. Those are the three
+things this language is unusually good at, and each gets a
+demonstration below.
+
 ## What is Datalog?
 
 A query language from the early 1980s, with three properties worth
@@ -111,6 +118,11 @@ them, and changed under pressure. Sooner or later somebody asks why a
 particular decision came out the way it did, and somebody else asks
 whether the rules are even coherent before trusting any answer at all.
 
+(The sign-off case has its own demonstration:
+[lesson 17](lessons/17-writing-rules.md) writes a lending policy badly
+twice, and `--explain` names which of two rules wrongly let a
+suspended staff member borrow — three lines, no debugger.)
+
 Both are questions about the rules, not about a run, and most languages
 cannot answer them. Datalog can, because it gave things up:
 
@@ -193,7 +205,13 @@ recomputation under random updates. 400 programs per run;
 
 `lessons/` is a complete course, no prior exposure assumed, every
 example a runnable file, following the field's own history from 1977 to
-the current research threads.
+the current research threads. The field's own recent lecture notes
+observe that the literature advises people building Datalog engines
+better than people trying to *use* one; this course does both halves
+on purpose — sixteen lessons where the engine is the explanation, then
+a lesson on authoring rules that survive review. And it is built to be
+inherited: `git clone`, no dependencies, no hosted anything, and every
+quoted transcript re-verified by CI — the exercises cannot rot.
 [lessons/getting-started.md](lessons/getting-started.md) has the titles
 and the reading order, and
 [lessons/glossary.md](lessons/glossary.md) defines every technical term

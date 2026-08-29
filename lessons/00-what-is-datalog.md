@@ -231,6 +231,18 @@ And a second index, for the reader arriving stuck rather than curious
 | brute-force searching a whole database per query | [7](07-magic-sets.md) |
 | unable to ask why a fact is *missing* | [17](17-writing-rules.md) |
 
+One more fact belongs beside those five, because it answers the
+objection a sensible reader is already forming: *if this were any
+good, I'd have met it.* Datalog scans code on GitHub and classifies
+the terminology in hospital records, and it is not on the syllabus of
+the database course you took — the canonical undergraduate class
+teaches relational algebra and SQL and stops there, while Datalog
+turns up in graduate data-management theory, in program-analysis
+venues, and in reasoning summer schools. Deployed widely, taught
+narrowly: that barbell, not any defect in the language, is why
+something this old can still be unfamiliar. Easy to learn was never
+the problem; famous was.
+
 The pattern across all five: small rule sets, large or changing data,
 and answers someone must be able to trust or audit — exactly the
 territory the README stakes out.
