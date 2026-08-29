@@ -168,6 +168,13 @@ right identities. *(Lesson 11)*
 
 **Equivalence.** See **Containment**.
 
+**F-logic.** Frame Logic (Kifer–Lausen 1989): objects, attributes and
+class hierarchies as first-class logical syntax, whose rule fragment
+compiles to Datalog over a fixed vocabulary (`attr`/`isa`/`sub` plus
+bridge rules). The closed-world counterpart to description logics in
+the ontology wars; its encoding survives as entity–attribute–value.
+*(Lesson 11)*
+
 **Fact.** A rule with an empty body; a ground atom asserted outright.
 *(Lesson 1)*
 

@@ -186,6 +186,48 @@ puts the two side by side, because the difference is observable: add an
 axiom here and conclusions only grow, while adding a fact to a Datalog
 program can take one away.
 
+## The road the rules camp took: F-logic
+
+The description-logic line was not the frame tradition's only heir.
+**F-logic** (Kifer and Lausen, 1989) folded frames into deductive
+databases instead: objects with attributes as first-class logical
+syntax —
+
+```
+bob : person[age -> 42, works_for -> ibm].
+person :: agent.                              % subclass
+```
+
+— with rules over all of it, including variables ranging over
+attribute names and classes, which looks alarmingly higher-order. The
+alarm is false, and the reason is this lesson's own thesis run in
+reverse: F-logic's rule fragment **compiles to Datalog** over a fixed
+three-predicate vocabulary. A molecule is sugar for `attr(bob, age,
+42)`, `isa(bob, person)`, `sub(person, agent)`, and the object
+machinery is a handful of ordinary bridge rules:
+
+```prolog
+isa(X, C2) :- isa(X, C1), sub(C1, C2).
+sub(C1, C3) :- sub(C1, C2), sub(C2, C3).
+```
+
+Even quantifying over attributes is just a variable in `attr`'s second
+column. F-logic is to Datalog what objects are to relations: the same
+engine under a schema-flexible surface. Where it genuinely exceeds the
+core, it lands on machinery from this course — its overridable
+inheritance needs the well-founded semantics (Lesson 5), and its
+flagship implementation, FLORA-2, compiles to XSB, David Warren's
+tabling engine (Lesson 13).
+
+In the Semantic Web wars, F-logic carried the closed-world rules camp
+against this lesson's open-world classifiers; OWL went to the
+description logics, and F-logic's consolation was the W3C rule
+interchange format, whose frame syntax is F-logic outright. The
+epilogue has a fine irony: F-logic's *compilation target* — entity,
+attribute, value, membership — is the data model that won everywhere
+(RDF triples, Datomic's datoms, property graphs). The industry
+rejected the logic and adopted the encoding.
+
 ## Where this classifier stops
 
 Every other module in this course says where it runs out; here is this
