@@ -94,9 +94,9 @@ nothing extra to ask.
 Use it whenever a result surprises you; it is the fastest debugging
 tool in the repository, and it gets more interesting as the programs
 do (recursive derivations nest, and negated conditions are shown as
-explicitly as positive ones). [Lesson 12](12-under-the-hood.md)
-explains how it is built, once you have seen enough evaluation for the
-mechanism to be interesting.
+explicitly as positive ones). The *Under the hood* section below says
+how this file's machinery is built; every lesson from here on ends
+with one.
 
 ## How evaluation works (the short version)
 
@@ -107,12 +107,43 @@ and searches top-down (and can loop forever; Datalog cannot — see the
 next lesson).
 
 
+## Under the hood: terms, tokens, safety
+
+Each lesson ends by reading the piece of the implementation it used.
+This one used the parser and the safety check.
+
+**Terms are frozen dataclasses.** `Var`, `Const`, `Struct`, `Atom`,
+`Literal`, `Rule` are all immutable and hashable. That one decision does
+a lot of quiet work: rules can live in sets (magic.py dedupes its output
+that way), tuples of constants can key dictionaries, and nothing ever
+mutates behind your back.
+
+**The tokenizer is a single regex** of named alternatives — whichever
+group matched *is* the token kind. The parser is textbook recursive
+descent, one method per grammar rule; the whole grammar is seven lines
+in `_Parser`'s docstring.
+
+**Safety is range restriction** (`validate`): every head variable and
+every variable under `not` must be bound by a positive body literal.
+This is what keeps every relation finite. The same function enforces the
+function-symbol ban: the Datalog boundary from Lesson 10 is four lines
+of `isinstance(a, Struct)`.
+
+**Safety is range restriction** (`validate`): every head variable and
+every variable under `not` must be bound by a positive body literal.
+This is what keeps every relation finite. The same function enforces
+the function-symbol ban: the Datalog boundary of Lesson 10 is four
+lines of `isinstance(a, Struct)`.
+
 ## Exercises
 
 1. Add `cousin(X, Y)` — two people whose parents are siblings. Does your
    rule accidentally make people their own cousins? Why?
 2. Add `aunt_or_uncle(X, Y)`. You'll need a body with three literals.
 3. Predict the output of `-q 'parent(X, carl)'` before running it.
+4. Add a comparison built-in (`X != Y`) to rule bodies: parser, safety
+   rule (both operands must be bound — why?), and evaluation. Note how
+   this lesson's `sibling` bug becomes fixable.
 
 Next: [recursion](02-recursion.md), where rules refer to themselves and
 Datalog earns its keep.

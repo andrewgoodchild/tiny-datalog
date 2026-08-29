@@ -125,7 +125,7 @@ cannot answer them. Datalog can, because it gave things up:
 (Containment and equivalence become undecidable once recursion is
 involved — Shmueli, 1993, which is why `containment.py` handles
 conjunctive queries and refuses the rest.
-[Lesson 15](lessons/15-containment.md) covers the boundary.)
+[Lesson 14](lessons/14-containment.md) covers the boundary.)
 
 Being declarative, recursive and terminating is not a feature list. It
 is the trade that makes rules analysable, and three things follow from
@@ -163,18 +163,18 @@ a question, the command that answers it, and the lesson that builds it.
 | What holds *unless* something else does? | `python3 datalog.py programs/tweety.dl` | [3](lessons/03-negation.md) |
 | Answer just this query — don't compute everything | `python3 datalog.py --magic -q 'path(n5, X)' programs/reachability.dl` | [6](lessons/06-magic-sets.md) |
 | Is this rule set self-contradictory? | `python3 datalog.py --models programs/eligibility-paradox.dl` | [5](lessons/05-beyond-stratification.md) |
-| Why did you conclude that? | `python3 datalog.py --explain 'eligible(bob)' programs/eligibility.dl` | [1](lessons/01-first-steps.md), [12](lessons/12-under-the-hood.md) |
+| Why did you conclude that? | `python3 datalog.py --explain 'eligible(bob)' programs/eligibility.dl` | [1](lessons/01-first-steps.md), [2](lessons/02-recursion.md) |
 | Which facts does the conclusion rest on? | `python3 semiring.py -s why programs/routes.dl` | [7](lessons/07-semirings.md) |
 | What's the cheapest route? How many ways? | `python3 semiring.py -s minplus programs/routes.dl` | [7](lessons/07-semirings.md) |
 | How likely is it? | `python3 semiring.py -s viterbi programs/prob-reach.dl` | [8](lessons/08-probabilistic.md) |
 | The data changed — what changed in the answers? | `python3 incremental.py programs/dred-graph.dl -u 'edge(n3, n4)~.'` | [9](lessons/09-incremental.md) |
-| How many, how much, largest? | `python3 datalog.py programs/spending.dl` | [13](lessons/13-aggregation.md) |
-| Answer a goal top-down, even left-recursive | `python3 tabling.py programs/left-recursive.dl -q 'ancestor(abe, X)'` | [14](lessons/14-tabling.md) |
+| How many, how much, largest? | `python3 datalog.py programs/spending.dl` | [12](lessons/12-aggregation.md) |
+| Answer a goal top-down, even left-recursive | `python3 tabling.py programs/left-recursive.dl -q 'ancestor(abe, X)'` | [13](lessons/13-tabling.md) |
 | What if I allow function symbols, and lose termination? | `python3 prolog.py programs/peano.pl -q 'add(X, Y, s(s(zero)))'` | [10](lessons/10-horn-clauses.md) |
 | What do these definitions entail about each other? | `python3 subsumption.py programs/family-ontology.dl` | [11](lessons/11-kl-one-subsumption.md) |
-| Are these two queries the same query? | `python3 containment.py programs/minimise.dl` | [15](lessons/15-containment.md) |
+| Are these two queries the same query? | `python3 containment.py programs/minimise.dl` | [14](lessons/14-containment.md) |
 | Does absence mean false, or just unrecorded? | `python3 datalog.py programs/missing-data.dl` | [4](lessons/04-closed-and-open-worlds.md) |
-| How do I write rules someone else can sign off? | `python3 datalog.py --explain 'may_borrow(iris)' programs/lending.dl` | [16](lessons/16-writing-rules.md) |
+| How do I write rules someone else can sign off? | `python3 datalog.py --explain 'may_borrow(iris)' programs/lending.dl` | [15](lessons/15-writing-rules.md) |
 
 Provenance, in full:
 
@@ -239,7 +239,7 @@ engine:
   prints the disproof: two facts with identical provenance and different
   counts. That settles "materialise provenance once, specialise later,"
   which is a real design-review question with a real answer.
-- **[Lesson 15](lessons/15-containment.md)** shows that the containment
+- **[Lesson 14](lessons/14-containment.md)** shows that the containment
   test you need for query minimisation is the search already sitting in
   `datalog.py`: `_match` maps a rule body into a database,
   `find_homomorphism` maps a rule body into another rule body. Same
@@ -289,7 +289,7 @@ quietly:
 - **A REPL (interactive prompt) and packaging.** `git clone` and run.
 
 Aggregation used to be on this list;
-[lesson 13](lessons/13-aggregation.md) is what promoting an omission
+[lesson 12](lessons/12-aggregation.md) is what promoting an omission
 into a feature looks like.
 
 ## Layout
@@ -308,7 +308,7 @@ subsumption.py  KL-ONE-style EL classifier, compiled to Datalog
 containment.py  query containment and minimisation by homomorphism
 programs/       teaching programs, numbered by the lesson that uses
                 them (00-* are the README's examples)
-lessons/        getting started, glossary, and lessons 0–17
+lessons/        getting started, glossary, and lessons 0–16
 exercises/      worked answers, verified by the test suite
 cases/          golden test cases — add one without writing Python
 benchmarks/     scaled input generators (chain/tree/clique/grid)
@@ -318,9 +318,9 @@ tests.py        127 tests: every shipped program and exercise answer is
                 the same property on random programs
 ```
 
-The code is part of the course: comments explain the algorithms as they
-happen, and [lesson 12](lessons/12-under-the-hood.md) is the guided
-tour.
+The code is part of the course: comments explain the algorithms as
+they happen, and every lesson ends with an *Under the hood* section
+reading the piece of the implementation it used.
 
 ### How big is it, honestly
 

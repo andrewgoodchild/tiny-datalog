@@ -213,14 +213,14 @@ both true and not in conflict, and it is the fact the whole field is
 organised around. Real workloads have small programs and enormous data:
 CodeQL runs a few hundred rules over a codebase with hundreds of
 millions of facts, and it is only viable because the axis that grows is
-the cheap one. It is also why Lesson 15 can call query minimisation
+the cheap one. It is also why Lesson 14 can call query minimisation
 worth an NP-complete analysis: you pay it once per rule and save on
 every row.
 
 (This engine's data curve is worse than the theory allows: nested-loop
 joins make it roughly cubic where an indexed engine would be closer to
-quadratic. The *shape* is right, the constant is not — see
-[lesson 12](12-under-the-hood.md).)
+quadratic. The *shape* is right, the constant is not — the *Under the
+hood* section below shows the loops responsible.)
 
 ## Shapes of recursion
 
@@ -265,6 +265,121 @@ pt(V, H2)    :- load(V, P), pt(P, H1), hpt(H1, H2). % v = *p
 points to heap object) feed each other until the analysis stabilizes.
 
 
+## Under the hood: the join, the delta, and the stamps
+
+**The database is a dict of sets of tuples.** No storage engine, no
+indexes: `rels["path"] == {("a","b"), ("a","c")}`. Matching an atom
+against a tuple (`_match`) is one-way unification: variables take values
+or must agree with earlier bindings. A rule body is evaluated by folding
+`_match` over its literals under one growing substitution, which is
+exactly a relational join, done as nested loops.
+
+**Semi-naive is about twenty lines** (`Engine._eval_stratum`). Here it
+is, so you do not have to open another window:
+
+```python
+    # Round 1: evaluate every rule of the stratum against the full db.
+    delta = defaultdict(set)
+    for rule in rules:
+        for tup in self._produce(rule):
+            if tup not in self.rels[rule.head.pred]:
+                delta[rule.head.pred].add(tup)
+    self._absorb(delta, stat)
+
+    # Recursive rules: a positive body literal names a stratum predicate.
+    recursive = []
+    for rule in rules:
+        occs = [i for i, lit in enumerate(rule.body)
+                if not lit.negated and lit.atom.pred in preds]
+        if occs:
+            recursive.append((rule, occs))
+
+    # Semi-naive rounds: substitute the previous round's delta into each
+    # recursive position in turn; every other literal reads the full
+    # (already-updated) relations, so no new derivation is missed and
+    # nothing is recomputed from only-old facts.
+    while delta:
+        new_delta = defaultdict(set)
+        for rule, occs in recursive:
+            head = rule.head.pred
+            for i in occs:
+                if not delta.get(rule.body[i].atom.pred):
+                    continue
+                for tup in self._eval_rule(rule, delta_occ=i, delta=delta):
+                    if tup not in self.rels[head]:
+                        new_delta[head].add(tup)
+        delta = new_delta
+        self._absorb(delta, stat)
+```
+
+Round one
+evaluates every rule against the full database. After that, each
+recursive rule is re-evaluated once per recursive body position, with
+that position restricted to the previous round's *delta* and every other
+position reading the full (already-updated) relations. Why is that
+complete? Any new derivation must use at least one new fact — put the
+delta there; and because "full" already contains the delta,
+delta-x-delta derivations are covered too (the non-linear `path` rule in
+the tests exists precisely to catch engines that get this wrong).
+Duplicates cost nothing: sets absorb them.
+
+**Semi-naive is about twenty lines** (`Engine._eval_stratum`). Here it
+is, so you do not have to open another window:
+
+```python
+    # Round 1: evaluate every rule of the stratum against the full db.
+    delta = defaultdict(set)
+    for rule in rules:
+        for tup in self._produce(rule):
+            if tup not in self.rels[rule.head.pred]:
+                delta[rule.head.pred].add(tup)
+    self._absorb(delta, stat)
+
+    # Recursive rules: a positive body literal names a stratum predicate.
+    recursive = []
+    for rule in rules:
+        occs = [i for i, lit in enumerate(rule.body)
+                if not lit.negated and lit.atom.pred in preds]
+        if occs:
+            recursive.append((rule, occs))
+
+    # Semi-naive rounds: substitute the previous round's delta into each
+    # recursive position in turn; every other literal reads the full
+    # (already-updated) relations, so no new derivation is missed and
+    # nothing is recomputed from only-old facts.
+    while delta:
+        new_delta = defaultdict(set)
+        for rule, occs in recursive:
+            head = rule.head.pred
+            for i in occs:
+                if not delta.get(rule.body[i].atom.pred):
+                    continue
+                for tup in self._eval_rule(rule, delta_occ=i, delta=delta):
+                    if tup not in self.rels[head]:
+                        new_delta[head].add(tup)
+        delta = new_delta
+        self._absorb(delta, stat)
+```
+
+Round one
+evaluates every rule against the full database. After that, each
+recursive rule is re-evaluated once per recursive body position, with
+that position restricted to the previous round's *delta* and every other
+position reading the full (already-updated) relations. Why is that
+complete? Any new derivation must use at least one new fact — put the
+delta there; and because "full" already contains the delta,
+delta-x-delta derivations are covered too (the non-linear `path` rule in
+the tests exists precisely to catch engines that get this wrong).
+Duplicates cost nothing: sets absorb them.
+
+One more mechanism lives in this loop. As `_absorb` files each new
+fact it records a `first_seen` stamp — the round-ordinal of its
+arrival. `--explain` (Lesson 1) is built on nothing else: to justify a
+fact, find a rule instance whose premises all carry *earlier* stamps
+than the conclusion. Because facts only arrive when derivable from
+what came before, such an instance always exists and the tree is
+well-founded by construction — no cycle can justify itself.
+
 ## Exercises
 
 1. Write `same_component(X, Y)` for an *undirected* graph given directed
@@ -277,6 +392,14 @@ points to heap object) feed each other until the analysis stabilizes.
    makes the input; compare `--trace` with and without `--naive` while
    you're there: the "tuples derived" column is naive evaluation paying
    for its lack of a delta).
+
+4. Run `--naive --trace` beside the default on
+   `programs/reachability.dl` and explain both number columns. Then
+   read `_eval_stratum_naive` and name precisely what the semi-naive
+   loop has that it lacks.
+5. Add `max_rounds` protection to `Engine` and construct a program that
+   would need it if function symbols were allowed. What stops you?
+   (That is the point.)
 
 Next: [negation](03-negation.md) — where "not" turns out to be the hard
 part of the whole subject.

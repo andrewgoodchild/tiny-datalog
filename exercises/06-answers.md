@@ -59,3 +59,17 @@ evaluation:
 The crossover sits near the chain's midpoint, and the advantage
 compounds as demand shrinks. That curve, not a single number — is the
 honest answer to "is magic sets faster?"
+
+**4. Hand-simulating the magic rewriting of `ancestor(bob, X)`.**
+
+```prolog
+ancestor#bf(X, Y) :- magic#ancestor#bf(X), parent(X, Y).
+magic#ancestor#bf(Y) :- magic#ancestor#bf(X), parent(X, Y).
+ancestor#bf(X, Z) :- magic#ancestor#bf(X), parent(X, Y), ancestor#bf(Y, Z).
+magic#ancestor#bf(bob).
+```
+
+Evaluation: magic = {bob, carl} (the demanded start points), then
+`ancestor#bf(bob, carl)` and nothing else — 3 IDB facts where full
+evaluation derives 14. Check against `--magic --trace`.
+

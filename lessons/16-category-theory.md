@@ -1,15 +1,37 @@
-# Lesson 17 — The road not taken: category theory
+# Lesson 16 — The road not taken: category theory
 
 > **Entirely optional.** Nothing later depends on this lesson, because
 > nothing comes later. It exists for one kind of reader: the one who
 > arrives knowing some category theory and suspects this whole course
 > could have been written in it.
 
+## What category theory is
+
+Founded by Samuel Eilenberg and Saunders Mac Lane in 1945, category
+theory is the mathematics of *composition*. A **category** is almost
+embarrassingly little: a collection of **objects**, a collection of
+**arrows** between them (each with a source and a target), a rule for
+composing arrows that meet end-to-end, an identity arrow on every
+object — and two laws, associativity and identity. That is the whole
+definition.
+
+The discipline is in what you give up: you may never look *inside* an
+object. Everything must be said in terms of arrows and how they
+compose. Sets-with-functions form a category; so do database schemas
+with mappings, program types with functions, and proofs with
+deductions — and any statement made arrow-only transfers to all of
+them at once. That is the power (theorems for free, across fields) and
+the famous danger (practitioners call it "abstract nonsense", a
+nickname worn with pride): the vocabulary applies to everything,
+which makes it easy to *describe* something categorically without
+*gaining* anything. This lesson is about telling those two cases
+apart.
+
 ## What the course is actually made of
 
 The course's mathematics is **lattice theory** (fixpoints —
 [Lesson 2](02-recursion.md)), **model theory** (homomorphisms and
-containment — [Lesson 15](15-containment.md)), and **universal
+containment — [Lesson 14](14-containment.md)), and **universal
 algebra** (semirings and their quotients —
 [Lesson 7](07-semirings.md)). Those are the tools the field actually
 reaches for, and every result in these lessons is stated in them.
@@ -57,7 +79,7 @@ signpost.
    initial algebra of a functor on sets of facts, then identify what
    the initiality property gives you that Lesson 2's Knaster–Tarski
    argument did not already give. (The honest answer is short.)
-2. Lesson 15's canonical-instance trick — freeze a query's variables
+2. Lesson 14's canonical-instance trick — freeze a query's variables
    into constants — is an adjunction in disguise. Which two maps form
    the unit and counit, and between which categories?
 3. Apply the criterion to something outside databases you know well.

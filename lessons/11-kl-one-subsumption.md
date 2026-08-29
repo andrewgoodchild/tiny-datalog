@@ -183,6 +183,15 @@ reasoners are more completion rules of the same shape, over a richer
 normal form. Adding ⊥ alone is a genuinely tractable exercise; adding
 role chains is a research-grade one.
 
+## Under the hood: a compiler in the other direction
+
+**`subsumption.py` is a compiler in the other direction.** Where
+magic.py rewrites Datalog to Datalog, this one translates a *different
+logic* (EL concept definitions) into Datalog: normalisation mints fresh
+names for nested expressions, and the entire reasoning calculus becomes
+five ordinary rules. When a problem's inference rules are monotone, "compile
+it to Datalog" is a general-purpose trick — worth remembering.
+
 ## Exercises
 
 1. Add `define(grandmother, and(woman, some(has_child, parent))).` and
@@ -196,4 +205,5 @@ role chains is a research-grade one.
    another (hint: two syntactically different definitions of the same
    thing: the classifier reports `≡`).
 
-Next: [under the hood](12-under-the-hood.md) — how all of it is built.
+Next: [aggregation](12-aggregation.md) — counting without
+contradiction.

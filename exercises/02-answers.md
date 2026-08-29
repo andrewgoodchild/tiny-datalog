@@ -40,3 +40,24 @@ logarithmic rounds — while both linear forms extend length by one. Run
 `--naive --trace` on the same input and watch the "tuples derived"
 column grow while the deltas shrink: that widening gap is the entire
 argument for semi-naive.
+
+**4. The two `--trace` columns, and what naive lacks.**
+
+The delta column (`+9 path`) counts facts that are *new* this round;
+the naive-mode column (`(24 tuples derived)`) counts every derivation
+performed, new or not, and it grows each round while the deltas
+shrink, because naive evaluation rederives the entire relation-so-far
+every time. What `_eval_stratum_naive` lacks is one thing: the
+restriction of one body position to the previous round's delta
+(`_eval_rule(delta_occ=i, delta=...)`), the single argument-pair that
+is the whole of semi-naive.
+
+**5. `max_rounds` protection for `Engine`.**
+
+You can add the parameter, but no Datalog program can ever need it:
+finitely many constants → finitely many possible facts → a monotone
+loop must stop. To *need* the guard you'd have to invent new values
+mid-derivation, and `validate` refuses function symbols before
+evaluation starts. The exercise's answer is the proof pattern:
+termination lives in the language definition, not the loop.
+

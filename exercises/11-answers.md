@@ -30,7 +30,7 @@ python3 datalog.py --magic --trace -q 'subs(grandfather, parent)' /tmp/ont.dl
 The magic facts that appear are `magic#subs#bb(grandfather, parent)`
 and the subgoals demand discovers from it: the classifier's work
 narrowed to one subsumption question. (Tabling the same query shows the
-same sets as tables: lesson 14's punchline, in ontology form.)
+same sets as tables: lesson 13's punchline, in ontology form.)
 
 **4. A discovered equivalence.**
 

@@ -21,7 +21,7 @@ every program has a least model — the properties this whole course
 runs on — and the name stuck. Horn identified the clauses; he never
 knew what they would become. It is a recurring pattern in this field:
 the fragment chosen for one good property turns out to have been
-chosen for all of them (Lesson 15 meets it again when a 1977
+chosen for all of them (Lesson 14 meets it again when a 1977
 containment theorem turns out to be the theory of 2020s query
 optimisers).
 
@@ -134,6 +134,15 @@ annual competition for them). Different solving
 technology (satisfiability modulo theories, interpolation), same clause shape you've been writing
 for nine lessons.
 
+
+## Under the hood: unification for real
+
+**`prolog.py` upgrades `_match` to real unification** — both sides may
+contain variables, so bindings need chasing (`_walk`) and the occurs
+check. SLD resolution is a recursive generator: `yield` is
+"solution found", falling out of the loop is backtracking. Compare its
+~60 lines of search with the engine's fixpoint loop: that contrast is
+the whole top-down/bottom-up debate in code.
 
 ## Exercises
 

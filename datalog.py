@@ -47,8 +47,8 @@ semantic story: all stable models (by exhaustive search) and the
 well-founded (three-valued) model.  (Implementation: semantics.py.)
 
 This file is the core: AST, parser, safety validation, stratification,
-and the semi-naive evaluator, plus the CLI.  Lesson 12 of the course is
-a guided tour of how it all works.
+and the semi-naive evaluator, plus the CLI.  The Under the hood sections of
+lessons 1-3 are a guided tour of how it all works.
 
 CLI
 ---

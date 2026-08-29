@@ -171,7 +171,7 @@ class ClassicExamplesTests(unittest.TestCase):
         self.assertTrue(after > before)
 
     def test_lending_policy_drafts(self):
-        # lesson 16: the engine catches both drafts, in different ways
+        # lesson 15: the engine catches both drafts, in different ways
         with self.assertRaises(SafetyError) as cm:
             run_program("member(iris). may_borrow(P) :- member(P), "
                         "not overdue(P, B).")
@@ -939,7 +939,7 @@ class ConformanceTests(unittest.TestCase):
 
 
 class ContainmentTests(unittest.TestCase):
-    """Chandra–Merlin containment and minimisation (lesson 15)."""
+    """Chandra–Merlin containment and minimisation (lesson 14)."""
 
     @staticmethod
     def rule(text):
@@ -1325,7 +1325,7 @@ class ExerciseTests(unittest.TestCase):
         self.assertEqual(m.rels["magic#ancestor#bf"], {("bob",), ("carl",)})
 
     def test_lesson12_average_parts(self):
-        engine = run_program(self.ex("13-answers.dl"))
+        engine = run_program(self.ex("12-answers.dl"))
         self.assertEqual(engine.rels["average_parts"],
                          {("alice", 180, 2), ("bob", 990, 2)})
 

@@ -19,7 +19,7 @@ recursion consumes a `parent` fact each step), so top-down enumerates
 exactly the finite answer set that bottom-up computes — on the Datalog
 fragment with terminating derivations, the two strategies are two
 routes to the same least model. The divergence between engines only
-appears when function symbols (lesson 10) or left recursion (lesson 14)
+appears when function symbols (lesson 10) or left recursion (lesson 13)
 enter.
 
 **3. Does `lt(X, zero)` fail finitely?**

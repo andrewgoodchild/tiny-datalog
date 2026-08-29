@@ -1,47 +1,57 @@
 # Lesson 12 — answers
 
-**1. The two `--trace` columns, and what naive lacks.**
+Runnable rules for exercise 1: `exercises/12-answers.dl`.
 
-The delta column (`+9 path`) counts facts that are *new* this round;
-the naive-mode column (`(24 tuples derived)`) counts every derivation
-performed, new or not, and it grows each round while the deltas
-shrink, because naive evaluation rederives the entire relation-so-far
-every time. What `_eval_stratum_naive` lacks is one thing: the
-restriction of one body position to the previous round's delta
-(`_eval_rule(delta_occ=i, delta=...)`), the single argument-pair that
-is the whole of semi-naive.
-
-**2. Adding `X != Y`.**
-
-The sketch (deliberately not merged — it's your exercise): a `neq`
-token or reserved predicate in the parser; a safety rule that both
-arguments must be bound by earlier positive literals (an unbound
-disequality would mean "for some value they differ" — always true — or
-force enumeration of an open domain); and evaluation as a filter in
-`_rule_substitutions`, exactly where negated literals filter. Note the
-order sensitivity you must handle: the check can only run once both
-variables are bound, which is why real engines treat built-ins as a
-scheduling problem. The README's list of deliberate omissions is
-this exercise's design discussion.
-
-**3. `max_rounds` protection for `Engine`.**
-
-You can add the parameter, but no Datalog program can ever need it:
-finitely many constants → finitely many possible facts → a monotone
-loop must stop. To *need* the guard you'd have to invent new values
-mid-derivation, and `validate` refuses function symbols before
-evaluation starts. The exercise's answer is the proof pattern:
-termination lives in the language definition, not the loop.
-
-**4. Hand-simulating the magic rewriting of `ancestor(bob, X)`.**
+**1. `average` from `sum` and `count`.**
 
 ```prolog
-ancestor#bf(X, Y) :- magic#ancestor#bf(X), parent(X, Y).
-magic#ancestor#bf(Y) :- magic#ancestor#bf(X), parent(X, Y).
-ancestor#bf(X, Z) :- magic#ancestor#bf(X), parent(X, Y), ancestor#bf(Y, Z).
-magic#ancestor#bf(bob).
+spend_sum(P, sum(A))     :- charge(P, C, A).
+spend_count(P, count(C)) :- charge(P, C, A).
+average_parts(P, S, N)   :- spend_sum(P, S), spend_count(P, N).
 ```
 
-Evaluation: magic = {bob, carl} (the demanded start points), then
-`ancestor#bf(bob, carl)` and nothing else — 3 IDB facts where full
-evaluation derives 14. Check against `--magic --trace`.
+`average_parts(alice, 180, 2)`: the division is the consumer's job,
+because dividing requires arithmetic over *derived* values, which is a
+built-in, which the README lists as a deliberate omission: a built-in must fire at the moment its operands bind, and
+this engine refuses to make join order semantically significant.
+
+**2. `reach(alice, N)`, and dana's absence.**
+
+`reach(alice, 3)`: alice is connected to bob, carol, and dana. dana
+produces *no* `reach` fact at all — she knows no one, so the body has
+no solutions for her, so there is no group. `count` never returns 0
+because a zero-count group has nothing to attach the zero to; if you
+want "dana: 0" you need a universe predicate and negation, which is a
+nice extra exercise.
+
+**3. The forbidden program.**
+
+```prolog
+p(a, 1).
+q(count(X)) :- q(Y), p(X, N).
+```
+
+```
+REJECTED: program is not stratifiable — aggregation occurs inside a
+recursive cycle: q --agg--> q.
+```
+
+Why no answer could be stable, in one sentence: the count is only
+correct once `q` is complete, but the count itself adds to `q` —
+"complete" can never arrive, the same knot as `p :- not p` with
+counting in place of negation.
+
+**4. `--explain` on an aggregate.**
+
+```
+total(bob, 990)   [via total(P, sum(A)) :- charge(P, C, A).]
+  = sum over 2 body solutions of A: [90, 900]
+```
+
+Instead of premises, the tree shows the *group*: one entry per body
+solution, in a list rather than a set, because two solutions
+contributing equal values are two contributions. An aggregate fact
+isn't supported by any single body fact: remove either charge and the
+conclusion doesn't weaken, it *changes*. That non-monotonicity is
+exactly why aggregation lives a stratum up, and why its explanation is
+a collection, not a chain.

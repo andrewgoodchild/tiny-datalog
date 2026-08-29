@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 subsumption.py — KL-ONE-style concept subsumption, compiled to Datalog.
-(Lesson 11; implementation tour in Lesson 12.)
+(Lesson 11, which ends with a tour of this module.)
 
 KL-ONE (Brachman, late 1970s) organised knowledge as *concepts* with
 structured definitions, and its party trick was the classifier: state

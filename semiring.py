@@ -212,7 +212,7 @@ class SemiringEngine:
                 raise DatalogError(
                     "semiring evaluation does not compose with head "
                     "aggregation (a semiring already IS the aggregation "
-                    "— see lessons 7 and 13): %s" % r)
+                    "— see lessons 7 and 12): %s" % r)
             for lit in r.body:
                 if lit.negated:
                     raise DatalogError(

@@ -131,6 +131,32 @@ reason.
 baseline just to print its comparison line, so time the query *without*
 `--trace`.)
 
+## Under the hood: a compiler pass, and names that cannot collide
+
+**`magic.py` is a program-to-program function.** No evaluator changes at
+all: it takes `Rule` objects in and returns different `Rule` objects
+out, then hands them to the ordinary `Engine`. Read it as a compiler
+pass — adornments are computed by simulating exactly the left-to-right
+binding flow the evaluator itself uses.
+
+`magic.py` mints predicate names like `magic#path#bf` and `path#bf`.
+The `#` is not decoration: the tokenizer's identifier rule
+(`[a-z][A-Za-z0-9_]*`) *cannot produce* it, so no user program can
+write a predicate that clashes with a generated one. Collision-freedom
+by construction, rather than by hoping nobody names a relation
+`magic_path`. `subsumption.py` takes the opposite route for its
+`gen_N` names; they are ordinary identifiers, so it keeps a reserved
+list and rejects clashes explicitly. Two valid designs; the first is
+cheaper when the target syntax gives you a spare character.
+
+The nested-loop choice has a visible consequence worth knowing about:
+it makes magic sets' guard literals relatively expensive, which is part
+of why a poorly-pruning magic query can run *slower* than plain
+evaluation (measured above). An engine's optimisations are not
+independent of each other — indexing changes which rewritings pay off,
+which is exactly the kind of interaction a readable implementation lets
+you observe rather than take on faith.
+
 ## Exercises
 
 1. For the ancestor program of Lesson 1 (`programs/family.dl`),
@@ -144,6 +170,10 @@ baseline just to print its comparison line, so time the query *without*
    still loses — time it against plain evaluation and say what the
    binding failed to buy. Then find the crossover: how far along the
    chain must the query start before magic wins on wall-clock?
+
+4. Read `magic.py` end to end — it is 175 lines — with exercise 2's
+   hand-rewriting beside it, and find the function that produced each
+   rule you wrote.
 
 Next: [semirings](07-semirings.md), which asks what a derivation
 carries besides truth.

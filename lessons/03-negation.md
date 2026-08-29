@@ -43,7 +43,7 @@ overdue loan at all" and "there is some book P doesn't have out" — two
 different policies. The fix is to project first (`has_overdue(P) :-
 overdue(P, _).`) and negate that. **Drafting habit: negate a
 proposition about one thing; a spare variable under `not` means you
-haven't finished modelling.** (Lesson 16 builds a whole policy around
+haven't finished modelling.** (Lesson 15 builds a whole policy around
 this mistake.)
 
 **Order of computation.** To evaluate `not reach(X)` you must be *done*
@@ -131,6 +131,16 @@ barber shave the barber? Russell's paradox as a Datalog program — also
 rejected, and here the rejection is hiding something genuinely broken.
 Lesson 5 separates the two cases.
 
+
+## Under the hood: stratification is a graph problem
+
+**Stratification is a graph problem.** Build predicate dependency edges,
+find strongly connected components (Tarjan's algorithm, iterative so
+Python's recursion limit never bites), and reject any negative edge
+inside a component — that *is* "negation in a recursive cycle", and the
+error message reconstructs the offending cycle by breadth-first search. Stratum numbers
+then fall out by relaxation: strictly above what you negate, at least as
+high as what you use.
 
 ## Exercises
 

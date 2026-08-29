@@ -181,6 +181,13 @@ per-stratum bookkeeping this teaching module omits. It rejects such
 programs rather than getting them quietly wrong.
 
 
+## Under the hood: one delta, three algorithms
+
+**`incremental.py` reuses the engine's own delta machinery** in both
+directions: insertion is `_eval_rule(delta_occ=...)` pointed at new
+facts; DRed's over-delete phase is the same call pointed at *dying*
+facts. One mechanism, three algorithms.
+
 ## Exercises
 
 1. In the demo graph, which single edge deletion removes the most path

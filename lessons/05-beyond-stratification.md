@@ -183,6 +183,21 @@ worth trusting detects all of this rather than silently picking an
 answer.
 
 
+## Under the hood: `semantics.py` in three functions
+
+**`semantics.py` is three short functions** once you see the shape:
+`ground_program` instantiates rules over an envelope (the least model
+with all negations granted — provably a superset of every stable model,
+which is what makes exhaustive search sound), `_gamma` is the
+Gelfond–Lifschitz operator (delete rules whose negated atoms are in the
+candidate; forward-chain the rest), and both semantics are one-liners
+over it: stable = "Γ(M) == M", well-founded = the least fixpoint of Γ∘Γ
+with the undefined zone read off the gap.
+
+That exhaustive search is the teaching simplification: clingo, the
+industrial stable-model engine, finds models by conflict-driven
+learning instead of enumeration.
+
 ## Exercises
 
 1. The lesson gave away the barber's verdict, so earn it back: change

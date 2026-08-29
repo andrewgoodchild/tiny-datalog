@@ -1,4 +1,4 @@
-# Lesson 13 — Aggregation: counting without contradiction
+# Lesson 12 — Aggregation: counting without contradiction
 
 Datalog derives facts; real questions often want *summaries* — how many,
 how much, the least, the most. This lesson adds aggregation to the
@@ -103,5 +103,5 @@ seen from two sides.)
 4. `--explain 'total(bob, 990)'` — what does the tree show instead of
    premises, and why can't an aggregate have a normal premise list?
 
-Next: [tabling](14-tabling.md). The third way to evaluate, and the
+Next: [tabling](13-tabling.md). The third way to evaluate, and the
 secret identity of magic sets.

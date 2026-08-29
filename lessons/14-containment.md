@@ -1,4 +1,4 @@
-# Lesson 15 — Containment: the same search, one level up
+# Lesson 14 — Containment: the same search, one level up
 
 > **Self-contained.** Needs lessons 1–3 only, despite the number.
 
@@ -32,7 +32,7 @@ Q2 can be satisfied there, it can be satisfied wherever Q1 is.
 
 ## The model theory underneath
 
-Name the frame, because Lesson 17 will claim this lesson runs on it.
+Name the frame, because Lesson 16 will claim this lesson runs on it.
 **Model theory** studies the relationship between sentences and the
 structures that satisfy them; its workhorse map is the
 **homomorphism**, a function between structures that preserves every
@@ -140,7 +140,7 @@ Two boundaries, both sharp:
 Notice the pattern the course keeps returning to: a question about all
 possible worlds becomes a finite computation only when the language is
 deliberately weakened. Function symbols (Lesson 10), negation-in-cycles
-(Lesson 3), aggregation-in-cycles (Lesson 13), and now recursion in
+(Lesson 3), aggregation-in-cycles (Lesson 12), and now recursion in
 containment — four different fences, same reason for the fence.
 
 ## Exercises
@@ -162,6 +162,6 @@ containment — four different fences, same reason for the fence.
    what happens when a view is inlined into another view, and why
    optimisers minimise *after* rewriting rather than before.)
 
-Next: [writing rules that survive review](16-writing-rules.md) —
+Next: [writing rules that survive review](15-writing-rules.md) —
 sixteen lessons on how engines evaluate rules, and one on authoring
 them.

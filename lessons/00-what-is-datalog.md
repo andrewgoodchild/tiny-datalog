@@ -38,7 +38,8 @@ For a program that looks like actual work rather than a textbook
 figure, read `programs/eligibility.dl`: a benefits policy with an
 exemption clause, which the engine can both evaluate and *justify*
 (`--explain 'eligible(bob)'`). You will be able to write it yourself
-after lesson 3, and to explain how `--explain` works after lesson 12.
+after lesson 3, and to explain how `--explain` works after lesson 2's
+Under the hood section.
 
 ## A short history, in five acts
 
@@ -174,12 +175,12 @@ much larger territory than the one science fiction warned us about.
 | 2020s | probabilistic / neurosymbolic | Lesson 8 |
 | 1993 → 2023 | DRed → differential dataflow → DBSP | Lesson 9 · `incremental.py` |
 | 1965–1972 | Horn clauses, resolution, Prolog | Lesson 10 · `prolog.py` |
-| 1977 | conjunctive-query containment (Chandra–Merlin) | Lesson 15 · `containment.py` |
+| 1977 | conjunctive-query containment (Chandra–Merlin) | Lesson 14 · `containment.py` |
 | 1978 → today | KL-ONE → description logics → OWL / SNOMED CT | Lesson 11 · `subsumption.py` |
 | throughout | closed vs open worlds — what absence means | Lesson 4 |
-| the practice | authoring rules others must review | Lesson 16 |
-| the mathematics | what the course is made of, and the road not taken | Lesson 17 |
-| 1990s → today | recursive aggregation; SLG tabling, the resolution strategy XSB implements | Lessons 13–14 · `tabling.py` |
+| the practice | authoring rules others must review | Lesson 15 |
+| the mathematics | what the course is made of, and the road not taken | Lesson 16 |
+| 1990s → today | recursive aggregation; SLG tabling, the resolution strategy XSB implements | Lessons 12–13 · `tabling.py` |
 
 The repository is small on purpose, every algorithm named above is
 implemented in readable standard-library Python, and every example in
@@ -222,7 +223,7 @@ and answers someone must be able to trust or audit — exactly the
 territory the README stakes out.
 
 For everything else, there is [the glossary](glossary.md), and for the
-mathematically curious there is [Lesson 17](17-category-theory.md) —
+mathematically curious there is [Lesson 16](16-category-theory.md) —
 what the course's mathematics actually is, and why the categorical
 recasting of it was a road deliberately not taken.
 
