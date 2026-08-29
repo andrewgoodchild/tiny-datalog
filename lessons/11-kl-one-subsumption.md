@@ -86,6 +86,31 @@ deliberately, and know its price. It is exactly the move Datalog made by
 banning function symbols — Lesson 10's boundary, drawn through a
 different logic.
 
+There is a twist in that saga worth its own paragraph, because it
+decided what SNOMED could be. KL-ONE and its descendants were built
+around the **value restriction** — ∀, "all": `all(has_child, doctor)`
+says *every* child is a doctor — with existentials admitted only in
+stunted forms; the FL ("frame language") family that the 1984
+complexity analysis studied is exactly that shape. For twenty years the
+field took "all" to be the indispensable construct and "some" the
+dispensable one. The 2000s inverted the bet. Keep only conjunction and
+the **existential restriction** — ∃, "some": `some(finding_site,
+femur)` says there *is* a site, and it is the femur — and subsumption
+stays polynomial even over arbitrarily large, cyclic axiom sets
+(Baader 2003; then Baader, Brandt and Lutz's *Pushing the EL
+Envelope*, 2005, which stretched the fragment to EL++ without losing
+tractability). Keep only value restrictions instead — the logic FL₀ —
+and with general axiom sets subsumption is EXPTIME-complete. The
+construct the founders treated as the essence turned out to be the
+expensive one.
+
+That inversion is why medicine fits. Clinical statements are
+existential to the bone — a fracture has *some* site, an infection has
+*some* causative agent, a procedure acts on *some* body structure —
+and essentially never universal: no definition needs "all findings" of
+anything. A terminology that speaks only in "some" lands, by luck of
+its subject matter, in exactly the tractable fragment.
+
 The fragment this lesson implements is **EL**: conjunction (`and`) and
 existential restriction (`some`), nothing else. Subsumption in EL is
 polynomial, and EL is no toy: it is the tractable core underneath the
