@@ -1,4 +1,4 @@
-# Lesson 13 — Tabling: top-down without the cliff
+# Lesson 14 — Tabling: top-down without the cliff
 
 The course has answered queries three ways, each with a flaw it owns
 honestly: bottom-up (Lesson 2) computes everything whether you asked or
@@ -112,10 +112,10 @@ same idea, computed at run time instead of compile time.
 That closes the evaluation arc: four strategies, one semantics, and
 every pair of them checkable against each other by the conformance
 suite in `tests.py`. The remaining lessons step outside evaluation —
-[14](14-containment.md) asks what a query means on *every* database,
-[15](15-writing-rules.md) is about authoring rules rather than
-running them, and [16](16-category-theory.md) names the mathematics.
+[15](15-containment.md) asks what a query means on *every* database,
+[16](16-writing-rules.md) is about authoring rules rather than
+running them, and [17](17-category-theory.md) names the mathematics.
 
-Next: [containment](14-containment.md). The last lesson asks a
+Next: [containment](15-containment.md). The last lesson asks a
 question evaluation never does: what does this query compute on
 *every* database?

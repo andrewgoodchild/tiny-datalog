@@ -175,12 +175,12 @@ much larger territory than the one science fiction warned us about.
 | 2020s | probabilistic / neurosymbolic | Lesson 8 |
 | 1993 → 2023 | DRed → differential dataflow → DBSP | Lesson 9 · `incremental.py` |
 | 1965–1972 | Horn clauses, resolution, Prolog | Lesson 10 · `prolog.py` |
-| 1977 | conjunctive-query containment (Chandra–Merlin) | Lesson 14 · `containment.py` |
+| 1977 | conjunctive-query containment (Chandra–Merlin) | Lesson 15 · `containment.py` |
 | 1978 → today | KL-ONE → description logics → OWL / SNOMED CT | Lesson 11 · `subsumption.py` |
 | throughout | closed vs open worlds — what absence means | Lesson 4 |
-| the practice | authoring rules others must review | Lesson 15 |
-| the mathematics | what the course is made of, and the road not taken | Lesson 16 |
-| 1990s → today | recursive aggregation; SLG tabling, the resolution strategy XSB implements | Lessons 12–13 · `tabling.py` |
+| the practice | authoring rules others must review | Lesson 16 |
+| the mathematics | what the course is made of, and the road not taken | Lesson 17 |
+| 1990s → today | recursive aggregation; SLG tabling, the resolution strategy XSB implements | Lessons 12 & 14 · `tabling.py` |
 
 The repository is small on purpose, every algorithm named above is
 implemented in readable standard-library Python, and every example in
@@ -223,7 +223,7 @@ and answers someone must be able to trust or audit — exactly the
 territory the README stakes out.
 
 For everything else, there is [the glossary](glossary.md), and for the
-mathematically curious there is [Lesson 16](16-category-theory.md) —
+mathematically curious there is [Lesson 17](17-category-theory.md) —
 what the course's mathematics actually is, and why the categorical
 recasting of it was a road deliberately not taken.
 
@@ -246,12 +246,13 @@ and the lesson that builds the machinery:
 | How likely is it? | `python3 semiring.py -s viterbi programs/prob-reach.dl` | [8](08-probabilistic.md) |
 | The data changed — what changed in the answers? | `python3 incremental.py programs/dred-graph.dl -u 'edge(n3, n4)~.'` | [9](09-incremental.md) |
 | How many, how much, largest? | `python3 datalog.py programs/spending.dl` | [12](12-aggregation.md) |
-| Answer a goal top-down, even left-recursive | `python3 tabling.py programs/left-recursive.dl -q 'ancestor(abe, X)'` | [13](13-tabling.md) |
+| Answer a goal top-down, even left-recursive | `python3 tabling.py programs/left-recursive.dl -q 'ancestor(abe, X)'` | [14](14-tabling.md) |
 | What if I allow function symbols, and lose termination? | `python3 prolog.py programs/peano.pl -q 'add(X, Y, s(s(zero)))'` | [10](10-horn-clauses.md) |
 | What do these definitions entail about each other? | `python3 subsumption.py programs/family-ontology.dl` | [11](11-kl-one-subsumption.md) |
-| Are these two queries the same query? | `python3 containment.py programs/minimise.dl` | [14](14-containment.md) |
+| Are these two queries the same query? | `python3 containment.py programs/minimise.dl` | [15](15-containment.md) |
 | Does absence mean false, or just unrecorded? | `python3 datalog.py programs/missing-data.dl` | [4](04-closed-and-open-worlds.md) |
-| How do I write rules someone else can sign off? | `python3 datalog.py --explain 'may_borrow(iris)' programs/lending.dl` | [15](15-writing-rules.md) |
+| Can it do arithmetic? | `python3 datalog.py -q 'plus(X, Y, n4)' programs/bounded-arithmetic.dl` | [13](13-arithmetic.md) |
+| How do I write rules someone else can sign off? | `python3 datalog.py --explain 'may_borrow(iris)' programs/lending.dl` | [16](16-writing-rules.md) |
 
 Provenance, in full:
 

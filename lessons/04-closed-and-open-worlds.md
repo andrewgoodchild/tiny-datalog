@@ -198,7 +198,7 @@ marker mean":
   placeholder witness. Unlike SQL's NULL, two occurrences of the same
   labelled null are *known equal*: it is an unknown individual, not an
   unknown value, and positive queries can treat it as an ordinary
-  constant (the certain-answers story — Lesson 14's homomorphisms
+  constant (the certain-answers story — Lesson 15's homomorphisms
   doing the work). This repository mints miniature ones: the `gen_N`
   names `subsumption.py` invents during normalisation are exactly
   this, Skolem constants with identity.

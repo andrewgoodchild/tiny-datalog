@@ -21,7 +21,7 @@ every program has a least model — the properties this whole course
 runs on — and the name stuck. Horn identified the clauses; he never
 knew what they would become. It is a recurring pattern in this field:
 the fragment chosen for one good property turns out to have been
-chosen for all of them (Lesson 14 meets it again when a 1977
+chosen for all of them (Lesson 15 meets it again when a 1977
 containment theorem turns out to be the theory of 2020s query
 optimisers).
 

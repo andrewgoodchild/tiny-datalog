@@ -253,7 +253,7 @@ engine under a schema-flexible surface. Where it genuinely exceeds the
 core, it lands on machinery from this course — its overridable
 inheritance needs the well-founded semantics (Lesson 5), and its
 flagship implementation, FLORA-2, compiles to XSB, David Warren's
-tabling engine (Lesson 13).
+tabling engine (Lesson 14).
 
 In the Semantic Web wars, F-logic carried the closed-world rules camp
 against this lesson's open-world classifiers; OWL went to the

@@ -93,8 +93,8 @@ seen from two sides.)
 
 1. Add `average(P, ...)`. You can't, with one aggregate per head. Build
    it from two rules (`sum` and `count`) and explain why the engine
-   can't divide for you (no arithmetic — a deliberate omission the
-   README explains).
+   can't divide for you (no arithmetic —
+   [lesson 13](13-arithmetic.md) is the whole story).
 2. Predict `reach(alice, N)` in `spending.dl` before running it.
    Why does dana not appear at all?
 3. Write the forbidden program: make a predicate's count feed its own
@@ -103,5 +103,5 @@ seen from two sides.)
 4. `--explain 'total(bob, 990)'` — what does the tree show instead of
    premises, and why can't an aggregate have a normal premise list?
 
-Next: [tabling](13-tabling.md). The third way to evaluate, and the
-secret identity of magic sets.
+Next: [arithmetic](13-arithmetic.md) — why the engine has no `+`,
+and what to do about it.

@@ -171,7 +171,7 @@ class ClassicExamplesTests(unittest.TestCase):
         self.assertTrue(after > before)
 
     def test_lending_policy_drafts(self):
-        # lesson 15: the engine catches both drafts, in different ways
+        # lesson 16: the engine catches both drafts, in different ways
         with self.assertRaises(SafetyError) as cm:
             run_program("member(iris). may_borrow(P) :- member(P), "
                         "not overdue(P, B).")
@@ -189,6 +189,15 @@ class ClassicExamplesTests(unittest.TestCase):
         # draft 3 removes exactly kim; lena keeps the exemption's benefit
         final = run_program(load("lending.dl"))
         self.assertEqual(final.rels["may_borrow"], {("iris",), ("lena",)})
+
+    def test_bounded_arithmetic(self):
+        # lesson 13: numbers as facts; overflow is absence; the
+        # relation is reversible
+        e = run_program(load("bounded-arithmetic.dl"))
+        self.assertIn(("n2", "n3", "n5"), e.rels["plus"])
+        self.assertFalse({t for t in e.rels["plus"] if t[:2] == ("n7", "n5")})
+        self.assertEqual(
+            sum(1 for t in e.rels["plus"] if t[2] == "n4"), 5)
 
     def test_eligibility_policy(self):
         # the README's opening example: negation as an exemption, and a
@@ -939,7 +948,7 @@ class ConformanceTests(unittest.TestCase):
 
 
 class ContainmentTests(unittest.TestCase):
-    """Chandra–Merlin containment and minimisation (lesson 14)."""
+    """Chandra–Merlin containment and minimisation (lesson 15)."""
 
     @staticmethod
     def rule(text):
@@ -1225,6 +1234,18 @@ class ExerciseTests(unittest.TestCase):
     def ex(name):
         with open(os.path.join(HERE, "exercises", name)) as fh:
             return fh.read()
+
+    def test_lesson13_bounded_arithmetic_answers(self):
+        engine = run_program(self.ex("13-answers.dl"))
+        self.assertIn(("n2", "n3", "n6"), engine.rels["times"])
+        # sixteen overflows into absence
+        self.assertFalse({x for x in engine.rels["times"]
+                          if x[:2] == ("n4", "n4")})
+        # division is multiplication queried backwards
+        self.assertEqual({x for x in engine.rels["times"]
+                          if x[0] == "n3" and x[2] == "n6"},
+                         {("n3", "n2", "n6")})
+        self.assertEqual(len(engine.rels["lt"]), 45)
 
     def test_lesson1_cousins_and_aunts(self):
         engine = run_program(self.ex("01-answers.dl"))

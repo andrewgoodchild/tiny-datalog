@@ -125,7 +125,7 @@ cannot answer them. Datalog can, because it gave things up:
 (Containment and equivalence become undecidable once recursion is
 involved — Shmueli, 1993, which is why `containment.py` handles
 conjunctive queries and refuses the rest.
-[Lesson 14](lessons/14-containment.md) covers the boundary.)
+[Lesson 15](lessons/15-containment.md) covers the boundary.)
 
 Being declarative, recursive and terminating is not a feature list. It
 is the trade that makes rules analysable, and three things follow from
@@ -153,7 +153,7 @@ the better tool, and that covers most problems.
 ## What else you can ask it
 
 The worked example above is one row of a table. Lesson 0 ends with the
-full version — 17 questions, each with the command that answers it and
+full version — 18 questions, each with the command that answers it and
 the lesson that builds the machinery:
 [lesson 0](lessons/00-what-is-datalog.md).
 
@@ -205,7 +205,7 @@ engine:
   prints the disproof: two facts with identical provenance and different
   counts. That settles "materialise provenance once, specialise later,"
   which is a real design-review question with a real answer.
-- **[Lesson 14](lessons/14-containment.md)** shows that the containment
+- **[Lesson 15](lessons/15-containment.md)** shows that the containment
   test you need for query minimisation is the search already sitting in
   `datalog.py`: `_match` maps a rule body into a database,
   `find_homomorphism` maps a rule body into another rule body. Same
@@ -243,8 +243,8 @@ quietly:
 - **Arithmetic and comparisons.** A built-in isn't a relation you can
   enumerate, so it must be *evaluated* the moment its operands bind —
   which entangles correctness with join order and forces terms to
-  become trees. The principled route is semantic attachments; building
-  one is a good exercise.
+  become trees. [Lesson 13](lessons/13-arithmetic.md) is the whole
+  story, including what to do instead.
 - **Indexes and join planning.** Every join is a nested loop so the
   algorithms stay one-screen readable. It is also why the magic-sets
   timing above goes the way it does.
@@ -274,7 +274,7 @@ subsumption.py  KL-ONE-style EL classifier, compiled to Datalog
 containment.py  query containment and minimisation by homomorphism
 programs/       teaching programs, numbered by the lesson that uses
                 them (00-* are the README's examples)
-lessons/        getting started, glossary, and lessons 0–16
+lessons/        getting started, glossary, and lessons 0–17
 exercises/      worked answers, verified by the test suite
 cases/          golden test cases — add one without writing Python
 benchmarks/     scaled input generators (chain/tree/clique/grid)

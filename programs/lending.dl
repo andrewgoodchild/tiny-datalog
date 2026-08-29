@@ -1,5 +1,5 @@
 % A library lending policy, after three rounds of correction.
-% Lesson 15 walks through the drafts that got here.
+% Lesson 16 walks through the drafts that got here.
 %
 %   python3 datalog.py -q 'may_borrow(P)' programs/lending.dl
 %   python3 datalog.py --explain 'may_borrow(iris)' programs/lending.dl

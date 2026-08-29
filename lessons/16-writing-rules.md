@@ -1,4 +1,4 @@
-# Lesson 15 — Writing rules that survive review
+# Lesson 16 — Writing rules that survive review
 
 Fifteen lessons have been about how engines evaluate rules. This one is
 about writing them, which is a different skill and the one the rest of
@@ -195,6 +195,6 @@ actually do.
    run the five checks. The interesting output is not the answer — it
    is which question you could not express.
 
-Next (optional): [the road not taken](16-category-theory.md) — what
+Next (optional): [the road not taken](17-category-theory.md) — what
 the course's mathematics actually is, for readers who want the frame
 named.

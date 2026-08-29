@@ -87,10 +87,10 @@ a given purpose.
 
 | If you are here to... | Read |
 |---|---|
-| write rules for a real policy | 12 (aggregation), 4 (missing data), 15 (authoring) |
-| understand how evaluation works | 2, 6 (magic sets), 13 (tabling), and every lesson's *Under the hood* |
+| write rules for a real policy | 12 (aggregation), 4 (missing data), 16 (authoring) |
+| understand how evaluation works | 2, 6 (magic sets), 14 (tabling), and the *Under the hood* sections |
 | know what a rule set *means* | 5 (stable models), 4 (open vs closed worlds) |
-| get at the theory | 7 (semirings), 10 (Horn clauses), 14 (containment), 16 (category theory) |
+| get at the theory | 7 (semirings), 10 (Horn clauses), 15 (containment), 17 (category theory) |
 | see where it meets machine learning | 7, 8 (probabilistic) |
 | keep answers fresh as data changes | 9 (incremental) |
 | reason about definitions, not data | 11 (subsumption) |
@@ -110,10 +110,11 @@ a given purpose.
 10. [Horn clauses: the boundary Datalog lives on](10-horn-clauses.md)
 11. [KL-ONE and subsumption](11-kl-one-subsumption.md)
 12. [Aggregation: counting without contradiction](12-aggregation.md)
-13. [Tabling: top-down without the cliff](13-tabling.md)
-14. [Containment: the same search, one level up](14-containment.md)
-15. [Writing rules that survive review](15-writing-rules.md)
-16. [The road not taken: category theory](16-category-theory.md)
+13. [Arithmetic: the price of numbers](13-arithmetic.md)
+14. [Tabling: top-down without the cliff](14-tabling.md)
+15. [Containment: the same search, one level up](15-containment.md)
+16. [Writing rules that survive review](16-writing-rules.md)
+17. [The road not taken: category theory](17-category-theory.md)
 
 Three groupings worth knowing about, because each is a single idea told
 across several lessons: **3, 5 and 12** share one thesis (finish a

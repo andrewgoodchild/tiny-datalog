@@ -60,6 +60,13 @@ literals. The **head** is to the left. *(Lesson 1)*
 forwards until nothing new appears. What `datalog.py` does. Contrast
 **top-down**. *(Lesson 2)*
 
+**Built-in.** An operation like `X != Y` or `Z = X + 1` evaluated by
+the engine rather than looked up in a relation. Safe only under a
+**mode** discipline saying which arguments must be ground — and safe
+for termination only if it filters the Herbrand universe rather than
+growing it, which is why `!=` is harmless and unbounded `+` is not.
+*(Lesson 13)*
+
 **CALM theorem.** Consistency As Logical Monotonicity: a distributed
 program can be run without coordination exactly when it is monotone,
 which for Datalog means negation-free. *(Lesson 0)*
@@ -67,12 +74,12 @@ which for Datalog means negation-free. *(Lesson 0)*
 **Canonical instance.** A query's own body, with its variables frozen
 into fresh constants: the smallest, most hostile database satisfying
 the query. Testing against it stands in for testing against all
-databases (Chandra–Merlin). *(Lesson 14)*
+databases (Chandra–Merlin). *(Lesson 15)*
 
 **Chandra–Merlin theorem.** For conjunctive queries, Q2 contains Q1
 iff there is a **homomorphism** from Q2's body into Q1's body fixing
 the head variables. Turns a question about infinitely many databases
-into a finite search. *(Lesson 14)*
+into a finite search. *(Lesson 15)*
 
 **Chase.** The procedure for repairing a database against existential
 rules by inventing witnesses. Not implemented here; it is where
@@ -102,14 +109,14 @@ bans them; `prolog.py` allows them. *(Lesson 10)*
 
 **Conjunctive query.** A single rule with no negation and no
 recursion: the SELECT–FROM–WHERE of Datalog. The fragment where
-containment is decidable. *(Lesson 14)*
+containment is decidable. *(Lesson 15)*
 
 **Constant.** A value: `bob`, `42`, `"Mary Jane"`. Lowercase
 identifiers, numbers, or quoted strings. *(Lesson 1)*
 
 **Containment.** Q2 ⊇ Q1 means every answer to Q1 is an answer to Q2
 *on every database*. **Equivalence** is containment both ways.
-*(Lesson 14)*
+*(Lesson 15)*
 
 **DAG (directed acyclic graph).** A directed graph with no cycles.
 Transitive closure over one always terminates quickly; the interesting
@@ -139,7 +146,7 @@ Feldera engine implements it, programmed in SQL. *(Lesson 9)*
 Datalog is built out of deliberate restrictions that keep questions
 decidable: termination, stratifiability, and containment for
 non-recursive queries are all decidable, and each becomes
-**undecidable** just outside the fence. *(Lessons 3, 10, 14)*
+**undecidable** just outside the fence. *(Lessons 3, 10, 15)*
 
 **Default reasoning.** "P holds unless something says otherwise", the
 Tweety pattern: `flies(X) :- bird(X), not abnormal(X).` Requires CWA
@@ -192,7 +199,7 @@ semiring's answer factors through them. *(Lesson 7)*
 
 **Functor.** A structure-preserving map between categories. In CQL a
 database instance *is* a functor from the schema to sets, so violating
-a constraint means failing to be an instance at all. *(Lesson 16)*
+a constraint means failing to be an instance at all. *(Lesson 17)*
 
 **Gelfond–Lifschitz reduct.** Given a candidate model S, delete every
 rule whose negated atoms are in S and strip the remaining negations.
@@ -214,7 +221,7 @@ terminates. *(Lesson 10)*
 **Homomorphism.** A map from one structure's variables to another's
 terms that sends every atom onto an atom. Finding one is what `_match`
 does against a database, and what containment does against another
-query body. *(Lesson 14)*
+query body. *(Lesson 15)*
 
 **Horn clause.** A formula with at most one positive literal, i.e.
 exactly the shape `head :- body`. Datalog is Horn clauses without
@@ -242,7 +249,7 @@ literals under one growing substitution. *(Lesson 1)*
 **Kan extension.** Category theory's universal way of extending a
 functor along another; CQL's data-migration operators Σ and Π are the
 left and right Kan extensions, and the chase computes the left one.
-*(Lesson 16)*
+*(Lesson 17)*
 
 **Knaster–Tarski theorem.** A monotone function on a complete lattice
 has a least fixpoint. Applied to the immediate consequence operator on
@@ -253,7 +260,7 @@ Datalog program terminates with a unique meaning. *(Lesson 2)*
 witness ("someone, unspecified") that is *self-identical* across
 occurrences, unlike SQL's NULL. Produced by the chase for existential
 rules; `subsumption.py`'s `gen_N` names are miniature ones. *(Lessons
-4, 16)*
+4, 17)*
 
 **Lattice.** A partially ordered set where any two elements have a
 meet and a join; here, all possible fact-sets ordered by ⊆. The stage
@@ -269,7 +276,7 @@ are actually demanded. *(Lesson 6)*
 incremental maintenance keeps up to date. *(Lesson 9)*
 
 **Minimisation.** Finding the smallest rule body equivalent to the one
-you wrote, by dropping atoms a homomorphism can repair. *(Lesson 14)*
+you wrote, by dropping atoms a homomorphism can repair. *(Lesson 15)*
 
 **Model.** A set of facts satisfying every rule. The **least model**
 is the smallest one, and is the meaning of a positive program.
@@ -321,7 +328,7 @@ complexity is PTIME-complete, which is a statement about its power as
 well as its cost. *(Lesson 2)*
 
 **QSQR.** Query-Subquery Recursive, the set-at-a-time top-down
-evaluation strategy `tabling.py` implements. *(Lesson 13)*
+evaluation strategy `tabling.py` implements. *(Lesson 14)*
 
 **Range restriction.** See **Safety**.
 
@@ -329,7 +336,7 @@ evaluation strategy `tabling.py` implements. *(Lesson 13)*
 **Linear** recursion has one recursive body literal; **non-linear** has
 several, which reaches the fixpoint in logarithmically many rounds.
 **Left recursion** puts the recursive call first, which defeats SLD but
-not tabling. *(Lessons 2, 13)*
+not tabling. *(Lessons 2, 14)*
 
 **Role.** A binary relation in a description logic (`has_child`).
 A **role hierarchy** relates roles to each other; not supported here.
@@ -356,7 +363,7 @@ generates. Here it is simply left to right, matching the evaluator.
 
 **SLD resolution.** The top-down proof procedure of Prolog: unify the
 goal with a rule head, then prove the body. Tuple-at-a-time, and
-vulnerable to left recursion. **SLG** adds tabling. *(Lessons 10, 13)*
+vulnerable to left recursion. **SLG** adds tabling. *(Lessons 10, 14)*
 
 **Stable model.** A set of facts that justifies itself: the
 Gelfond–Lifschitz reduct with respect to it derives exactly it. A
@@ -383,7 +390,7 @@ statement about definitions, not data. *(Lesson 11)*
 **Tabling.** Top-down evaluation that memoises each subgoal's answers
 in a **table**, so recursive calls read the table instead of
 descending. Gives Prolog-style goal direction with Datalog-style
-termination. *(Lesson 13)*
+termination. *(Lesson 14)*
 
 **TBox.** The terminological part of a knowledge base: the definitions
 themselves. Contrast **ABox**. *(Lesson 11)*
@@ -393,13 +400,13 @@ term. *(Lesson 1)*
 
 **Top-down evaluation.** Start from the query and work backwards to
 the facts. Natively goal-directed; see **SLD resolution** and
-**tabling**. *(Lessons 10, 13)*
+**tabling**. *(Lessons 10, 14)*
 
 **Undecidable.** No terminating procedure can answer it in general.
 Whether an arbitrary Horn-clause program halts (Lesson 10), and whether
 one *recursive* Datalog program contains another (Shmueli 1993, Lesson
-14), are both undecidable, which is precisely why this engine bans
-function symbols and `containment.py` refuses recursion. *(Lessons 10, 14)*
+15), are both undecidable, which is precisely why this engine bans
+function symbols and `containment.py` refuses recursion. *(Lessons 10, 15)*
 
 **Unification.** Making two terms equal by binding variables, where
 *both* sides may contain variables. Matching against a ground database

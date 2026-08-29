@@ -213,7 +213,7 @@ both true and not in conflict, and it is the fact the whole field is
 organised around. Real workloads have small programs and enormous data:
 CodeQL runs a few hundred rules over a codebase with hundreds of
 millions of facts, and it is only viable because the axis that grows is
-the cheap one. It is also why Lesson 14 can call query minimisation
+the cheap one. It is also why Lesson 15 can call query minimisation
 worth an NP-complete analysis: you pay it once per rule and save on
 every row.
 

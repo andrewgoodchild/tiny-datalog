@@ -1,0 +1,17 @@
+% Arithmetic inside the fence: numbers as facts, addition as rules.
+% Lesson 13 explains why the engine has no built-in + at all.
+%
+%   python3 datalog.py -q 'plus(n2, n3, Z)' programs/bounded-arithmetic.dl
+%   python3 datalog.py -q 'plus(X, Y, n4)' programs/bounded-arithmetic.dl
+%
+% The domain is bounded on purpose: sums past n9 are simply absent,
+% which under the closed-world assumption is the overflow flag.
+
+succ(n0, n1). succ(n1, n2). succ(n2, n3). succ(n3, n4).
+succ(n4, n5). succ(n5, n6). succ(n6, n7). succ(n7, n8). succ(n8, n9).
+
+num(X) :- succ(X, _).
+num(X) :- succ(_, X).
+
+plus(n0, Y, Y) :- num(Y).
+plus(X, Y, Z) :- succ(X1, X), plus(X1, Y, Z1), succ(Z1, Z).
