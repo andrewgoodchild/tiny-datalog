@@ -91,10 +91,11 @@ the familiar fixpoint. For counting it converges only when derivations
 are finite:
 
 ```sh
-$ python3 semiring.py --semiring count cyclic.dl   # e.g. add edge(e, a)
-                                                   # to 06-routes.dl
-error: no fixpoint after 200 rounds — the count semiring diverges on this
-program (e.g. counting derivations in a cyclic graph is genuinely infinite)
+$ python3 semiring.py --semiring count programs/cyclic-routes.dl
+error: no fixpoint after 200 rounds over the count semiring — either this
+program genuinely diverges here (counting derivations in a cyclic graph is
+infinite) or the round budget is too small for this depth of derivation;
+raise it with --max-rounds
 ```
 
 That is not a bug: a cyclic graph really does have infinitely many paths.

@@ -1,0 +1,4 @@
+% An aggregate feeding its own derivation is rejected; Lesson 13
+% explains why no answer could be stable.
+q(1).
+q(count(N)) :- q(N).

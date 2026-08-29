@@ -1,0 +1,6 @@
+% Draft 1 of Lesson 17's lending policy — rejected by safety: the
+% spare variable B under `not` is ambiguous between two policies.
+member(iris).      member(jon).
+overdue(jon, book_a).
+
+may_borrow(P) :- member(P), not overdue(P, B).

@@ -3,9 +3,13 @@
 Every newcomer asks this in week one. Here is the engine's answer:
 
 ```
-$ python3 datalog.py sum.dl        # p(Z) :- q(X), Z = X + 1.
-error: line 2: unexpected character '='
+$ python3 datalog.py programs/no-arithmetic.dl
+error: line 4: unexpected character '='
 ```
+
+(The file ships, as a museum piece: two comment lines, one fact, and
+the rule `p(Z) :- q(X), Z = X + 1.` that the tokenizer refuses at the
+`=`.)
 
 Not "unsupported feature" — the *tokenizer* doesn't know the
 character. Arithmetic is the course's most deliberate omission, and

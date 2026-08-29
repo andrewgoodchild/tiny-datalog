@@ -1,0 +1,23 @@
+% Draft 2 of Lesson 17's lending policy — runs, and is wrong: the
+% staff exemption forgot the suspension check that applies to everybody.
+%
+%   python3 datalog.py -q 'may_borrow(P)' programs/lending.dl
+%   python3 datalog.py --explain 'may_borrow(iris)' programs/lending.dl
+
+member(iris).      member(jon).      member(kim).      member(lena).
+staff(kim).        staff(lena).
+
+% loans recorded as overdue, by whoever runs circulation
+overdue(jon, book_a).
+overdue(lena, book_b).     % staff may borrow despite overdue loans
+
+% suspensions are a decision made elsewhere, not derived here
+suspended(kim).
+
+% Draft 3.  Every negation points at a base fact, so this stratifies
+% and has exactly one model — see the lesson for why drafts 1 and 2
+% did not survive review.
+has_overdue(P) :- overdue(P, _).
+
+may_borrow(P) :- member(P), not has_overdue(P), not suspended(P).
+may_borrow(P) :- staff(P).

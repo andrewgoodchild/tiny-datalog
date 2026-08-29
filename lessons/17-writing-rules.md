@@ -34,11 +34,12 @@ overdue member, a suspended staffer, and an overdue staffer.
 The obvious first attempt:
 
 ```prolog
+% programs/lending-draft1.dl
 may_borrow(P) :- member(P), not overdue(P, B).
 ```
 
 ```
-$ python3 datalog.py draft1.dl
+$ python3 datalog.py programs/lending-draft1.dl
 error: unsafe rule: variable B of negated literal not overdue(P, B) is not
 bound by a positive literal in: may_borrow(P) :- member(P), not overdue(P, B).
 ```
@@ -66,6 +67,7 @@ Now add the staff exemption. Staff may borrow despite overdue loans, so
 the natural move is a second rule:
 
 ```prolog
+% programs/lending-draft2.dl
 may_borrow(P) :- member(P), not has_overdue(P), not suspended(P).
 may_borrow(P) :- staff(P).
 ```
@@ -73,7 +75,7 @@ may_borrow(P) :- staff(P).
 That evaluates cleanly, and gives the wrong answer:
 
 ```
-$ python3 datalog.py -q 'may_borrow(P)' draft2.dl
+$ python3 datalog.py -q 'may_borrow(P)' programs/lending-draft2.dl
 ?- may_borrow(P)
    may_borrow(iris).
    may_borrow(kim).
@@ -86,7 +88,7 @@ exactly what the exemption is for. But Kim is suspended, and the
 policy says suspension applies to everybody. Why is she borrowing?
 
 ```
-$ python3 datalog.py --explain 'may_borrow(kim)' draft2.dl
+$ python3 datalog.py --explain 'may_borrow(kim)' programs/lending-draft2.dl
 ?- explain may_borrow(kim)
    may_borrow(kim)   [via may_borrow(P) :- staff(P).]
      staff(kim)   (base fact)

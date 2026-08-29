@@ -6,6 +6,7 @@ incremental.py, prolog.py)."""
 
 import os
 import random
+import re
 import subprocess
 import sys
 import tempfile
@@ -178,9 +179,17 @@ class ClassicExamplesTests(unittest.TestCase):
         self.assertIn("not overdue(P, B)", str(cm.exception))
         # draft 2 = the shipped facts with the staff rule unguarded; it
         # wrongly lets kim (staff AND suspended) borrow
-        draft2 = run_program(load("lending.dl").replace(
-            "may_borrow(P) :- staff(P), not suspended(P).",
-            "may_borrow(P) :- staff(P)."))
+        with self.assertRaises(SafetyError):
+            run_program(load("lending-draft1.dl"))
+        # the shipped draft 2 must be the final policy with only the
+        # staff guard removed, so the three files cannot drift apart
+        rules = lambda txt: [l for l in txt.splitlines() if ":-" in l]
+        self.assertEqual(
+            rules(load("lending-draft2.dl")),
+            rules(load("lending.dl").replace(
+                "may_borrow(P) :- staff(P), not suspended(P).",
+                "may_borrow(P) :- staff(P).")))
+        draft2 = run_program(load("lending-draft2.dl"))
         self.assertEqual(draft2.rels["may_borrow"],
                          {("iris",), ("kim",), ("lena",)})
         tree = "\n".join(explain(draft2, "may_borrow", ("kim",)))
@@ -1245,6 +1254,80 @@ class GoldenFileTests(unittest.TestCase):
                 with open(os.path.join(base, "expected")) as fh:
                     expected = [l for l in fh.read().splitlines() if l]
                 self.assertEqual(lines, expected)
+
+
+class LessonOutputTests(unittest.TestCase):
+    """Every `$ python3 ...` command quoted in a lesson or the README is
+    run, and every non-elided quoted output line must appear in the live
+    output (whitespace-normalised; trailing timings and comments
+    stripped).  Gated behind TINY_DATALOG_LESSONS=1 because it runs ~46
+    commands; CI always runs it."""
+
+    SKIP = ("--naive --trace programs/supply-chain.dl",)
+
+    @unittest.skipUnless(os.environ.get("TINY_DATALOG_LESSONS"),
+                         "set TINY_DATALOG_LESSONS=1 to run")
+    def test_quoted_output_is_verbatim(self):
+        import glob as _glob, shlex as _shlex
+        files = (sorted(_glob.glob(os.path.join(HERE, "lessons", "[01]*.md")))
+                 + [os.path.join(HERE, "README.md"),
+                    os.path.join(HERE, "lessons", "getting-started.md")])
+        ncmd = 0
+        for f in files:
+            lines = open(f).read().split("\n")
+            in_fence, lang, buf, blocks = False, "", [], []
+            for l in lines:
+                if l.startswith("```"):
+                    if in_fence:
+                        blocks.append((lang, buf))
+                        buf = []
+                    in_fence = not in_fence
+                    lang = l[3:].strip()
+                elif in_fence:
+                    buf.append(l)
+            for lang, b in blocks:
+                if lang in ("prolog", "python", "sql"):
+                    continue
+                i = 0
+                while i < len(b):
+                    l = b[i]
+                    if l.startswith("$ ") and "/tmp/" in l and ">" in l:
+                        subprocess.run(l[2:], shell=True,
+                                       capture_output=True, cwd=HERE)
+                        i += 1
+                        continue
+                    if (l.startswith("$ python3 ")
+                            and not any(c in l for c in "|>;")
+                            and not any(s in l for s in self.SKIP)):
+                        try:
+                            cmd = _shlex.split(l.split("   #")[0][2:])
+                        except ValueError:
+                            i += 1
+                            continue
+                        quoted, j = [], i + 1
+                        while j < len(b) and not b[j].startswith("$"):
+                            quoted.append(b[j])
+                            j += 1
+                        ncmd += 1
+                        r = subprocess.run([sys.executable] + cmd[1:],
+                                           capture_output=True, text=True,
+                                           cwd=HERE)
+                        live = " ".join((r.stdout + r.stderr).split())
+                        for q in quoted:
+                            qs = " ".join(q.split())
+                            qs = re.sub(r"\s+in \d+\.\d+s$", "", qs)
+                            qs = re.sub(r"\s+#.*$", "", qs)
+                            if (not qs or "..." in qs
+                                    or qs.startswith(("#", "%", "("))):
+                                continue
+                            self.assertIn(
+                                qs, live,
+                                "quoted output drifted in %s\n  cmd: %s"
+                                % (os.path.basename(f), l))
+                        i = j
+                    else:
+                        i += 1
+        self.assertGreater(ncmd, 40)
 
 
 class RepositoryClaimTests(unittest.TestCase):

@@ -16,3 +16,6 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - run: python tests.py
+      - run: python tests.py LessonOutputTests
+        env:
+          TINY_DATALOG_LESSONS: "1"

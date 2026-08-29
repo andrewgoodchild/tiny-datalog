@@ -1,0 +1,4 @@
+% The week-one question, preserved as a museum piece: this file does
+% not parse, and Lesson 14 is about why the engine has no '+' at all.
+q(n1).
+p(Z) :- q(X), Z = X + 1.

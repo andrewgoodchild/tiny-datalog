@@ -96,19 +96,20 @@ Now watch the deltas, because they do something the chain cannot:
 
 ```sh
 $ python3 datalog.py --trace programs/supply-chain.dl
-    round  1: +292 uses
-    round  2: +475 uses
-    round  3: +661 uses,  +3 exposed
-    round  4: +838 uses,  +1 exposed
-    round  5: +898 uses
-    round  6: +908 uses          <- the frontier peaks here
-    round  7: +838 uses
+    round 1: +292 uses
+    round 2: +475 uses
+    round 3: +3 exposed, +661 uses
+    round 4: +1 exposed, +838 uses
+    round 5: +898 uses
+    round 6: +908 uses
+    round 7: +838 uses
     ...
     round 17: +4 uses
     round 18: no new facts — fixpoint
 ```
 
-On a chain the delta shrinks every round, because there is exactly one
+The frontier peaks at round 6, and that shape is the point. On a
+chain the delta shrinks every round, because there is exactly one
 new path length to find. On a real graph the frontier **expands first
 and then collapses** — paths of length 6 are far more numerous than
 paths of length 1 or length 16. That shape is what semi-naive is

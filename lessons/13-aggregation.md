@@ -75,9 +75,10 @@ higher stratum than what it aggregates, and aggregation inside a
 recursive cycle is rejected with the same cycle diagnosis:
 
 ```
-$ python3 datalog.py cyclic-agg.dl
+$ python3 datalog.py programs/cyclic-agg.dl
 REJECTED: program is not stratifiable — aggregation occurs inside a
-recursive cycle: q --agg--> q.
+recursive cycle: q --agg--> q.  No stratum assignment exists, so the
+program has no stratified model.
 ```
 
 Aggregating a *recursive* relation is perfectly fine; it just lands in
