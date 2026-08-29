@@ -18,8 +18,8 @@ memorising:
   not a convention.
 
 Datalog is useful when a query is recursive and SQL is fighting you,
-or when someone has to sign off on the answer and "the tests pass" is
-not enough. Here is what that buys you.
+or when a rule set has grown past the point where anyone can review
+it. Here is what that buys you.
 
 You deploy 12 services, sitting on 160 packages joined by 292
 dependency edges. A CVE (Common Vulnerabilities and Exposures entry, a
@@ -206,7 +206,9 @@ better than people trying to *use* one; this course does both halves
 on purpose — sixteen lessons where the engine is the explanation, then
 a lesson on authoring rules that survive review. And it is built to be
 inherited: `git clone`, no dependencies, no hosted anything, and every
-quoted transcript re-verified by CI — the exercises cannot rot.
+quoted transcript re-verified by CI — the exercises cannot rot. (For where each
+technique ships — CodeQL, RDFox, Feldera, SNOMED and the rest —
+[lesson 0](lessons/00-what-is-datalog.md) ends with the deployments.)
 [lessons/getting-started.md](lessons/getting-started.md) has the titles
 and the reading order, and
 [lessons/glossary.md](lessons/glossary.md) defines every technical term
@@ -235,23 +237,6 @@ Every lesson ends with exercises, and every exercise has a worked answer
 in `exercises/` — runnable where the answer is a program, and executed
 by the test suite so the answers cannot rot. `cases/` lets anyone add a
 regression test without writing Python.
-
-## Where these techniques ship
-
-Teams reach for Datalog when a query is recursive and SQL is fighting
-them, when someone has to sign off on a decision their code made and
-"the tests pass" is not an answer, or when a rule set has grown past
-the point where anyone can review it. Those three situations are what
-the deployments below have in common.
-
-Static analysis at scale (CodeQL, Soufflé) is Datalog. Knowledge graphs
-(RDFox) are Datalog. Incremental view maintenance is a live commercial
-category: Lesson 10 implements both DRed (1993) and RDFox's
-Backward/Forward (2015), and DBSP — the Z-set formulation behind
-Feldera — is the descendant that took a different route to the same
-problem.
-[Lesson 0](lessons/00-what-is-datalog.md) maps every technique in the
-course to where it ships.
 
 ## What this is not, and what is missing on purpose
 
