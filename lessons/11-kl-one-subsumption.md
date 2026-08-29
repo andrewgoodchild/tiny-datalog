@@ -27,7 +27,7 @@ belongs in the hierarchy. The reasoning service underneath:
 > C must be an instance of D, in every world consistent with the
 > definitions.
 
-Note what changed from the last nine lessons: this is *terminological*
+Note what changed from the last ten lessons: this is *terminological*
 reasoning (a "TBox," about concepts), not *assertional* reasoning (an
 "ABox," about individuals). Datalog answers "which tuples?"; subsumption
 answers "which definitions entail which?"
@@ -90,8 +90,25 @@ ontology into four axiom shapes, then apply completion rules to fixpoint.
 Monotone rules, run to fixpoint, that is, a Datalog program. So this
 repository's implementation (`subsumption.py`) is a **compiler**: it
 normalises the ontology, emits facts plus five rules, and hands them to
-the engine you already know. Try `--emit` to see the generated program;
-it runs under plain `datalog.py`.
+the engine you already know. Here are the five, verbatim from `--emit`
+(the program runs under plain `datalog.py`):
+
+```prolog
+subs(C, C) :- concept(C).
+subs(C, E) :- subs(C, D), isa1(D, E).
+subs(C, E) :- subs(C, D1), subs(C, D2), isa2(D1, D2, E).
+link(C, R, E) :- subs(C, D), isa_some(D, R, E).
+subs(C, E) :- link(C, R, D), subs(D, Dp), some_isa(R, Dp, E).
+```
+
+Read them as the calculus: everything subsumes itself; follow a stated
+inclusion; combine two subsumptions through a conjunction; propagate a
+subsumption into an existential (`link` records "C reaches E through
+role R"); and discharge an existential appearing on the right of an
+inclusion. That block *is* KL-ONE's classifier — the whole reasoning
+service, in the language of Lessons 1–3. When a problem's inference
+rules are monotone, "compile it to Datalog" is a general-purpose trick,
+and this is what it looks like done.
 
 The ontology (`programs/family-ontology.dl` — note it uses the
 compound terms Datalog itself forbids; the ontology language *needs* the
@@ -140,15 +157,15 @@ optimisations this course already taught: saturation is semi-naive
 fixpoint, and goal-directed subsumption checks are magic sets.
 
 
-## An assumption you have just changed
+## The assumption, recognised
 
 Note what the classifier does *not* say. Nothing in the output claims
-`father ⊑ not tall`; unstated simply means unproven. That is the **open
-world assumption**, and it is the opposite of the one `datalog.py` has
-been making for nine lessons. [Lesson 4](04-closed-and-open-worlds.md)
-puts the two side by side, because the difference is observable: add an
-axiom here and conclusions only grow, while adding a fact to a Datalog
-program can take one away.
+`father ⊑ not tall`; unstated simply means unproven. You met this fork
+in [Lesson 4](04-closed-and-open-worlds.md): that is the **open-world
+assumption**, and this classifier is the reasoner that lesson promised
+was living on the other side of it. The observable signature is the
+one you saw there — add an axiom here and conclusions only grow, while
+adding a fact to a Datalog program can take one away.
 
 ## Where this classifier stops
 
@@ -173,15 +190,6 @@ reasoners are more completion rules of the same shape, over a richer
 normal form. Adding ⊥ alone is a genuinely tractable exercise; adding
 role chains is a research-grade one.
 
-## Under the hood: a compiler in the other direction
-
-**`subsumption.py` is a compiler in the other direction.** Where
-magic.py rewrites Datalog to Datalog, this one translates a *different
-logic* (EL concept definitions) into Datalog: normalisation mints fresh
-names for nested expressions, and the entire reasoning calculus becomes
-five ordinary rules. When a problem's inference rules are monotone, "compile
-it to Datalog" is a general-purpose trick — worth remembering.
-
 ## The tradeoff saga: the same lesson as Lesson 10, rediscovered
 
 KL-ONE's own subsumption algorithm was *structural*: normalise both
@@ -197,8 +205,8 @@ different logic.
 There is a twist in that saga worth its own paragraph, because it
 decided what SNOMED could be. KL-ONE and its descendants were built
 around the **value restriction** — ∀, which English renders as
-"only": `all(eats, plant)` defines the vegan, someone
-*everything* they eat is a plant — with existentials admitted only in
+"only": `all(eats, plant)` defines the vegan: someone all of whose food is
+plants — with existentials admitted only in
 stunted forms; the FL ("frame language") family that the 1984
 complexity analysis studied is exactly that shape. For twenty years the
 field took "all" to be the indispensable construct and "some" the
@@ -238,15 +246,9 @@ alarm is false, and the reason is this lesson's own thesis run in
 reverse: F-logic's rule fragment **compiles to Datalog** over a fixed
 three-predicate vocabulary. A molecule is sugar for `attr(bob, age,
 42)`, `isa(bob, person)`, `sub(person, agent)`, and the object
-machinery is a handful of ordinary bridge rules:
-
-```prolog
-isa(X, C2) :- isa(X, C1), sub(C1, C2).
-sub(C1, C3) :- sub(C1, C2), sub(C2, C3).
-```
-
-Even quantifying over attributes is just a variable in `attr`'s second
-column. F-logic is to Datalog what objects are to relations: the same
+machinery is two bridge rules any reader of Lesson 2 can write —
+subclass transitivity and membership inheritance. Even quantifying
+over attributes is just a variable in `attr`'s second column. F-logic is to Datalog what objects are to relations: the same
 engine under a schema-flexible surface. Where it genuinely exceeds the
 core, it lands on machinery from this course — its overridable
 inheritance needs the well-founded semantics (Lesson 5), and its
