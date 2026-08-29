@@ -186,6 +186,38 @@ puts the two side by side, because the difference is observable: add an
 axiom here and conclusions only grow, while adding a fact to a Datalog
 program can take one away.
 
+## Where this classifier stops
+
+Every other module in this course says where it runs out; here is this
+one's boundary, and it matters because the gap to a *real* medical
+classifier is exactly one letter of the alphabet.
+
+What ships is plain **EL**. Missing: **⊤** (no universal concept), **⊥
+and disjointness** (so this classifier can never tell you a definition
+is unsatisfiable: a significant thing for a knowledge base to be
+unable to say), **role hierarchies** (`subrole(has_part, has_component)`
+is rejected, loudly, rather than silently ignored), **role chains and
+right identities**, nominals, datatypes, and there is no ABox at all:
+this reasons about definitions, never about individuals.
+
+SNOMED CT genuinely needs the role hierarchy and right identities
+(that's how "a fracture of the femur is a fracture of a bone" and
+part-whole propagation work), so it needs **ELH with right identities**
+— which is precisely what ELK and Snorocket implement, and precisely
+what this file does not. What generalises is the *method*: EL++
+reasoners are more completion rules of the same shape, over a richer
+normal form. Adding ⊥ alone is a genuinely tractable exercise; adding
+role chains is a research-grade one.
+
+## Under the hood: a compiler in the other direction
+
+**`subsumption.py` is a compiler in the other direction.** Where
+magic.py rewrites Datalog to Datalog, this one translates a *different
+logic* (EL concept definitions) into Datalog: normalisation mints fresh
+names for nested expressions, and the entire reasoning calculus becomes
+five ordinary rules. When a problem's inference rules are monotone, "compile
+it to Datalog" is a general-purpose trick — worth remembering.
+
 ## The road the rules camp took: F-logic
 
 The description-logic line was not the frame tradition's only heir.
@@ -227,38 +259,6 @@ epilogue has a fine irony: F-logic's *compilation target* — entity,
 attribute, value, membership — is the data model that won everywhere
 (RDF triples, Datomic's datoms, property graphs). The industry
 rejected the logic and adopted the encoding.
-
-## Where this classifier stops
-
-Every other module in this course says where it runs out; here is this
-one's boundary, and it matters because the gap to a *real* medical
-classifier is exactly one letter of the alphabet.
-
-What ships is plain **EL**. Missing: **⊤** (no universal concept), **⊥
-and disjointness** (so this classifier can never tell you a definition
-is unsatisfiable: a significant thing for a knowledge base to be
-unable to say), **role hierarchies** (`subrole(has_part, has_component)`
-is rejected, loudly, rather than silently ignored), **role chains and
-right identities**, nominals, datatypes, and there is no ABox at all:
-this reasons about definitions, never about individuals.
-
-SNOMED CT genuinely needs the role hierarchy and right identities
-(that's how "a fracture of the femur is a fracture of a bone" and
-part-whole propagation work), so it needs **ELH with right identities**
-— which is precisely what ELK and Snorocket implement, and precisely
-what this file does not. What generalises is the *method*: EL++
-reasoners are more completion rules of the same shape, over a richer
-normal form. Adding ⊥ alone is a genuinely tractable exercise; adding
-role chains is a research-grade one.
-
-## Under the hood: a compiler in the other direction
-
-**`subsumption.py` is a compiler in the other direction.** Where
-magic.py rewrites Datalog to Datalog, this one translates a *different
-logic* (EL concept definitions) into Datalog: normalisation mints fresh
-names for nested expressions, and the entire reasoning calculus becomes
-five ordinary rules. When a problem's inference rules are monotone, "compile
-it to Datalog" is a general-purpose trick — worth remembering.
 
 ## Exercises
 
