@@ -212,7 +212,9 @@ technique ships — CodeQL, RDFox, Feldera, SNOMED and the rest —
 [lessons/getting-started.md](lessons/getting-started.md) has the titles
 and the reading order, and
 [lessons/glossary.md](lessons/glossary.md) defines every technical term
-the course uses.
+the course uses, and
+[lessons/references.md](lessons/references.md) collects every work the
+lessons cite.
 
 Three of them teach things that are hard to find taught well anywhere
 else, and they are the reason the course exists rather than just the

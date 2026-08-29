@@ -76,6 +76,8 @@ _, answers = magic_query(parse(open("family.dl").read()), query)
 
 Hit a word you don't know? [glossary.md](glossary.md) defines every
 technical term the course uses, with the lesson that introduces it.
+Chasing a claim to its source? [references.md](references.md) lists
+every work the lessons cite, by lesson.
 
 
 The lessons are numbered in reading order. Lessons 1–5 are the spine
@@ -126,3 +128,5 @@ and 12 builds the reasoner living on the other side of it.
 
 Hit a word you don't know? [glossary.md](glossary.md) defines every
 technical term the course uses, with the lesson that introduces it.
+Chasing a claim to its source? [references.md](references.md) lists
+every work the lessons cite, by lesson.
