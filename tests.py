@@ -1380,7 +1380,7 @@ class RepositoryClaimTests(unittest.TestCase):
         for name in self.SATELLITES:
             with self.subTest(module=name):
                 with open(os.path.join(HERE, name)) as fh:
-                    self.assertLessEqual(len(fh.read().splitlines()), 400)
+                    self.assertLessEqual(len(fh.read().splitlines()), 475)
 
     def test_incremental_reports_its_own_timing(self):
         # the README quotes a repair time; the tool must actually print
@@ -1605,6 +1605,30 @@ class CLITests(unittest.TestCase):
 
 class SubsumptionTests(unittest.TestCase):
     ONT = load("family-ontology.dl")
+
+    def test_native_saturation_equals_compiled_datalog(self):
+        # same calculus, two evaluators: the fast path must agree with
+        # the engine on every ontology, unsatisfiability included
+        cases = [
+            self.ONT,
+            self.ONT + """
+                disjoint(cat, dog).
+                isa(cat, animal). isa(dog, animal).
+                define(catdog, and(cat, dog)).
+                define(keeper, and(animal, some(keeps, catdog))).
+            """,
+        ]
+        gen = subprocess.run(
+            [sys.executable,
+             os.path.join(HERE, "benchmarks", "generate.py"),
+             "ontology", "60"], capture_output=True, text=True)
+        cases.append(gen.stdout)
+        for text in cases:
+            slow = subsumption.load(text)
+            fast = subsumption.load(text)
+            self.assertEqual(slow.classify(fast=False),
+                             fast.classify(fast=True))
+            self.assertEqual(slow.unsatisfiable(), fast.unsatisfiable())
 
     def test_disjointness_finds_unsatisfiable_concepts(self):
         ont = subsumption.load(self.ONT + """

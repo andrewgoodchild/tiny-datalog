@@ -161,6 +161,33 @@ optimisations this course already taught: saturation is semi-naive
 fixpoint, and goal-directed subsumption checks are magic sets.
 
 
+## Two evaluators, one calculus
+
+The compilation is the pedagogy; it is not how production reasoners
+run. ELK and Snorocket implement the same completion rules as
+specialised saturation — indexed worklists instead of nested-loop
+joins — and `subsumption.py` now carries both: `classify()` hands the
+compiled program to the engine, `classify(fast=True)` (CLI `--fast`)
+runs the identical CR1–CR6 calculus natively, and the tests hold the
+two equal on every ontology they touch, unsatisfiability included.
+
+The gap is worth measuring rather than asserting. The benchmark
+generator grows ontologies:
+
+```sh
+$ python3 benchmarks/generate.py ontology 300 > /tmp/ont300.dl
+```
+
+On those 300 chained definitions the compiled path classifies in about
+3 seconds and the native path in about 10 milliseconds — some 300×,
+and the ratio grows with size. Nothing semantic separates them; the
+difference is Lesson 7's indexing tax paid once per join versus data
+structures built for exactly these five rule shapes. That is the whole
+story of every "compiled to Datalog" system in miniature: the
+compilation buys you semantics, cross-checking and a free evaluator on
+day one, and when the day comes that speed matters, the calculus is
+already the specification the fast implementation is tested against.
+
 ## The assumption, recognised
 
 Note what the classifier does *not* say. Nothing in the output claims

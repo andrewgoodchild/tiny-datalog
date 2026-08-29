@@ -60,6 +60,8 @@ from __future__ import annotations
 import argparse
 import sys
 
+from collections import defaultdict
+
 from datalog import (Atom, Const, DatalogError, Engine, Literal, Program,
                      Rule, Struct, Var, parse)
 
@@ -291,8 +293,73 @@ class Ontology:
 
     # -- classification -----------------------------------------------------
 
-    def classify(self):
+    def saturate(self):
+        """CR1-CR6 as an indexed worklist saturation -- the same calculus
+        datalog() compiles, evaluated natively.  Returns {concept: set of
+        subsumers, itself included}; "bot" in S(C) marks C unsatisfiable.
+        classify(fast=True) uses this; the tests hold it equal to the
+        compiled-Datalog path on every ontology they touch."""
+        concepts = set(self.concepts) | ({"bot"} if self.disjoint else set())
+        by_sub = defaultdict(list)
+        for a, b in self.isa1:
+            by_sub[a].append(b)
+        conj = defaultdict(list)
+        for a1, a2, b in (self.isa2
+                          + [(a, b, "bot") for a, b in self.disjoint]):
+            conj[a1].append((a2, b))
+            conj[a2].append((a1, b))
+        exist = defaultdict(list)
+        for a, r, b in self.isa_some:
+            exist[a].append((r, b))
+        some_isa = defaultdict(list)
+        for r, a, b in self.some_isa:
+            some_isa[(r, a)].append(b)
+        S = {c: {c} for c in concepts}
+        links = defaultdict(set)
+        incoming = defaultdict(set)
+        work = [(c, c) for c in concepts]
+
+        def add(c, d):
+            if d not in S[c]:
+                S[c].add(d)
+                work.append((c, d))
+
+        while work:
+            c, d = work.pop()
+            for e in by_sub.get(d, ()):
+                add(c, e)
+            for d2, e in conj.get(d, ()):
+                if d2 in S[c]:
+                    add(c, e)
+            for r, e in exist.get(d, ()):
+                if (r, e) not in links[c]:
+                    links[c].add((r, e))
+                    incoming[e].add((c, r))
+                    for dp in list(S[e]):
+                        for f in some_isa.get((r, dp), ()):
+                            add(c, f)
+                    if "bot" in S[e]:
+                        add(c, "bot")
+            for c2, r in incoming.get(c, ()):
+                for f in some_isa.get((r, d), ()):
+                    add(c2, f)
+                if d == "bot":
+                    add(c2, "bot")
+            if d == "bot":
+                for e in concepts:
+                    add(c, e)
+        return S
+
+    def classify(self, fast=False):
         """{named concept: set of named strict subsumers}."""
+        if self._supers is None and fast:
+            S = self.saturate()
+            self._unsat = {c for c in self.named if "bot" in S.get(c, ())}
+            self._supers = {c: {d for d in S[c]
+                                if d in self.named and d != c}
+                            for c in self.named if c not in self._unsat}
+            for c in self._unsat:
+                self._supers[c] = set()
         if self._supers is None:
             engine = Engine(Program(self.datalog()))
             engine.run()
@@ -347,6 +414,10 @@ def main(argv=None):
                     help="print all subsumers of one concept (repeatable)")
     ap.add_argument("--emit", action="store_true",
                     help="print the compiled Datalog program and exit")
+    ap.add_argument("--fast", action="store_true",
+                    help="classify by native saturation instead of the "
+                         "compiled Datalog program (same result; the "
+                         "tests hold the two equal)")
     args = ap.parse_args(argv)
 
     with open(args.file) as fh:
@@ -356,7 +427,7 @@ def main(argv=None):
         if args.emit:
             sys.stdout.write(ont.emit())
             return 0
-        supers = ont.classify()
+        supers = ont.classify(fast=args.fast)
         direct = ont.direct_subsumers()
     except DatalogError as exc:
         print("error: %s" % exc, file=sys.stderr)

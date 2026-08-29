@@ -300,7 +300,7 @@ command-line interface), the CLI, `--explain` and why-not another 500, and the e
 quarter of it commentary.
 
 "Tiny" is a claim about the evaluator, and about each satellite module
-singly: none of the eight exceeds 400 lines, which a test asserts. It is not a claim about
+singly: none of the eight exceeds 475 lines, which a test asserts. It is not a claim about
 the repository, which is nine modules because it teaches nine things.
 
 There is no dead code to golf away (checked); shrinking further means

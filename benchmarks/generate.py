@@ -46,15 +46,37 @@ def grid(n):
     return edges
 
 
+def ontology(n):
+    """Not edges: an EL ontology of n defined concepts in a chain of
+    nested existentials, for subsumption.py.  Feed it to the classifier
+    both ways and compare (Lesson 12):
+
+        python3 benchmarks/generate.py ontology 300 > ont300.dl
+        python3 subsumption.py ont300.dl            # compiled Datalog
+        python3 subsumption.py --fast ont300.dl     # native saturation
+    """
+    lines = ["isa(b%d, base)." % i for i in range(10)]
+    lines.append("define(c0, and(base, some(r, b0))).")
+    lines += ["define(c%d, and(b%d, some(r, c%d)))." % (i, i % 10, i - 1)
+              for i in range(1, n)]
+    lines.append("role(r).")
+    return lines
+
+
 SHAPES = {"chain": chain, "tree": tree, "clique": clique, "grid": grid}
 
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("shape", choices=sorted(SHAPES))
+    ap.add_argument("shape", choices=sorted(SHAPES) + ["ontology"])
     ap.add_argument("n", type=int, help="size parameter")
     args = ap.parse_args(argv)
 
+    if args.shape == "ontology":
+        print("%% generated: ontology %d" % args.n)
+        for line in ontology(args.n):
+            print(line)
+        return 0
     edges = SHAPES[args.shape](args.n)
     print("%% generated: %s %d  (%d edges)" % (args.shape, args.n, len(edges)))
     for a, b in edges:
