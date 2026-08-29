@@ -38,3 +38,32 @@ same sets as tables: lesson 15's punchline, in ontology form.)
 a child who is a person" — syntactically different from father,
 semantically identical, and the classifier prints `dad ≡ father`.
 Equivalence discovery is just subsumption run both ways.
+
+**5. The café menu as a TBox.**
+
+The translatable part:
+
+```prolog
+isa(dish, item).
+isa(drink, item).
+define(garnished, and(dish, some(topped_with, herb))).
+define(smoothie, and(drink, some(made_from, fruit))).
+define(house_special, and(dish, some(topped_with, and(herb, some(grown_in, garden))))).
+role(topped_with). role(made_from). role(grown_in).
+```
+
+The two clauses that stay behind: *never both* is a disjointness axiom
+(the ⊥ row — one tractable letter beyond this classifier), and *if an
+item lists a wine pairing...* is a value restriction (the ∀ row) —
+and, tellingly, it does no classification work here: nothing in the
+model is defined by its pairing, so dropping it loses nothing, which
+is the question that row tells you to ask.
+
+The starred discovery: **house_special ⊑ garnished**. A dish topped
+with a garden-grown herb is, in particular, a dish topped with a herb
+— the same one-step generalisation inside an existential as
+grandfather ⊑ father. And the first minted name carries the nested
+garnish: `--emit` shows `isa1(gen_3, herb)` among the inclusions —
+the fresh concept for `and(herb, some(grown_in, garden))` placed
+under `herb`, which is exactly the helper kind the field guide says
+to stop writing by hand.

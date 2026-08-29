@@ -143,6 +143,28 @@ deliberately weakened. Function symbols (Lesson 11), negation-in-cycles
 (Lesson 3), aggregation-in-cycles (Lesson 13), and now recursion in
 containment — four different fences, same reason for the fence.
 
+## The nearest answerable query: views
+
+Containment has a second job, and it is the one that made it
+industrial. Suppose you cannot evaluate `q` directly — the base
+relation lives in systems you can only reach through a fixed set of
+**views**, materialised queries someone else chose. You must rewrite
+`q` using only the views, and an *equivalent* rewriting usually does
+not exist. The realistic target is the **maximally contained
+rewriting**: the largest view-only query that is still ⊑ q on every
+database — the nearest query your sources can answer, with soundness
+certified by exactly this lesson's test. (The classical treatment is
+Halevy's *Answering Queries Using Views* survey; the setting is how
+data-integration mediators have worked since the 1990s.)
+
+Three things make the problem interesting, and the exercise below
+walks through all of them: a candidate rewriting is checked by
+*expanding* its view atoms into base atoms and testing containment;
+candidate rewritings can subsume one another (their expansions are
+themselves just conjunctive queries); and maximal is not complete — on
+some databases the views simply never saw the rows your query needs,
+and no rewriting can conjure them back.
+
 ## Exercises
 
 1. Minimise by hand, then check: `q(X) :- e(X, Y), e(Y, Z), e(X, U), e(U, V).`
@@ -161,6 +183,19 @@ containment — four different fences, same reason for the fence.
    where does redundancy actually come from in practice? (Think about
    what happens when a view is inlined into another view, and why
    optimisers minimise *after* rewriting rather than before.)
+
+5. You may query only two views over a private `follows` relation:
+   `v_mut(X, Y) :- follows(X, Y), follows(Y, X).` and
+   `v_fof(X, Z) :- follows(X, Y), follows(Y, Z), follows(Z, W).`
+   The query you want is `q(X, Z) :- follows(X, Y), follows(Y, Z).`
+   (a) Expand the candidate rewritings `r1(X, Z) :- v_mut(X, Y),
+   v_mut(Y, Z).` and `r2(X, Z) :- v_fof(X, Z).` into base atoms and
+   certify each sound with `--contains`. (b) Show, again with
+   `--contains` on the expansions, that r1 is subsumed by r2 — so the
+   maximally contained rewriting collapses to r2 alone. (c) Exhibit a
+   two-fact database where q has an answer that no view-only rewriting
+   can recover, and say in one sentence why "maximal" and "complete"
+   part company.
 
 Next: [writing rules that survive review](17-writing-rules.md) —
 sixteen lessons on how engines evaluate rules, and one on authoring

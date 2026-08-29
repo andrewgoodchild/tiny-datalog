@@ -1368,6 +1368,41 @@ class ExerciseTests(unittest.TestCase):
         with open(os.path.join(HERE, "exercises", name)) as fh:
             return fh.read()
 
+    def test_lesson16_views_rewriting(self):
+        q = "q(X, Z) :- follows(X, Y), follows(Y, Z)."
+        exp_r2 = "q(X, Z) :- follows(X, Y), follows(Y, Z), follows(Z, W)."
+        exp_r1 = ("q(X, Z) :- follows(X, Y), follows(Y, X), "
+                  "follows(Y, Z), follows(Z, Y).")
+        rule = lambda s: parse(s)[0]
+        self.assertTrue(containment.contains(rule(q), rule(exp_r2)))
+        self.assertTrue(containment.contains(rule(q), rule(exp_r1)))
+        self.assertTrue(containment.contains(rule(exp_r2), rule(exp_r1)))
+        # maximal is not complete: q answers, the views see nothing
+        e = run_program("""
+            follows(a, b). follows(b, c).
+            v_fof(X, Z) :- follows(X, Y), follows(Y, Z), follows(Z, W).
+            v_mut(X, Y) :- follows(X, Y), follows(Y, X).
+            q(X, Z) :- follows(X, Y), follows(Y, Z).
+        """)
+        self.assertEqual(e.rels["q"], {("a", "c")})
+        self.assertNotIn("v_fof", e.rels)
+        self.assertNotIn("v_mut", e.rels)
+
+    def test_lesson12_menu_field_guide(self):
+        menu = """
+            isa(dish, item). isa(drink, item).
+            define(garnished, and(dish, some(topped_with, herb))).
+            define(smoothie, and(drink, some(made_from, fruit))).
+            define(house_special,
+                   and(dish, some(topped_with,
+                                  and(herb, some(grown_in, garden))))).
+            role(topped_with). role(made_from). role(grown_in).
+        """
+        supers = subsumption.load(menu).classify()
+        self.assertIn("garnished", supers["house_special"])
+        self.assertNotIn("smoothie", supers["house_special"])
+        self.assertIn("dish", supers["garnished"])
+
     def test_lesson13_bounded_arithmetic_answers(self):
         engine = run_program(self.ex("14-answers.dl"))
         self.assertIn(("n2", "n3", "n6"), engine.rels["times"])

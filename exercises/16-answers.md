@@ -55,3 +55,32 @@ Which is why an optimiser minimises **after** rewriting, not before:
 the rewriting is what creates the work minimisation removes. Same
 reason compilers run simplification passes after inlining rather than
 in the source.
+
+**5. Answering queries using views.**
+
+(a) Both candidates are sound. Expanding r2 gives
+`follows(X, Y), follows(Y, Z), follows(Z, W)` and
+
+```
+$ python3 containment.py --contains 'q(X, Z) :- follows(X, Y), follows(Y, Z).' 'q(X, Z) :- follows(X, Y), follows(Y, Z), follows(Z, W).'
+=> outer contains inner, on every database
+```
+
+— the homomorphism maps q's two atoms onto the expansion's first two.
+r1's expansion `follows(X, Y), follows(Y, X), follows(Y, Z),
+follows(Z, Y)` certifies the same way.
+
+(b) Run `--contains` with r2's expansion as outer and r1's as inner:
+outer contains inner. The reason is visible in the atoms — r1's
+expansion contains `follows(Z, Y)`, so Z follows someone, which is all
+r2's trailing `follows(Z, W)` asks (send W to Y). Every answer r1 can
+produce, r2 already produces; the union of candidates collapses to r2.
+
+(c) `follows(a, b). follows(b, c).` — q answers (a, c), but c follows
+nobody and nothing is mutual, so both views are empty and the
+rewriting returns nothing. Maximal means *no sound view-only query
+does better*, not *as good as having the data*: the views never
+recorded the rows q needs, and no rewriting can conjure information
+its sources never saw. That gap is the daily reality of data
+integration, and the reason the field settled for maximally contained
+rather than equivalent.

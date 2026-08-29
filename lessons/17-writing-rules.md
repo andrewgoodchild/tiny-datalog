@@ -166,6 +166,42 @@ The fourth is the one people skip. A redundant rule is rarely harmless:
 it usually means you wrote the same condition twice in different words,
 and only one of them will get updated when the policy changes.
 
+## A performance habit: the guard, and where to put it
+
+One habit is about speed rather than correctness, nobody teaches it,
+and it is worth more than an index. Suppose you want pairs of deployed
+services sharing a dependency, over Lesson 2's supply chain (160
+packages, 8,457 `uses` facts, 12 services). Four ways to write one
+rule, measured on this engine:
+
+| Body | Time | Answers |
+|---|---|---|
+| `uses(X, L), uses(Y, L)` | 38.4s | 25,281 |
+| `service(X), service(Y), uses(X, L), uses(Y, L)` | 55.2s | 144 |
+| `service(X), uses(X, L), uses(Y, L), service(Y)` | **8.3s** | 144 |
+| `uses(X, L), uses(Y, L), service(X), service(Y)` | 43.8s | 144 |
+
+Row one is the unguarded rule: it asks about *all* packages when you
+wanted services, and pays for 25,281 answers you will throw away. But
+look at row two before reaching for guards as a slogan: both guards up
+front is *slower than no guard at all*, because with X and Y fixed the
+engine re-scans the whole `uses` relation for every one of the 144
+pairs. Row three is the craft: **each variable is restricted just
+before it multiplies** — X pinned to a service, X's dependencies
+enumerated once, Y found *through* the shared dependency, then
+checked. Same answers, four and a half times faster than no guard,
+nearly seven times faster than the clumsy guard.
+
+Two honest notes. This engine joins strictly left to right (Lesson 2's
+*Under the hood*), so literal order is entirely yours; engines with
+optimisers reorder bodies for you, and there the guard's *presence*
+matters more than its position — but the domain restriction itself is
+a modelling fact no optimiser can invent. And guards are the manual
+half of a story whose automatic half you have met: magic sets
+(Lesson 7) restricts computation to what a *query* demands; a guard
+restricts it to what the *rule* means. Write the guard first, and let
+the rewriting multiply it.
+
 ## Two failure modes the checklist will not catch
 
 **Absence you did not model.** `not suspended(P)` means the suspension

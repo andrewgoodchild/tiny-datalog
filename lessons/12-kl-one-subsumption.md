@@ -228,6 +228,26 @@ and essentially never universal: no definition needs "all findings" of
 anything. A terminology that speaks only in "some" lands, by luck of
 its subject matter, in exactly the tractable fragment.
 
+## Recognising the fragment in the wild
+
+Nobody hands you an ontology labelled "EL". What you get is a domain
+model — an entity–relationship diagram, a class hierarchy, a schema
+with subtypes — and the skill this lesson is really for is recognising
+that you are looking at a TBox, and *which* TBox. A field guide:
+
+| If your model has... | You are writing... |
+|---|---|
+| a mandatory link with a fixed target kind | ∃r.C — EL, this lesson's fragment, tractable |
+| an optional link ("*if* present, must be...") | ∀r.C — not EL; ask first whether it does any work |
+| "defined" kinds vs merely-labelled kinds | ≡ vs ⊑ — and only the defined ones can be *discovered* |
+| kinds that must never overlap | disjointness axioms — EL⊥, one tractable letter beyond what ships here |
+| helper kinds invented to carry a definition | nested existentials — stop inventing them, the classifier mints its own `gen_N` |
+| a ban on cycles so your checker terminates | a symptom: you are doing top-down structural subsumption — bottom-up completion needs no ban (Lesson 6 is the same discovery from the Datalog side) |
+
+The last row deserves its sentence: cyclic definitions are not a
+modelling error, they are a *checker* limitation, and the fix is to
+change the checker, not the model.
+
 ## The road the rules camp took: F-logic
 
 The description-logic line was not the frame tradition's only heir.
@@ -276,6 +296,17 @@ rejected the logic and adopted the encoding.
 4. Write an ontology where a concept is discovered *equivalent* to
    another (hint: two syntactically different definitions of the same
    thing: the classifier reports `≡`).
+
+5. A café's menu model, in prose: *an item is a dish or a drink,
+   never both; a garnished item is defined as a dish topped with some
+   herb; a smoothie is defined as a drink made from some fruit; the
+   house special is defined as a dish topped with a garden-grown herb;
+   and if an item lists a wine pairing, the pairing must be a wine.*
+   Translate what the field guide says is translatable into
+   `isa`/`define` statements, name the two clauses that do not make it
+   into EL (and which table rows they are), predict the one starred
+   discovery before running the classifier, and say which inclusion
+   the first `gen_N` name ends up carrying.
 
 Next: [aggregation](13-aggregation.md) — counting without
 contradiction.
