@@ -74,11 +74,49 @@ _, answers = magic_query(parse(open("family.dl").read()), query)
 
 ## Where to go next
 
-Hit a word you don't know? [glossary.md](glossary.md) defines every
-technical term the course uses, with the lesson that introduces it.
-Chasing a claim to its source? [references.md](references.md) lists
-every work the lessons cite, by lesson.
+## What it can answer
 
+Every row runs against the shipped programs — no dependencies, no
+install step, Python 3.9+. A question, the command that answers it,
+and the lesson that builds the machinery:
+
+| Question | Command | Lesson |
+|---|---|---|
+| What follows from these facts and rules? | `python3 datalog.py programs/family.dl` | [1](01-first-steps.md) |
+| What's reachable, at any depth? | `python3 datalog.py --trace programs/reachability.dl` | [2](02-recursion.md) |
+| What holds *unless* something else does? | `python3 datalog.py programs/tweety.dl` | [3](03-negation.md) |
+| Answer just this query — don't compute everything | `python3 datalog.py --magic -q 'path(n5, X)' programs/reachability.dl` | [7](07-magic-sets.md) |
+| Is this rule set self-contradictory? | `python3 datalog.py --models programs/eligibility-paradox.dl` | [5](05-beyond-stratification.md) |
+| Why did you conclude that? | `python3 datalog.py --explain 'eligible(bob)' programs/eligibility.dl` | [1](01-first-steps.md), [2](02-recursion.md) |
+| Which facts does the conclusion rest on? | `python3 semiring.py -s why programs/routes.dl` | [8](08-semirings.md) |
+| What's the cheapest route? How many ways? | `python3 semiring.py -s minplus programs/routes.dl` | [8](08-semirings.md) |
+| How likely is it? | `python3 semiring.py -s viterbi programs/prob-reach.dl` | [9](09-probabilistic.md) |
+| The data changed — what changed in the answers? | `python3 incremental.py programs/dred-graph.dl -u 'edge(n3, n4)~.'` | [10](10-incremental.md) |
+| How many, how much, largest? | `python3 datalog.py programs/spending.dl` | [13](13-aggregation.md) |
+| Answer a goal top-down, even left-recursive | `python3 tabling.py programs/left-recursive.dl -q 'ancestor(abe, X)'` | [15](15-tabling.md) |
+| What if I allow function symbols, and lose termination? | `python3 prolog.py programs/peano.pl -q 'add(X, Y, s(s(zero)))'` | [11](11-horn-clauses.md) |
+| What do these definitions entail about each other? | `python3 subsumption.py programs/family-ontology.dl` | [12](12-kl-one-subsumption.md) |
+| Are these two queries the same query? | `python3 containment.py programs/minimise.dl` | [16](16-containment.md) |
+| Does absence mean false, or just unrecorded? | `python3 datalog.py programs/missing-data.dl` | [4](04-closed-and-open-worlds.md) |
+| Can it do arithmetic? | `python3 datalog.py -q 'plus(X, Y, n4)' programs/bounded-arithmetic.dl` | [14](14-arithmetic.md) |
+| Can it say "for all"? | `python3 datalog.py -q 'sub(rich, stream)' programs/record-subtyping.dl` | [6](06-for-all.md) |
+| Why did you *not* conclude that? | `python3 datalog.py --explain 'may_borrow(kim)' programs/lending.dl` | [17](17-writing-rules.md) |
+| How do I write rules someone else can sign off? | `python3 datalog.py --explain 'may_borrow(iris)' programs/lending.dl` | [17](17-writing-rules.md) |
+
+Provenance, in full:
+
+```
+$ python3 semiring.py -s why -q 'path(a, d)' programs/routes.dl
+Semiring: why   (fixpoint after 5 rounds)
+?- path(a, d)
+   path(a, d) = {edge(a, b), edge(b, c), edge(c, d)} | {edge(a, b), edge(b, d)} | {edge(a, c), edge(c, d)}
+   (1 answer)
+```
+
+Three independent derivations, each a minimal set of base facts. Remove
+one fact from a witness and that witness fails; remove all three and the
+conclusion goes away. That is an audit trail computed rather than
+narrated.
 
 The lessons are numbered in reading order. Lessons 1–5 are the spine
 and everything after assumes them: facts and rules, recursion,
@@ -103,7 +141,7 @@ a given purpose.
 1. [Facts, rules, and queries](01-first-steps.md)
 2. [Recursion and semi-naive evaluation](02-recursion.md)
 3. [Negation and stratification](03-negation.md)
-4. [Closed and open worlds](04-closed-and-open-worlds.md)
+4. [Closed and open worlds, and what null means](04-closed-and-open-worlds.md)
 5. [Beyond stratification: stable models](05-beyond-stratification.md)
 6. [For all, in a language that only has there-exists](06-for-all.md)
 7. [Magic sets: asking questions efficiently](07-magic-sets.md)

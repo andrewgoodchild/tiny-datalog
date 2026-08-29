@@ -1,4 +1,4 @@
-# Lesson 4 — Closed and open worlds
+# Lesson 4 — Closed and open worlds, and what null means
 
 This repository contains two reasoners, and they disagree about the
 most basic question a knowledge system faces: **what does it mean that
@@ -81,6 +81,8 @@ the result.** Any time you write `not p(X)` against data that might
 merely be missing, you want a companion predicate asserting that the
 question was actually asked.
 
+## The registry trap
+
 The same trap has an institutional shape worth naming: the
 **registry**. Every organisation keeps catalogues of things — an API
 registry, an asset inventory, a list of deployed services — and every
@@ -140,29 +142,6 @@ Under the closed-world assumption (CWA), new facts can shrink what
 "absent" covers, so conclusions can be withdrawn. Under the open-world
 assumption (OWA), nothing was ever concluded from absence,
 so nothing has to be taken back.
-
-## The trade, stated plainly
-
-| | closed world (Datalog) | open world (description logics) |
-|---|---|---|
-| absence means | false | unknown |
-| adding information | can retract conclusions | only adds conclusions |
-| defaults ("unless...") | natural — Lesson 3's Tweety | inexpressible |
-| safe when | your data is the authority | you are describing a world you don't contain |
-| the failure mode | confident answers from missing data | can't say "normally" about anything |
-
-Each buys exactly what the other cannot afford. **CWA buys you defaults
-at the cost of monotonicity; OWA buys you monotonicity at the cost of
-defaults.** You cannot have both, and a system that pretends otherwise
-is hiding which one it chose.
-
-This explains a fact about medical terminology that looks strange from
-the outside: SNOMED CT cannot say "birds normally fly" or "this
-treatment is usually indicated". Not because nobody wanted it, but
-because the open-world monotone setting that makes a 350,000-concept
-classification tractable and stable is the same setting in which
-"normally" has no meaning. The defaults live in the rule layer on top,
-which is a different logic with different guarantees.
 
 ## Interlude: the many meanings of null
 
@@ -233,6 +212,35 @@ mixing the two assumptions in a single relation. The labelled null is
 open-world absence done honestly, with identity instead of a shrug.
 When a schema forces you to pick what each nullable column *means*,
 you are doing this lesson's work in disguise.
+
+## The trade, stated plainly
+
+| | closed world (Datalog) | open world (description logics) |
+|---|---|---|
+| absence means | false | unknown |
+| adding information | can retract conclusions | only adds conclusions |
+| defaults ("unless...") | natural — Lesson 3's Tweety | inexpressible |
+| safe when | your data is the authority | you are describing a world you don't contain |
+| the failure mode | confident answers from missing data | can't say "normally" about anything |
+
+Each buys exactly what the other cannot afford. **CWA buys you defaults
+at the cost of monotonicity; OWA buys you monotonicity at the cost of
+defaults.** You cannot have both, and a system that pretends otherwise
+is hiding which one it chose.
+
+This explains a fact about medical terminology that looks strange from
+the outside: SNOMED CT cannot say "birds normally fly" or "this
+treatment is usually indicated". Not because nobody wanted it, but
+because the open-world monotone setting that makes a 350,000-concept
+classification tractable and stable is the same setting in which
+"normally" has no meaning. The defaults live in the rule layer on top,
+which is a different logic with different guarantees. That layering
+has a name — the **ontology-plus-rules hybrid** — and this repository
+is one: closed-world rules (this engine) over an open-world
+terminology (Lesson 12's classifier), each doing the job the other
+cannot. When you need both, you run both, and you keep the boundary
+explicit — which is precisely what the porting trap below is about
+failing to do.
 
 ## The porting trap
 

@@ -197,8 +197,9 @@ rule, one body atom at a time:
   11-atom body (12 variables) ->  31.34s
 ```
 
-Eight times the data cost 150×. Four more atoms in one rule cost 800×,
-on data that never changed.
+Eight times the data cost 150×; eight more atoms in one rule cost
+nearly 800× — and even the four-atom step from seven to eleven costs
+108× — on data that never changed.
 
 That is the shape of the two standard measures:
 
@@ -327,55 +328,6 @@ delta-x-delta derivations are covered too (the non-linear `path` rule in
 the tests exists precisely to catch engines that get this wrong).
 Duplicates cost nothing: sets absorb them.
 
-**Semi-naive is about twenty lines** (`Engine._eval_stratum`). Here it
-is, so you do not have to open another window:
-
-```python
-    # Round 1: evaluate every rule of the stratum against the full db.
-    delta = defaultdict(set)
-    for rule in rules:
-        for tup in self._produce(rule):
-            if tup not in self.rels[rule.head.pred]:
-                delta[rule.head.pred].add(tup)
-    self._absorb(delta, stat)
-
-    # Recursive rules: a positive body literal names a stratum predicate.
-    recursive = []
-    for rule in rules:
-        occs = [i for i, lit in enumerate(rule.body)
-                if not lit.negated and lit.atom.pred in preds]
-        if occs:
-            recursive.append((rule, occs))
-
-    # Semi-naive rounds: substitute the previous round's delta into each
-    # recursive position in turn; every other literal reads the full
-    # (already-updated) relations, so no new derivation is missed and
-    # nothing is recomputed from only-old facts.
-    while delta:
-        new_delta = defaultdict(set)
-        for rule, occs in recursive:
-            head = rule.head.pred
-            for i in occs:
-                if not delta.get(rule.body[i].atom.pred):
-                    continue
-                for tup in self._eval_rule(rule, delta_occ=i, delta=delta):
-                    if tup not in self.rels[head]:
-                        new_delta[head].add(tup)
-        delta = new_delta
-        self._absorb(delta, stat)
-```
-
-Round one
-evaluates every rule against the full database. After that, each
-recursive rule is re-evaluated once per recursive body position, with
-that position restricted to the previous round's *delta* and every other
-position reading the full (already-updated) relations. Why is that
-complete? Any new derivation must use at least one new fact — put the
-delta there; and because "full" already contains the delta,
-delta-x-delta derivations are covered too (the non-linear `path` rule in
-the tests exists precisely to catch engines that get this wrong).
-Duplicates cost nothing: sets absorb them.
-
 One more mechanism lives in this loop. As `_absorb` files each new
 fact it records a `first_seen` stamp — the round-ordinal of its
 arrival. `--explain` (Lesson 1) is built on nothing else: to justify a
@@ -404,9 +356,11 @@ which is usually all the profiling a slow program needs.
    for its lack of a delta).
 
 4. Run `--naive --trace` beside the default on
-   `programs/reachability.dl` and explain both number columns. Then
-   read `_eval_stratum_naive` and name precisely what the semi-naive
-   loop has that it lacks.
+   `programs/reachability.dl` and explain both number columns. The
+   semi-naive loop is printed above; its naive twin,
+   `_eval_stratum_naive`, is twelve lines of `datalog.py` — read it
+   beside the printed one and name precisely the argument-pair the
+   naive version never passes.
 5. Add `max_rounds` protection to `Engine` and construct a program that
    would need it if function symbols were allowed. What stops you?
    (That is the point.)

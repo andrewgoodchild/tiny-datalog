@@ -144,4 +144,4 @@ be defended.
 
 - W. Merrill and A. Sabharwal, *The Expressive Power of Transformers
   with Chain of Thought*, ICLR 2024 (arXiv 2310.07923) — cited in
-  Lesson 0's discussion of what reasoning in tokens cannot do.
+  Lesson 0's discussion of what reasoning in tokens costs.

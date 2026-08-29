@@ -159,10 +159,11 @@ the better tool, and that covers most problems.
 
 ## What else you can ask it
 
-The worked example above is one row of a table. Lesson 0 ends with the
-full version — 20 questions, each with the command that answers it and
-the lesson that builds the machinery:
-[lesson 0](lessons/00-what-is-datalog.md).
+The worked example above is one row of a table. The full version — 20
+questions, each with the command that answers it and the lesson that
+builds the machinery — is in
+[getting started](lessons/getting-started.md), beside the reading
+paths.
 
 ## Claims you can check
 

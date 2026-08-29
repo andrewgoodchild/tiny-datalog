@@ -1369,6 +1369,20 @@ class WhyNotTests(unittest.TestCase):
 
 
 class RepositoryClaimTests(unittest.TestCase):
+
+    def test_no_lesson_paragraph_is_duplicated(self):
+        # a bad merge once pasted fifty lines twice; prose structure is
+        # outside the transcript checker's reach, so guard it here
+        import glob as _glob
+        from collections import Counter
+        for f in sorted(_glob.glob(os.path.join(HERE, "lessons", "*.md"))):
+            with open(f) as fh:
+                paras = [p.strip() for p in fh.read().split("\n\n")]
+            dups = [p[:60] for p, n in Counter(
+                p for p in paras if len(p) > 200).items() if n > 1]
+            self.assertEqual(dups, [], "duplicated paragraph(s) in %s"
+                             % os.path.basename(f))
+
     """Claims the README makes about the repository itself, so they
     cannot rot silently."""
 

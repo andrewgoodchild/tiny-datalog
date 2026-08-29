@@ -146,18 +146,19 @@ exists*, that is a property of your rules, true of rules nobody has
 ever written; when a model reports it, you cannot tell from one test
 whether you got reasoning or recall.
 
-There is also a complexity result worth carrying, because it says where
-the limit is rather than guessing at it. Directed graph reachability is
-NL-complete (as hard as any problem a nondeterministic machine solves
-in logarithmic space) and Horn-clause satisfiability, which is what
-evaluating
-Datalog rules *is* — is P-complete. Merrill and Sabharwal (ICLR 2024)
-prove that transformers with a linear number of chain-of-thought steps
-can decide neither, naming both explicitly. Doing this kind of
-reasoning *in tokens* is not a training gap that will close; it is
-outside the shape of the computation. Which is why models sensibly
-write code instead, and why the README's argument is about what that
-code should be rather than about whether models can reason.
+There is also a complexity result worth carrying, because it says
+where the limit is rather than guessing at it. Merrill and Sabharwal
+(ICLR 2024) prove that a transformer with *no* intermediate steps
+cannot decide whether two nodes in a graph are connected — the very
+shape of Datalog evaluation — and that chain of thought buys the power
+back at a price that scales: with a *polynomial* number of generated
+tokens, transformers recognise exactly the polynomial-time problems,
+Horn-clause satisfiability included. So reasoning this out in tokens
+is not impossible; it is *serial*, priced per token, and the price
+grows with the input. That is why a model facing a real dependency
+graph sensibly writes a program instead — the engine pays no such
+price — and why the README's argument is about what that code should
+be rather than about whether models can reason.
 
 All of which inverts where the danger lies. Logic puzzles are the *safest*
 place to probe a model, because they are exactly where cheap
@@ -169,19 +170,19 @@ much larger territory than the one science fiction warned us about.
 
 | Era | Idea | Where here |
 |---|---|---|
-| 1977–1985 | facts, rules, joins, recursion, semi-naive | Lessons 1–2 · `datalog.py` |
-| 1986 | magic sets | Lesson 7 · `magic.py` |
-| 1988–1991 | stratification; stable models; well-founded | Lessons 3 & 5 · `semantics.py` |
-| 2007– | provenance semirings, recursive aggregation | Lesson 8 · `semiring.py` |
-| 2020s | probabilistic / neurosymbolic | Lesson 9 |
-| 1993 → 2023 | DRed → differential dataflow → DBSP | Lesson 10 · `incremental.py` |
 | 1965–1972 | Horn clauses, resolution, Prolog | Lesson 11 · `prolog.py` |
 | 1977 | conjunctive-query containment (Chandra–Merlin) | Lesson 16 · `containment.py` |
+| 1977–1985 | facts, rules, joins, recursion, semi-naive | Lessons 1–2 · `datalog.py` |
 | 1978 → today | KL-ONE → description logics → OWL / SNOMED CT | Lesson 12 · `subsumption.py` |
+| 1986 | magic sets | Lesson 7 · `magic.py` |
+| 1988–1991 | stratification; stable models; well-founded | Lessons 3 & 5 · `semantics.py` |
+| 1990s → today | recursive aggregation; SLG tabling, the resolution strategy XSB implements | Lessons 13 & 15 · `tabling.py` |
+| 1993 → 2023 | DRed → differential dataflow → DBSP | Lesson 10 · `incremental.py` |
+| 2007– | provenance semirings, recursive aggregation | Lesson 8 · `semiring.py` |
+| 2020s | probabilistic / neurosymbolic | Lesson 9 |
 | throughout | closed vs open worlds — what absence means | Lesson 4 |
 | the practice | authoring rules others must review | Lesson 17 |
 | the mathematics | what the course is made of, and the road not taken | Lesson 18 |
-| 1990s → today | recursive aggregation; SLG tabling, the resolution strategy XSB implements | Lessons 13 & 15 · `tabling.py` |
 
 The repository is small on purpose, every algorithm named above is
 implemented in readable standard-library Python, and every example in
@@ -219,18 +220,6 @@ that teaches its core idea.
    plus arithmetic — solved by engines like Z3's Spacer, with an annual
    solver competition (CHC-COMP) to keep everyone honest.
 
-And a second index, for the reader arriving stuck rather than curious
-— the symptom, and the lesson that is about it:
-
-| If you find yourself... | Read |
-|---|---|
-| banning cycles so your checker terminates | [6](06-for-all.md) |
-| inventing extra entities to carry a definition | [12](12-kl-one-subsumption.md) |
-| returning a disjunction and calling the reasoning NP-hard | [5](05-beyond-stratification.md) |
-| precomputing derived facts by hand and asserting them | [10](10-incremental.md) |
-| brute-force searching a whole database per query | [7](07-magic-sets.md) |
-| unable to ask why a fact is *missing* | [17](17-writing-rules.md) |
-
 One more fact belongs beside those five, because it answers the
 objection a sensible reader is already forming: *if this were any
 good, I'd have met it.* Datalog scans code on GitHub and classifies
@@ -247,54 +236,23 @@ The pattern across all five: small rule sets, large or changing data,
 and answers someone must be able to trust or audit — exactly the
 territory the README stakes out.
 
+And a second index, for the reader arriving stuck rather than curious
+— the symptom, and the lesson that is about it:
+
+| If you find yourself... | Read |
+|---|---|
+| banning cycles so your checker terminates | [6](06-for-all.md) |
+| inventing extra entities to carry a definition | [12](12-kl-one-subsumption.md) |
+| returning a disjunction and calling the reasoning NP-hard | [5](05-beyond-stratification.md) |
+| precomputing derived facts by hand and asserting them | [10](10-incremental.md) |
+| brute-force searching a whole database per query | [7](07-magic-sets.md) |
+| unable to ask why a fact is *missing* | [17](17-writing-rules.md) |
+| treating a catalogue as if it were an authority | [4](04-closed-and-open-worlds.md) |
+
 For everything else, there is [the glossary](glossary.md), and for the
 mathematically curious there is [Lesson 18](18-category-theory.md) —
 what the course's mathematics actually is, and why the categorical
 recasting of it was a road deliberately not taken.
-
-## What this repository can answer
-
-Every row runs against the shipped programs — no dependencies, no
-install step, Python 3.9+. A question, the command that answers it,
-and the lesson that builds the machinery:
-
-| Question | Command | Lesson |
-|---|---|---|
-| What follows from these facts and rules? | `python3 datalog.py programs/family.dl` | [1](01-first-steps.md) |
-| What's reachable, at any depth? | `python3 datalog.py --trace programs/reachability.dl` | [2](02-recursion.md) |
-| What holds *unless* something else does? | `python3 datalog.py programs/tweety.dl` | [3](03-negation.md) |
-| Answer just this query — don't compute everything | `python3 datalog.py --magic -q 'path(n5, X)' programs/reachability.dl` | [7](07-magic-sets.md) |
-| Is this rule set self-contradictory? | `python3 datalog.py --models programs/eligibility-paradox.dl` | [5](05-beyond-stratification.md) |
-| Why did you conclude that? | `python3 datalog.py --explain 'eligible(bob)' programs/eligibility.dl` | [1](01-first-steps.md), [2](02-recursion.md) |
-| Which facts does the conclusion rest on? | `python3 semiring.py -s why programs/routes.dl` | [8](08-semirings.md) |
-| What's the cheapest route? How many ways? | `python3 semiring.py -s minplus programs/routes.dl` | [8](08-semirings.md) |
-| How likely is it? | `python3 semiring.py -s viterbi programs/prob-reach.dl` | [9](09-probabilistic.md) |
-| The data changed — what changed in the answers? | `python3 incremental.py programs/dred-graph.dl -u 'edge(n3, n4)~.'` | [10](10-incremental.md) |
-| How many, how much, largest? | `python3 datalog.py programs/spending.dl` | [13](13-aggregation.md) |
-| Answer a goal top-down, even left-recursive | `python3 tabling.py programs/left-recursive.dl -q 'ancestor(abe, X)'` | [15](15-tabling.md) |
-| What if I allow function symbols, and lose termination? | `python3 prolog.py programs/peano.pl -q 'add(X, Y, s(s(zero)))'` | [11](11-horn-clauses.md) |
-| What do these definitions entail about each other? | `python3 subsumption.py programs/family-ontology.dl` | [12](12-kl-one-subsumption.md) |
-| Are these two queries the same query? | `python3 containment.py programs/minimise.dl` | [16](16-containment.md) |
-| Does absence mean false, or just unrecorded? | `python3 datalog.py programs/missing-data.dl` | [4](04-closed-and-open-worlds.md) |
-| Can it do arithmetic? | `python3 datalog.py -q 'plus(X, Y, n4)' programs/bounded-arithmetic.dl` | [14](14-arithmetic.md) |
-| Can it say "for all"? | `python3 datalog.py -q 'sub(rich, stream)' programs/record-subtyping.dl` | [6](06-for-all.md) |
-| Why did you *not* conclude that? | `python3 datalog.py --explain 'may_borrow(kim)' programs/lending.dl` | [17](17-writing-rules.md) |
-| How do I write rules someone else can sign off? | `python3 datalog.py --explain 'may_borrow(iris)' programs/lending.dl` | [17](17-writing-rules.md) |
-
-Provenance, in full:
-
-```
-$ python3 semiring.py -s why -q 'path(a, d)' programs/routes.dl
-Semiring: why   (fixpoint after 5 rounds)
-?- path(a, d)
-   path(a, d) = {edge(a, b), edge(b, c), edge(c, d)} | {edge(a, b), edge(b, d)} | {edge(a, c), edge(c, d)}
-   (1 answer)
-```
-
-Three independent derivations, each a minimal set of base facts. Remove
-one fact from a witness and that witness fails; remove all three and the
-conclusion goes away. That is an audit trail computed rather than
-narrated.
 
 Start here: [getting started](getting-started.md), then
 [Lesson 1](01-first-steps.md).
