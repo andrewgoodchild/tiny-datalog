@@ -9,8 +9,15 @@ that made it famous is KL-ONE.
 
 ## KL-ONE and the classifier
 
-KL-ONE (Ron Brachman, late 1970s) reorganised the era's loose "semantic
-networks" and frames into something with actual semantics: **concepts**
+KL-ONE grew out of Ron Brachman's 1977 Harvard thesis, which took the
+era's "semantic networks" apart — diagrams of nodes and arrows whose
+meaning lived mostly in the reader — and asked what the arrows
+actually *meant*. The system he then built at BBN (the usual gloss of
+the name is "Knowledge Language One", and the ONE was earnest: the
+successors were literally numbered and initialled — NIKL, the "New
+Implementation of KL-ONE", then KL-TWO, KRYPTON, LOOM, and CLASSIC at
+AT&T) reorganised networks and frames into something with actual
+semantics: **concepts**
 with structured definitions built from other concepts and **roles**
 (relations). Its celebrated feature was the *classifier* — assert a new
 concept's definition and the system computes, automatically, where it
@@ -24,6 +31,48 @@ Note what changed from the last nine lessons: this is *terminological*
 reasoning (a "TBox," about concepts), not *assertional* reasoning (an
 "ABox," about individuals). Datalog answers "which tuples?"; subsumption
 answers "which definitions entail which?"
+
+## Ontologies, and why anyone pays for one
+
+KL-ONE's descendants converged on a word borrowed from philosophy:
+**ontology** — from the Greek for the study of *what exists*. In
+knowledge engineering it means something narrower and more useful: a
+formal, shared specification of a domain's concepts and how they
+relate, precise enough for a machine to check. Tom Gruber's 1993
+definition is the one everybody quotes: *an explicit specification of
+a conceptualization*.
+
+The unglamorous reason ontologies matter is **agreement**. Two systems
+can exchange data only if they mean the same thing by the same terms,
+and an ontology is that agreement written down, machine-checkable, and
+maintained in one place instead of re-negotiated in every interface.
+The evidence is the deployments:
+
+- **SNOMED CT** (this lesson's destination): ~350,000 clinical
+  concepts behind electronic health records, so that "myocardial
+  infarction" recorded in one hospital is the same concept queried in
+  another — and classified by exactly the saturation calculus this
+  lesson compiles to Datalog.
+- **The Gene Ontology**: molecular biology's shared vocabulary for
+  gene function, used to annotate genomes across species — the reason
+  a yeast result and a human result can be compared at all.
+- **schema.org**: the search engines' joint vocabulary for marking up
+  web pages, probably the widest-deployed ontology in existence, if
+  also the shallowest.
+
+The classifier is what makes ontologies at this scale *maintainable*.
+Nobody hand-curates 350,000 concepts into a correct hierarchy; you
+write definitions and let subsumption compute where each belongs, and
+recompute after every edit. That is also the cautionary tale's moral:
+the grand projects that tried to encode everything by hand — Cyc,
+running since 1984, is the famous one — found that the encoding, not
+the reasoning, is the expensive part.
+
+Which is why the idea is current again. The division of labour this
+repository's README argues for — let a language model draft, let an
+engine check — is exactly the shape of modern ontology work: extraction
+is cheap now, and the classifier is the verifier that keeps the
+extracted terminology coherent.
 
 ## The tradeoff saga: the same lesson as Lesson 10, rediscovered
 
