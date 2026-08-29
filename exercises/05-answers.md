@@ -40,3 +40,24 @@ define the fixed point, assert it. (Compare: the constraint reading
 `programs/cafe-constraint.dl` derives it from who cooks; the
 paradox reading lets it depend on who eats. Modelling choices, three
 of them, three different formal fates.)
+
+**4. Disjunction is an answer, not a fact to reason over.**
+
+From the two models — {bob, edith} eligible in one, {cyril, edith} in
+the other:
+
+- holds in **every** model (the *cautious* answers): `eligible(edith)`
+  only. This is what you can act on unconditionally.
+- holds in **some** model (the *brave* answers): bob, cyril, edith.
+  This is the space the tie-break rule will choose from.
+
+Both are computed by enumerating models and taking an intersection or
+a union — each model individually is an ordinary polynomial-time
+least-model computation, and the aggregation over them is trivial. The
+colleague's route makes the disjunction a *first-class formula inside
+the language* (disjunctive Datalog), and evaluation must then case-split
+during derivation rather than after it — the complexity of the
+reasoning itself jumps a class. Same information, two homes: as an
+answer-set it is cheap and honest; as a stored fact it makes every
+downstream inference pay for the ambiguity. ASP systems ship the first
+design, and this exercise is why.

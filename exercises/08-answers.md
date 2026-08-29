@@ -67,3 +67,27 @@ simply true. Sending every non-empty witness collection to `true` and
 the empty one to `false` respects both operations. The general rule is
 that you can always specialise *down* a chain of quotients — polynomial
 → why → bool, and never back up it.
+
+**6. Which metrics are semiring evaluations?**
+
+(a) and (b) are — minplus and viterbi respectively, one semiring each
+doing both jobs: ⊗ combines the facts *along* a derivation, ⊕
+reconciles alternatives *across* derivations. That division of labour
+is the definition of a semiring evaluation.
+
+(c) is not, and not because it involves arithmetic. It aggregates
+**across stable models**, and a semiring evaluation lives entirely
+inside *one* least model — the values flow along that model's
+derivations. There is no ⊕/⊗ assignment that ranges over models,
+because models are not derivations; they are alternative worlds the
+semantics produced *before* any valuation starts. To compute (c) you
+enumerate the models (Lesson 5's machinery) and add the numbers up in
+ordinary code afterwards.
+
+That boundary is worth keeping: when a metric mixes two aggregations
+at two different levels — within-model and across-model, or
+per-derivation and per-group — it is not one semiring, and forcing it
+into the evaluator produces a number with no semantics. The honest
+architecture is the one this repository uses everywhere: the engine
+computes the semantic objects (models, witness sets), and the last
+arithmetic step stays outside, where its meaning is on the page.

@@ -173,16 +173,13 @@ Every other module in this course says where it runs out; here is this
 one's boundary, and it matters because the gap to a *real* medical
 classifier is exactly one letter of the alphabet.
 
-What ships is **EL⊥**: plain EL plus `disjoint/2` axioms. Disjointness
-buys the one verdict pure EL cannot give — *this definition is
-unsatisfiable*. Declare `disjoint(cat, dog).` and a concept defined as
-`and(cat, dog)` classifies under ⊥, as does anything with an
-unsatisfiable existential filler; two extra completion rules carry the
-whole feature. Still missing: **⊤** (no universal concept), **role
-hierarchies** (`subrole(has_part, has_component)` is rejected, loudly,
-rather than silently ignored), **role chains and right identities**,
-nominals, datatypes, and there is no ABox at all: this reasons about
-definitions, never about individuals.
+What ships is plain **EL**. Missing: **⊤** (no universal concept), **⊥
+and disjointness** (so this classifier can never tell you a definition
+is unsatisfiable: a significant thing for a knowledge base to be
+unable to say), **role hierarchies** (`subrole(has_part, has_component)`
+is rejected, loudly, rather than silently ignored), **role chains and
+right identities**, nominals, datatypes, and there is no ABox at all:
+this reasons about definitions, never about individuals.
 
 SNOMED CT genuinely needs the role hierarchy and right identities
 (that's how "a fracture of the femur is a fracture of a bone" and
@@ -190,9 +187,8 @@ part-whole propagation work), so it needs **ELH with right identities**
 — which is precisely what ELK and Snorocket implement, and precisely
 what this file does not. What generalises is the *method*: EL++
 reasoners are more completion rules of the same shape, over a richer
-normal form. Adding ⊥ was a genuinely tractable exercise — the two
-CR5/CR6 rules in `subsumption.py` are what it took; adding role chains
-is a research-grade one.
+normal form. Adding ⊥ alone is a genuinely tractable exercise; adding
+role chains is a research-grade one.
 
 ## The tradeoff saga: the same lesson as Lesson 11, rediscovered
 

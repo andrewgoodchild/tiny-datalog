@@ -214,6 +214,12 @@ same mathematician, working the two sides of the missing subtraction.)
 5. Construct your own program where `why → count` fails — two
    derivations of one fact from one set of base facts. Then explain
    why the same trick cannot break `why → bool`.
+6. Three metrics for the routes program. (a) The cheapest total fare
+   of any route. (b) The probability of the most reliable route.
+   (c) A "robustness score" for the eligibility scheme of Lesson 5:
+   the benefit paid out, *summed across its two stable models*, to
+   price the ambiguity. Which of the three is a semiring evaluation,
+   and what — precisely — stops the third from being one?
 
 Next: [probabilistic Datalog](09-probabilistic.md). The semiring that
 almost works, and why its failure matters.

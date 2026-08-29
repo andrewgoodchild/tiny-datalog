@@ -81,6 +81,20 @@ the result.** Any time you write `not p(X)` against data that might
 merely be missing, you want a companion predicate asserting that the
 question was actually asked.
 
+The same trap has an institutional shape worth naming: the
+**registry**. Every organisation keeps catalogues of things — an API
+registry, an asset inventory, a list of deployed services — and every
+such catalogue invites the closed-world reading: *not in the registry,
+so it doesn't exist*. But a registry's absence speaks only with the
+registry's authority, and registries are almost never authorities over
+the world they describe — the unregistered service is still running
+(ask any security team about shadow IT). The question to ask of a
+catalogue is the question this lesson keeps asking of a table: *what
+process guarantees that everything true gets written here?* Where
+there is such a process, closed-world reasoning over the registry is
+sound; where there isn't, model the registry's *coverage* explicitly,
+exactly as `employment_checked` modelled the check.
+
 ## The open world, next door
 
 `subsumption.py` reasons about definitions rather than data, and there

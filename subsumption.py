@@ -33,11 +33,10 @@ expressions are the compound terms Datalog itself forbids):
                                             % defined: necessary AND
                                             % sufficient — classifiable
     role(has_child).                        % optional declaration
-    disjoint(man, woman).                   % man ⊓ woman ⊑ ⊥ (EL⊥)
 
 Expressions: atomic names, and(...) with two or more conjuncts, and
 some(role, expression).  The predicates subs, link, concept, isa1, isa2,
-isa_some, some_isa and the concept name bot (⊥) are reserved.
+isa_some, some_isa are reserved for the compilation.
 
 Normalisation introduces fresh names (gen_1, gen_2, ...) for nested
 complex expressions — one inclusion per fresh name, direction chosen by
@@ -46,11 +45,13 @@ extension: subsumptions among the *named* concepts are unchanged.
 
 Where this stops
 ----------------
-EL⊥: EL plus disjointness (`disjoint/2` = A ⊓ B ⊑ ⊥), enough to detect
-unsatisfiable definitions via two extra rules (⊥ is below everything;
-∃r.⊥ is ⊥).  No ⊤, no role hierarchies (`subrole/2` is rejected, not
-ignored), no role chains, nominals, datatypes, or ABox: definitions
-only, never individuals.  The completion-rule *method* extends to all of that —
+Plain EL, and nothing beyond it.  There is no ⊤ (so no "every concept
+is subsumed by Thing"), no ⊥ or disjointness (so no unsatisfiable
+concepts — this classifier cannot tell you a definition is
+contradictory), no role hierarchies (`subrole/2` is rejected rather
+than ignored), no role chains or right identities, no nominals, no
+datatypes, and no ABox: it reasons about definitions only, never about
+individuals.  The completion-rule *method* extends to all of that —
 that is exactly how EL++ reasoners are built — but these five rules
 are complete only for what is listed above.
 """
@@ -64,7 +65,7 @@ from datalog import (Atom, Const, DatalogError, Engine, Literal, Program,
                      Rule, Struct, Var, parse)
 
 _RESERVED = {"subs", "link", "concept", "isa1", "isa2", "isa_some",
-             "some_isa", "bot"}
+             "some_isa"}
 
 
 class Ontology:
@@ -81,7 +82,6 @@ class Ontology:
         self.isa2 = []
         self.isa_some = []
         self.some_isa = []
-        self.disjoint = []      # (A, B) pairs: A ⊓ B ⊑ ⊥
         self.concepts = set()   # every atomic name, fresh ones included
         self.named = set()      # concepts the user actually named
         self.roles = set()
@@ -113,13 +113,10 @@ class Ontology:
                 ont.roles.add(ont._role_name(args[0]))
             elif pred == "primitive" and len(args) == 1:
                 ont._concept_name(args[0])
-            elif pred == "disjoint" and len(args) == 2:
-                ont.disjoint.append((ont._concept_name(args[0]),
-                                     ont._concept_name(args[1])))
             else:
                 raise DatalogError(
                     "unknown ontology statement %s/%d (expected isa/2, "
-                    "define/2, role/1, primitive/1 or disjoint/2): %s"
+                    "define/2, role/1, or primitive/1): %s"
                     % (pred, len(args), clause))
         return ont
 
@@ -246,9 +243,7 @@ class Ontology:
         def atom(pred, *names):
             return Atom(pred, tuple(Const(n) for n in names))
 
-        names = sorted(self.concepts) + (["bot"] if self.disjoint else [])
-        clauses = [Rule(atom("concept", c), ()) for c in names]
-        clauses += [Rule(atom("isa2", a, b, "bot"), ()) for a, b in self.disjoint]
+        clauses = [Rule(atom("concept", c), ()) for c in sorted(self.concepts)]
         clauses += [Rule(atom("isa1", a, b), ()) for a, b in self.isa1]
         clauses += [Rule(atom("isa2", a1, a2, b), ())
                     for a1, a2, b in self.isa2]
@@ -277,11 +272,6 @@ class Ontology:
             Rule(Atom("subs", (C, E)),
                  (lit("link", C, R, D), lit("subs", D, Dp),
                   lit("some_isa", R, Dp, E))),
-            # CR5/CR6 (EL⊥): ⊥ is below everything; ∃r.⊥ is ⊥
-            Rule(Atom("subs", (C, E)),
-                 (lit("subs", C, Const("bot")), lit("concept", E))),
-            Rule(Atom("subs", (C, Const("bot"))),
-                 (lit("link", C, R, D), lit("subs", D, Const("bot")))),
         ]
         return clauses
 
@@ -297,18 +287,10 @@ class Ontology:
             engine = Engine(Program(self.datalog()))
             engine.run()
             self._supers = {c: set() for c in self.named}
-            self._unsat = {c for c, d in engine.rels["subs"]
-                           if d == "bot" and c in self.named}
             for sub, sup in engine.rels["subs"]:
-                if (sub in self.named and sup in self.named and sub != sup
-                        and sub not in self._unsat):   # ⊥ sits below all
+                if sub in self.named and sup in self.named and sub != sup:
                     self._supers[sub].add(sup)
         return self._supers
-
-    def unsatisfiable(self):
-        """Named concepts subsumed by ⊥ (only possible with disjoint/2)."""
-        self.classify()
-        return self._unsat
 
     def direct_subsumers(self):
         """The transitive reduction of classify(): for each concept, its
@@ -375,9 +357,6 @@ def main(argv=None):
     inferred = 0
     print("Classification (%d named concepts):" % len(supers))
     for c in sorted(direct):
-        if c in ont.unsatisfiable():
-            print("  %-14s ⊑  ⊥   (unsatisfiable)" % c)
-            continue
         if not direct[c]:
             print("  %-14s (top of hierarchy)" % c)
             continue

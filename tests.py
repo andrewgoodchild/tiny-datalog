@@ -572,6 +572,22 @@ class IncrementalTests(unittest.TestCase):
         self.assertEqual(stats["inserted"], 1)
         self.assertEqual(dict(inc.rels), dict(self.recompute(inc)))
 
+    def test_incremental_maintains_compiled_classification(self):
+        # lesson 10: the classifier's output is a materialisation; one
+        # axiom in, five facts derived; retiring it restores exactly
+        emitted_rules = subsumption.load(
+            load("family-ontology.dl")).datalog()
+        from datalog import format_fact as _ff
+        text = "\n".join(str(r) for r in emitted_rules)
+        inc = IncrementalEngine(text)
+        before = set(inc.rels["subs"])
+        st = inc.insert("isa1(parent, taxpayer). concept(taxpayer).")
+        self.assertEqual(st, {"inserted": 2, "derived": 5})
+        self.assertIn(("grandfather", "taxpayer"), inc.rels["subs"])
+        inc.delete("isa1(parent, taxpayer).", strategy="bf")
+        inc.delete("concept(taxpayer).")
+        self.assertEqual(set(inc.rels["subs"]), before)
+
     def test_bf_delete_matches_dred_and_recompute(self):
         # same affected set, same survivors, opposite work profile
         dred = IncrementalEngine(self.GRAPH)
@@ -1455,16 +1471,6 @@ class SubsumptionTests(unittest.TestCase):
         engine = run_program(text)
         self.assertIn(("father", "parent"), engine.rels["subs"])
         self.assertIn(("grandfather", "father"), engine.rels["subs"])
-
-    def test_disjointness_finds_unsatisfiable_concepts(self):
-        ont = subsumption.load(self.ONT + """
-            disjoint(man, woman).
-            define(both, and(man, woman)).
-            define(parent_of_both, and(person, some(has_child, both))).
-        """)
-        self.assertEqual(ont.unsatisfiable(), {"both", "parent_of_both"})
-        self.assertNotIn("both", ont.classify()["father"])   # ⊥ is not a parent
-        self.assertEqual(ont.classify()["both"], set())
 
     def test_rejects_rules_and_unknown_statements(self):
         with self.assertRaises(DatalogError):

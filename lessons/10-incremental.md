@@ -136,6 +136,35 @@ Two honest observations, one per direction:
   why it is restricted to non-recursive rules: on a cycle, the count
   never honestly reaches zero.
 
+## Maintaining a computed classification
+
+The CVE feed is one shape of real workload. Here is another, quieter
+one: Lesson 12's classifier compiles an ontology to Datalog and
+materialises the subsumption hierarchy — and taxonomies change slowly
+but constantly. A new definition arrives; an old inclusion is retired.
+Reclassifying 350,000 concepts from scratch for a one-axiom edit is
+the same absurdity as recomputing a closure for one edge.
+
+The emitted program is positive, so this module maintains it as-is:
+
+```python
+>>> emitted = subprocess.run(["python3", "subsumption.py", "--emit",
+...     "programs/family-ontology.dl"], ...).stdout
+>>> inc = IncrementalEngine(emitted)
+>>> inc.insert("isa1(parent, taxpayer). concept(taxpayer).")
+{'inserted': 2, 'derived': 5}
+>>> inc.delete("isa1(parent, taxpayer).", strategy="bf")
+{'deleted': 1, 'affected': 5, 'confirmed': 0, 'removed': 5, 'backward_checks': 6}
+```
+
+One new axiom — parents are taxpayers — derives five facts, among them
+`subs(grandfather, taxpayer)`, two inference steps away. Retiring the
+axiom removes exactly those five and restores the original hierarchy
+(the tests pin this). The pipeline is three of this course's modules
+composed: a compiler (Lesson 12) targeting the engine (Lesson 2) under
+maintenance (this lesson) — and it is precisely how industrial
+reasoners keep terminology services live while editors work.
+
 ## Why this is the road to DBSP
 
 DRed pays teardown-and-rebuild; B/F pays proof search; and the deeper

@@ -209,6 +209,15 @@ learning instead of enumeration.
    now? What does that say about where the ambiguity came from?
 3. Invent a third reading of the café: make `household_cooks` an EDB
    fact you assert or don't. What happens in each case?
+4. A colleague sees `eligibility-choice.dl`'s two models and proposes
+   storing "eligible(bob) ∨ eligible(cyril)" as a *disjunctive fact*
+   and teaching the engine to reason over it. The alternative is to
+   keep the models as a set and answer queries against it two ways:
+   what holds in *every* model, and what holds in *some* model.
+   Compute both answer sets for `eligible/1` by hand from the two
+   models, and explain why the set-of-models route stays cheap per
+   model while reasoning over stored disjunctions jumps a complexity
+   class.
 
 Next: [for all](06-for-all.md) — the third figure in this lesson's
 gallery: after the contradictory and the ambiguous, the rejected
