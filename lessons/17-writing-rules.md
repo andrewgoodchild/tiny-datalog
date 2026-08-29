@@ -229,6 +229,26 @@ half of a story whose automatic half you have met: magic sets
 restricts it to what the *rule* means. Write the guard first, and let
 the rewriting multiply it.
 
+## The rules will outlive the engine, too
+
+This course's pitch is that rules outlive the query. They also outlive
+the *engine*, and there is no standard Datalog. The portable core is
+what Lessons 1–3 taught — Horn clauses, stratified negation — and
+almost everything else is dialect: type systems, aggregation syntax,
+arithmetic and its modes, functors and record extensions. Real
+multi-thousand-rule codebases have been ported between dialects, and
+the reports agree on where it bites first: the type system and value
+construction, not the logic.
+
+Types deserve their own sentence, because this engine's lack of them
+is an honest cost, not a virtue. Soufflé is typed; here, joining two
+relations on the wrong column is not an error — it is an empty (or
+quietly wrong) result, discovered by staring. Arity mistakes are
+caught; *meaning* mistakes in column position are exactly what a type
+system would catch and nothing here does. On a fifty-rule policy you
+will not notice; at Doop scale — thousands of rules — it is the first
+thing practitioners miss.
+
 ## Two failure modes the checklist will not catch
 
 **Absence you did not model.** `not suspended(P)` means the suspension

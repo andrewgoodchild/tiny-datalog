@@ -80,8 +80,9 @@ provenance** (one program computing costs, counts, and evidence —
 Lesson 8), **incremental computation** (DBSP and differential dataflow —
 Lesson 10's DRed is their ancestor), **neurosymbolic AI** (Scallop:
 differentiable Datalog inside neural networks — Lesson 9 is the on-ramp),
-equality saturation (egglog), and verification via constrained Horn
-clauses (Lesson 11's closing note).
+equality saturation and lattice-valued
+Datalog (egglog, Flix — Lesson 13's closing section), and verification
+via constrained Horn clauses (Lesson 11's closing note).
 
 ## Who invented Datalog?
 

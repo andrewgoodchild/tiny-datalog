@@ -131,6 +131,17 @@ reason.
 baseline just to print its comparison line, so time the query *without*
 `--trace`.)
 
+One boundary worth marking so the two cures never get confused: magic
+sets prunes *which* facts get computed; it does nothing about *how* a
+single rule's joins execute. For rules with three or more body atoms,
+any plan built from pairwise joins can produce intermediates
+asymptotically larger than the final answer — no join order saves you —
+and the fix is a different execution strategy entirely: **worst-case
+optimal joins**, which bound the work by the answer's possible size.
+That is the result Lesson 0 credits LogicBlox with handing database
+theory, and it is the half of the performance story this engine's
+deliberate nested-loop omission is really skipping.
+
 ## Under the hood: a compiler pass, and names that cannot collide
 
 **`magic.py` is a program-to-program function.** No evaluator changes at

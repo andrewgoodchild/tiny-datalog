@@ -89,6 +89,36 @@ inside shortest-path — is precisely the semiring story of Lesson 8 and
 the current research thread behind it; the two lessons are one idea
 seen from two sides.)
 
+## The powerset is one lattice
+
+Lesson 2 proved termination on the powerset lattice of fact-sets, and
+quietly presented it as *the* lattice. Nothing in the Knaster–Tarski
+argument needs that: **any lattice with no infinite ascending chains
+works**, and the loudest expressiveness complaint about Datalog in the
+program-analysis world is that the powerset is the only one it offers.
+An interval analysis wants a relation to hold "x ∈ [3, 17]" and
+*join* two facts about x into one wider interval; a sign analysis
+wants {+, −, 0, ⊤}; constant propagation wants "known to be 42" to
+collapse with "known to be 7" into "not constant". Each needs
+least-upper-bound as its notion of "combine what we learned", and
+`lub` is exactly the lattice generalisation of the `min`/`max` that
+this lesson just showed can recurse safely — monotone, hence
+fixpoint-friendly.
+
+Pure Datalog cannot say any of this, and a family of languages exists
+because of it: **Flix** extends Datalog with user-defined lattices and
+monotone functions precisely so static analyses fit; Datafun and IncA
+are the same complaint answered differently; and egglog (Lesson 0's
+research threads) sells *lattice-based reasoning* as a headline. Keep
+the axis distinct from Lesson 8's: a **semiring** decorates
+derivations with values (cost, count, evidence) while the facts stay
+facts; a **lattice** changes what a fact *is* — the relation holds one
+best-so-far value per key, refined monotonically. Both are "Datalog
+plus algebra"; they generalise different halves of the evaluator.
+(And their intersection with Lesson 10 is live research: incrementally
+maintaining recursive lattice aggregation is what DRed's descendants
+are being extended to now.)
+
 
 ## Exercises
 

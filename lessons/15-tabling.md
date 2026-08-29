@@ -86,6 +86,21 @@ building it is how XSB earned its place in the history told in
 Lesson 0.
 
 
+## The other reason top-down survives: debugging
+
+Goal-direction is only half of why the literature keeps building
+top-down evaluators. The other half is that **a bottom-up trace
+follows the data, not the program**: Lesson 2's `--trace` shows deltas
+arriving in rounds, and `--explain` reconstructs a derivation after
+the fact, but neither lets you *step through a rule* the way you step
+through a function — watch this subgoal being tried, see that binding
+fail, continue. Interactive Datalog debuggers in the research
+literature are built on top-down semantics for exactly that reason:
+stepping is native there. This module is the doorway — a tabled
+top-down evaluator with the same semantics as the engine — and
+turning it into a stepper is an exercise in attaching a prompt to
+`_prove`.
+
 ## Under the hood: memoisation applied to resolution
 
 **`tabling.py` is memoisation applied to resolution.** A dictionary

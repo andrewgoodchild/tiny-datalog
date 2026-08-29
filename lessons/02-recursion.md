@@ -159,7 +159,10 @@ T_P(T_P(∅)) ⊆ … is an ascending chain (each step is ⊆ the next, by
 monotonicity), a finite lattice has no infinite ascending chains, so
 the climb stops — and where it stops is the smallest set closed under
 the rules. That least fixpoint *is* the meaning of a Datalog program;
-naive and semi-naive are just two gaits for the same climb.
+naive and semi-naive are just two gaits for the same climb. (File one
+fact away for later: nothing above needed the powerset specifically —
+any lattice with no infinite ascending chains supports the same
+theorem, and Lesson 13 opens that door.)
 
 Monotonicity is the load-bearing word. `not` is precisely the thing
 that breaks it — adding facts can *remove* conclusions — which is why
