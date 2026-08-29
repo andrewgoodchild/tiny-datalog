@@ -89,8 +89,8 @@ EL subsumption is decided by a *saturation calculus*: normalise the
 ontology into four axiom shapes, then apply completion rules to fixpoint.
 Monotone rules, run to fixpoint, that is, a Datalog program. So this
 repository's implementation (`subsumption.py`) is a **compiler**: it
-normalises the ontology, emits facts plus five rules, and hands them to
-the engine you already know. Here are the five, verbatim from `--emit`
+normalises the ontology, emits facts plus seven rules, and hands them to
+the engine you already know. Here are the seven, verbatim from `--emit`
 (the program runs under plain `datalog.py`):
 
 ```prolog
@@ -99,13 +99,17 @@ subs(C, E) :- subs(C, D), isa1(D, E).
 subs(C, E) :- subs(C, D1), subs(C, D2), isa2(D1, D2, E).
 link(C, R, E) :- subs(C, D), isa_some(D, R, E).
 subs(C, E) :- link(C, R, D), subs(D, Dp), some_isa(R, Dp, E).
+subs(C, E) :- subs(C, bot), concept(E).
+subs(C, bot) :- link(C, R, D), subs(D, bot).
 ```
 
-Read them as the calculus: everything subsumes itself; follow a stated
-inclusion; combine two subsumptions through a conjunction; propagate a
-subsumption into an existential (`link` records "C reaches E through
-role R"); and discharge an existential appearing on the right of an
-inclusion. That block *is* KL-ONE's classifier — the whole reasoning
+Read the first five as the EL calculus: everything subsumes itself;
+follow a stated inclusion; combine two subsumptions through a
+conjunction; propagate a subsumption into an existential (`link`
+records "C reaches E through role R"); and discharge an existential
+appearing on the right of an inclusion. The last two — call them CR5
+and CR6 — carry disjointness: ⊥ sits below everything, and an
+existential whose filler is impossible is itself impossible. That block *is* KL-ONE's classifier — the whole reasoning
 service, in the language of Lessons 1–3. When a problem's inference
 rules are monotone, "compile it to Datalog" is a general-purpose trick,
 and this is what it looks like done.
@@ -151,7 +155,7 @@ Two details worth reading in `subsumption.py`: normalisation mints fresh
 names (`gen_1`, ...) for nested expressions, choosing the inclusion's
 direction by which side of ⊑ the expression sits on: a conservative
 extension, and essentially the structural normalisation KL-ONE performed;
-and the five completion rules in `datalog()` are the CR1–CR4 calculus
+and the completion rules in `datalog()` are the CR1–CR4 calculus
 that industrial EL reasoners (ELK, Snorocket) implement with exactly the
 optimisations this course already taught: saturation is semi-naive
 fixpoint, and goal-directed subsumption checks are magic sets.
@@ -173,13 +177,17 @@ Every other module in this course says where it runs out; here is this
 one's boundary, and it matters because the gap to a *real* medical
 classifier is exactly one letter of the alphabet.
 
-What ships is plain **EL**. Missing: **⊤** (no universal concept), **⊥
-and disjointness** (so this classifier can never tell you a definition
-is unsatisfiable: a significant thing for a knowledge base to be
-unable to say), **role hierarchies** (`subrole(has_part, has_component)`
-is rejected, loudly, rather than silently ignored), **role chains and
-right identities**, nominals, datatypes, and there is no ABox at all:
-this reasons about definitions, never about individuals.
+What ships is **EL⊥**: plain EL plus `disjoint(a, b).` axioms, read
+as A ⊓ B ⊑ ⊥. Disjointness buys the one verdict pure EL cannot give —
+*this definition is unsatisfiable* — and rules CR5/CR6 above carry the
+whole feature: a concept subsumed by ⊥ is reported as unsatisfiable
+(and excluded from the hierarchy, where it would otherwise sit under
+everything), and an existential with an impossible filler is
+impossible. Still missing: **⊤** (no universal concept), **role
+hierarchies** (`subrole(has_part, has_component)` is rejected, loudly,
+rather than silently ignored), **role chains and right identities**,
+nominals, datatypes, and there is no ABox at all: this reasons about
+definitions, never about individuals.
 
 SNOMED CT genuinely needs the role hierarchy and right identities
 (that's how "a fracture of the femur is a fracture of a bone" and
@@ -187,8 +195,9 @@ part-whole propagation work), so it needs **ELH with right identities**
 — which is precisely what ELK and Snorocket implement, and precisely
 what this file does not. What generalises is the *method*: EL++
 reasoners are more completion rules of the same shape, over a richer
-normal form. Adding ⊥ alone is a genuinely tractable exercise; adding
-role chains is a research-grade one.
+normal form. Adding ⊥ was exactly the tractable exercise it looks
+like — CR5 and CR6 are what it took; adding role chains is a
+research-grade one.
 
 ## The tradeoff saga: the same lesson as Lesson 11, rediscovered
 
@@ -240,7 +249,7 @@ that you are looking at a TBox, and *which* TBox. A field guide:
 | a mandatory link with a fixed target kind | ∃r.C — EL, this lesson's fragment, tractable |
 | an optional link ("*if* present, must be...") | ∀r.C — not EL; ask first whether it does any work |
 | "defined" kinds vs merely-labelled kinds | ≡ vs ⊑ — and only the defined ones can be *discovered* |
-| kinds that must never overlap | disjointness axioms — EL⊥, one tractable letter beyond what ships here |
+| kinds that must never overlap | `disjoint/2` — EL⊥, which is what ships here |
 | helper kinds invented to carry a definition | nested existentials — stop inventing them, the classifier mints its own `gen_N` |
 | a ban on cycles so your checker terminates | a symptom: you are doing top-down structural subsumption — bottom-up completion needs no ban (Lesson 6 is the same discovery from the Datalog side) |
 
@@ -303,10 +312,12 @@ rejected the logic and adopted the encoding.
    house special is defined as a dish topped with a garden-grown herb;
    and if an item lists a wine pairing, the pairing must be a wine.*
    Translate what the field guide says is translatable into
-   `isa`/`define` statements, name the two clauses that do not make it
-   into EL (and which table rows they are), predict the one starred
+   `isa`/`define`/`disjoint` statements, name the one clause that does
+   not make it in (and which table row it is), predict the one starred
    discovery before running the classifier, and say which inclusion
-   the first `gen_N` name ends up carrying.
+   the first `gen_N` name ends up carrying. Then order the confused
+   special — a dish that is also a drink — and watch the classifier
+   refuse to seat it.
 
 Next: [aggregation](13-aggregation.md) — counting without
 contradiction.

@@ -46,18 +46,19 @@ The translatable part:
 ```prolog
 isa(dish, item).
 isa(drink, item).
+disjoint(dish, drink).
 define(garnished, and(dish, some(topped_with, herb))).
 define(smoothie, and(drink, some(made_from, fruit))).
 define(house_special, and(dish, some(topped_with, and(herb, some(grown_in, garden))))).
 role(topped_with). role(made_from). role(grown_in).
 ```
 
-The two clauses that stay behind: *never both* is a disjointness axiom
-(the ⊥ row — one tractable letter beyond this classifier), and *if an
-item lists a wine pairing...* is a value restriction (the ∀ row) —
-and, tellingly, it does no classification work here: nothing in the
-model is defined by its pairing, so dropping it loses nothing, which
-is the question that row tells you to ask.
+One clause stays behind: *if an item lists a wine pairing...* is a
+value restriction (the ∀ row) — and, tellingly, it does no
+classification work here: nothing in the model is defined by its
+pairing, so dropping it loses nothing, which is the question that row
+tells you to ask. (*Never both* used to stay behind too; with
+`disjoint/2` it is now an axiom the classifier reasons with.)
 
 The starred discovery: **house_special ⊑ garnished**. A dish topped
 with a garden-grown herb is, in particular, a dish topped with a herb
@@ -67,3 +68,7 @@ garnish: `--emit` shows `isa1(gen_3, herb)` among the inclusions —
 the fresh concept for `and(herb, some(grown_in, garden))` placed
 under `herb`, which is exactly the helper kind the field guide says
 to stop writing by hand.
+
+And the confused special: add `define(confused, and(dish, drink)).`
+and the classifier reports `confused ⊑ ⊥ (unsatisfiable)` — the menu
+item that cannot exist, caught by CR5/CR6 rather than by a customer.

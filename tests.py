@@ -1435,7 +1435,10 @@ class ExerciseTests(unittest.TestCase):
                                   and(herb, some(grown_in, garden))))).
             role(topped_with). role(made_from). role(grown_in).
         """
-        supers = subsumption.load(menu).classify()
+        ont = subsumption.load(menu + "\ndisjoint(dish, drink).\n"
+                               "define(confused, and(dish, drink)).")
+        self.assertEqual(ont.unsatisfiable(), {"confused"})
+        supers = ont.classify()
         self.assertIn("garnished", supers["house_special"])
         self.assertNotIn("smoothie", supers["house_special"])
         self.assertIn("dish", supers["garnished"])
@@ -1601,6 +1604,18 @@ class CLITests(unittest.TestCase):
 
 class SubsumptionTests(unittest.TestCase):
     ONT = load("family-ontology.dl")
+
+    def test_disjointness_finds_unsatisfiable_concepts(self):
+        ont = subsumption.load(self.ONT + """
+            disjoint(cat, dog).
+            isa(cat, animal).  isa(dog, animal).
+            define(catdog, and(cat, dog)).
+            define(keeper_of_catdog, and(animal, some(keeps, catdog))).
+        """)
+        self.assertEqual(ont.unsatisfiable(),
+                         {"catdog", "keeper_of_catdog"})
+        self.assertEqual(ont.classify()["catdog"], set())
+        self.assertNotIn("catdog", ont.classify()["father"])
 
     def test_classifier_discovers_subsumptions(self):
         supers = subsumption.load(self.ONT).classify()
