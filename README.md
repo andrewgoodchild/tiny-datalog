@@ -5,13 +5,6 @@
 **A logic engine small enough to read in an afternoon, and a course
 that builds it up from nothing.**
 
-You might be here because a query you need is recursive and SQL is
-fighting you; because someone has to sign off on a decision your code
-made and "the tests pass" is not an answer; or because a rule set has
-grown past the point where anyone can review it. Those are the three
-things this language is unusually good at, and each gets a
-demonstration below.
-
 ## What is Datalog?
 
 A query language from the early 1980s, with three properties worth
@@ -242,6 +235,12 @@ by the test suite so the answers cannot rot. `cases/` lets anyone add a
 regression test without writing Python.
 
 ## Where these techniques ship
+
+Implementers typically reach for Datalog when a query is recursive and
+SQL is fighting them, when someone has to sign off on a decision their
+code made and "the tests pass" is not an answer, or when a rule set
+has grown past the point where anyone can review it. Those three
+situations are what the deployments below have in common.
 
 Static analysis at scale (CodeQL, Soufflé) is Datalog. Knowledge graphs
 (RDFox) are Datalog. Incremental view maintenance is a live commercial
