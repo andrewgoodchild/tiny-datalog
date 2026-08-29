@@ -49,6 +49,25 @@ instead of 35, same answers, still semi-naive, still guaranteed to
 terminate. You've recovered Prolog's goal-direction inside bottom-up
 evaluation.
 
+## Why "magic"?
+
+The name is the original paper's own joke. The technique arrived in
+*"Magic Sets and Other Strange Ways to Implement Logic Programs"*
+(Bancilhon, Maier, Sagiv and Ullman, 1986) — a title flaunting how
+disreputable the trick looked. (That Maier is David Maier, the same
+person who coined "Datalog"; Lesson 0 tells that story.)
+
+The **magic set** itself is the extension of the `magic#` predicate:
+the set of bindings the query will *ever* demand, computed **before**
+the relation it guards. That order is what looks supernatural — a
+bottom-up engine, which normally charges ahead computing everything,
+appears to foresee exactly which questions a top-down prover would
+have asked, and answers only those. Once you read the rewriting above
+there is no magic left: the demand pattern of top-down evaluation has
+simply been compiled into ordinary rules and handed to the ordinary
+engine. The name survives because the effect, the first time you watch
+the fact counts, does not feel ordinary.
+
 ## Different bindings, different rewritings
 
 Ask the reverse question — `path(X, n10)`, "what reaches n10?", and the

@@ -114,6 +114,58 @@ Two further encodings complete the story:
   delivered from another town, nobody local cooks it, the cycle is gone,
   and `eats_in_cafe(bob)` holds. Change the situation, not the rule.
 
+## The barber, and where he came from
+
+The knot in these programs is a century and a quarter old, and its
+history is worth two minutes because the fixes rhyme.
+
+In 1901 Bertrand Russell found a contradiction at the foundations of
+set theory. Naive set theory let you form the set of everything
+satisfying any property — so form **R, the set of all sets that do not
+contain themselves**. Does R contain itself? If it does, it doesn't;
+if it doesn't, it does. Russell wrote to Gottlob Frege in June 1902,
+as the second volume of Frege's life's work — arithmetic rebuilt on
+exactly that kind of set formation — was in press. Frege added an
+appendix acknowledging that the foundation had given way.
+
+The **barber** is the after-dinner version Russell used to explain it
+(he credited the phrasing to an acquaintance): a village barber shaves
+exactly those villagers who do not shave themselves — so who shaves
+the barber? Russell's own point about the barber is the one this
+lesson's machinery makes precise: the barber version is *not* a
+paradox. The correct conclusion is simply that **no such barber can
+exist** — the job description is unsatisfiable. The set version was
+the catastrophe, because naive set theory *guaranteed* R existed. A
+barber can fail to exist; a guaranteed set cannot.
+
+Both repairs stratified. Russell's theory of types put objects in
+layers, a set only allowed to contain things from layers below;
+Zermelo's axioms restricted set formation instead. Lesson 3's
+stratification is the same instinct made computational: predicates get
+layers, and a definition may negate only what lives strictly below it.
+The engine's "negation in a recursive cycle" rejection is a type error
+in Russell's sense.
+
+And the engine adjudicates Russell's distinction mechanically:
+
+```
+$ python3 datalog.py --models programs/barber.dl
+Syntactic check: not stratifiable (shaves --not--> shaves).
+  (Syntactic only — an unstratifiable program may still have stable models.)
+Stable models: none — no consistent two-valued model exists.
+Well-founded model (three-valued):
+  true:      shaves(barber, plato).
+  undefined: shaves(barber, barber).
+```
+
+"No stable model" *is* "no such barber exists" — the same verdict
+Russell gave, computed. The well-founded model is the refinement he
+didn't have: quarantine the one self-referential atom and keep the
+rest of the village's facts, so `shaves(barber, plato)` stays simply
+true. The café paradox is this knot in catering dress, the eligibility
+paradox is it in benefits dress — one structure, many costumes, which
+is why Lesson 0 warns that language models have seen every costume.
+
 ## The moral
 
 Three programs, one story, three verdicts:
@@ -133,7 +185,10 @@ answer.
 
 ## Exercises
 
-1. Run `--models` on the barber program (`programs/barber.dl`).
+1. The lesson gave away the barber's verdict, so earn it back: change
+   the *village* (facts only — the rule stays) so that a stable model
+   exists. Two different one-line repairs work; find both, and say
+   what each corresponds to in Russell's terms.
    Which fact is undefined? Which is *true* despite the paradox?
 2. Give win/move an acyclic move graph (a chain). How many stable models
    now? What does that say about where the ambiguity came from?

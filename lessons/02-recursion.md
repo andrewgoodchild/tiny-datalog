@@ -36,6 +36,12 @@ Semi-naive evaluation:
     round 8: no new facts — fixpoint
 ```
 
+That last line deserves its word. A **fixpoint** of the rules is a
+database they cannot grow: apply every rule to it and you get back
+exactly what you already had. The trace's "no new facts" is the engine
+discovering it has reached one — and because facts are only ever
+added, the *first* fixpoint it reaches is the smallest one there is.
+
 **Naive** evaluation would re-run every rule against the *whole* database
 each round — rediscovering every already-known path every time.
 **Semi-naive** evaluation, what this engine does, only joins each rule
@@ -122,27 +128,37 @@ discipline, and it grows with the graph.
 
 ## The mathematics underneath: a lattice and a fixpoint
 
-The termination argument above deserves its proper name, because it is
-the course's first load of real mathematics and the rest quietly reuses
-it. Collect every possible set of facts into one structure, ordered by
-⊆ — the **powerset lattice**. Evaluation is one function on it, the
-**immediate consequence operator** `T_P`: feed it a set of facts, it
-returns everything derivable in one step. Two observations finish the
-job:
+The termination argument above deserves its proper names, because it
+is the course's first load of real mathematics and the rest quietly
+reuses it. Three definitions, then one theorem.
 
-- `T_P` is **monotone**: more facts in never means fewer facts out,
-  because a positive rule that fired keeps firing when the database
-  grows.
-- The lattice is **finite**: no rule invents constants, so there are
-  only finitely many possible facts (Lesson 10 is about what happens
-  when that stops being true).
+Since no rule invents constants, there are finitely many possible
+facts. The **powerset** of that finite set is the collection of *all
+its subsets* — every database you could ever be in the middle of
+computing. Ordered by ⊆, the powerset forms a **lattice**: a partial
+order where any two elements have a greatest lower bound and a least
+upper bound (for fact-sets, plain intersection and union), with the
+empty set at the bottom and "every possible fact" at the top.
+Evaluation walks this lattice.
+
+The walking is done by one function, the **immediate consequence
+operator** `T_P`: feed it a set of facts, it returns everything
+derivable from them in a single step (including, note, the facts'
+own re-derivations). In these terms a **fixpoint** is a set `S` with
+`T_P(S) = S` — the rules give back exactly what they were given — and
+`T_P` is **monotone** if `S ⊆ S′` implies `T_P(S) ⊆ T_P(S′)`: growing
+the input can only grow the output. Positive rules are monotone for a
+one-line reason: a rule instance that fired against `S` still has all
+its premises in the larger `S′`, so it fires again.
 
 The **Knaster–Tarski theorem** says a monotone function on such a
-lattice has a **least fixpoint**, `lfp(T_P)` — and iterating from the
-empty set climbs to it: ∅ ⊆ T_P(∅) ⊆ T_P(T_P(∅)) ⊆ … must stop, and
-where it stops is the smallest set closed under the rules. That least
-fixpoint *is* the meaning of a Datalog program; naive and semi-naive
-are just two gaits for the same climb.
+lattice always has fixpoints, and among them a **least** one,
+`lfp(T_P)`. Iterating from the bottom climbs to it: ∅ ⊆ T_P(∅) ⊆
+T_P(T_P(∅)) ⊆ … is an ascending chain (each step is ⊆ the next, by
+monotonicity), a finite lattice has no infinite ascending chains, so
+the climb stops — and where it stops is the smallest set closed under
+the rules. That least fixpoint *is* the meaning of a Datalog program;
+naive and semi-naive are just two gaits for the same climb.
 
 Monotonicity is the load-bearing word. `not` is precisely the thing
 that breaks it — adding facts can *remove* conclusions — which is why

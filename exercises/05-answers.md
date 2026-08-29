@@ -1,14 +1,25 @@
 # Lesson 5 — answers
 
-**1. `--models` on the barber (`programs/barber.dl`).**
+**1. Repairing the village.**
 
-Undefined: exactly `shaves(barber, barber)`, the self-referential
-atom. True *despite the paradox*: `shaves(barber, plato)` (plato
-doesn't shave himself, so the barber definitely shaves him). The
-well-founded model quarantines the paradox to the one atom that
-embodies it; note also that the program has **no stable model at all** —
-two-valued semantics cannot contain the damage the way three-valued
-semantics can.
+Two one-line repairs, verified with `--models`:
+
+- **Assert `shaves(barber, barber).`** Now the rule instance for the
+  barber has a false premise (`not shaves(barber, barber)`), so it
+  never fires for him — but the fact holds anyway, and the unique
+  stable model is {shaves(barber, barber), shaves(barber, plato)}. In
+  Russell's terms: the job description quietly weakened from "exactly
+  those" to "at least those" — a barber who also shaves himself is no
+  contradiction, only a failure of the advertised *only*.
+- **Delete `person(barber).`** The rule now ranges over plato alone;
+  the unique stable model is {shaves(barber, plato)}. This is the
+  classic resolution of the puzzle: *no such barber exists in the
+  village* — he shaves the villagers but is not one of them, so the
+  description never applies to him.
+
+Both repairs break the self-reference by changing the *world*, not the
+rule — which is the honest lesson: the rule was never wrong, it was
+unsatisfiable over that village.
 
 **2. win/move on an acyclic chain a→b→c→d.**
 

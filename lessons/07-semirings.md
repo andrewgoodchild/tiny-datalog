@@ -24,6 +24,30 @@ with an identity (0 and 1). Attach a value to every fact. Then:
 
 Plain Datalog is the boolean semiring: times = and, plus = or.
 
+## Why "semiring"?
+
+The word is a hedge, and the hedge is the point. A **ring** — the name
+descends from Hilbert's *Zahlring*, "number ring", 1897 — is a
+structure where addition behaves like the integers': every element has
+a negative, so you can subtract. A **semiring** is *half* a ring: keep
+both operations, drop the additive inverses. The name is usually
+credited to H. S. Vandiver (1934), studying algebra where the
+cancellation law of addition fails; category theorists prefer the
+better joke **rig** — a ring without **n**egatives. The primal example
+is ℕ itself: you can add and multiply counts, but there is no count
+that undoes another.
+
+The prefix names precisely the absence this course keeps colliding
+with. No inverses means **no subtraction**, and no subtraction is why
+this module's evaluator regresses to naive iteration (semi-naive must
+subtract what is already known), and why Lesson 9's incremental
+maintenance eventually needs Z-sets — DBSP's move is exactly to
+restore the missing negatives. When min-plus appears below, it goes by
+its folklore name too: the **tropical** semiring, so called not for
+any property of the mathematics but in honour of the Brazilian
+mathematician Imre Simon, who pioneered it — the naming is pure
+affection, and the field kept it.
+
 ## One program, four questions
 
 Facts take weights with `@`. `programs/routes.dl` is a weighted directed acyclic graph:

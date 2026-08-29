@@ -25,6 +25,18 @@ $ python3 semiring.py --semiring viterbi -q 'reach(s, t)' programs/prob-reach.dl
    reach(s, t) = 0.81
 ```
 
+The semiring is named after a person, and the person is why it is in
+your pocket. **Andrew Viterbi** — born in Bergamo in 1935, his family
+émigrés from Italy's anti-Jewish laws — published the algorithm in 1967
+for decoding convolutional codes: given a noisy signal, find the
+*single most probable* sequence of hidden states that produced it, by
+dynamic programming. He went on to co-found Qualcomm, and the algorithm
+runs today in essentially every phone's radio, every speech
+recogniser's hidden Markov model, every gene-finder. Evaluating a
+Datalog program in (max, ×) *is* Viterbi's algorithm generalised from
+chains of hidden states to arbitrary rule systems: same recurrence,
+same best-single-explanation character.
+
 The **Viterbi semiring** (max, x) scores each fact with the probability
 of its most likely single derivation: route s-a-t gives 0.9 x 0.9 = 0.81,
 which beats s-b-t (0.475) and s-a-b-t (0.684). Max is idempotent, so the

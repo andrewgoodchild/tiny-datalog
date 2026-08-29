@@ -5,6 +5,26 @@ most one positive literal, `b₁ ∧ … ∧ bₙ → h`. Datalog is Horn-clause
 logic with one thing confiscated: **function symbols**. This lesson
 gives them back, to show exactly what the confiscation bought.
 
+## Who was Horn?
+
+**Alfred Horn** (1918–2001), a mathematician at UCLA — and the origin
+of the name is one of the field's best ironies. His 1951 paper *"On
+sentences which are true of direct unions of algebras"* singled out
+this clause shape for a reason that had nothing to do with
+computation: sentences of this form are preserved when you take direct
+products of algebraic structures. Pure model theory, no machines in
+sight.
+
+Twenty years later, Kowalski, Colmerauer and van Emden discovered that
+the very same fragment is the one where proof search is tractable and
+every program has a least model — the properties this whole course
+runs on — and the name stuck. Horn identified the clauses; he never
+knew what they would become. It is a recurring pattern in this field:
+the fragment chosen for one good property turns out to have been
+chosen for all of them (Lesson 15 meets it again when a 1977
+containment theorem turns out to be the theory of 2020s query
+optimisers).
+
 ## The boundary, stated by the engine
 
 `programs/peano.pl` defines arithmetic the logician's way:

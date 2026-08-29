@@ -22,11 +22,18 @@ system that works and one that quietly pays the wrong people.
 
 ## The closed world, and its trap
 
-Datalog assumes the database is *complete*: everything true is written
-down, so anything unwritten is false. That is what makes negation
-computable at all (Lesson 3), and for a database it is usually right —
-if a row is missing from `employed`, that person genuinely isn't
-employed, because that table is the authority.
+Datalog runs on the **closed-world assumption (CWA)**: *any fact that
+cannot be derived from the database is taken to be false.* The name
+and the formal statement are Raymond Reiter's, from 1978 — published,
+fittingly, in the same Gallaire–Minker volume that founded the field
+(Lesson 0). It is an assumption about *completeness*: the database is
+declared to be the whole truth, so absence of a fact is evidence, not
+silence.
+
+That is what makes negation computable at all (Lesson 3), and for a
+database it is usually right — if a row is missing from `employed`,
+that person genuinely isn't employed, because that table is the
+authority.
 
 Usually. `programs/missing-data.dl` has three people in a qualifying
 household: Cyril, checked and employed; Bob, checked and not; and Dana,
@@ -77,8 +84,11 @@ question was actually asked.
 ## The open world, next door
 
 `subsumption.py` reasons about definitions rather than data, and there
-is no "complete" list of everything true about fathers. So it makes the
-opposite assumption: unstated means unknown. It will never tell you
+is no "complete" list of everything true about fathers. So it makes
+the **open-world assumption (OWA)**: *a fact that is neither stated
+nor derivable is not false — it is unknown.* The axioms are read as a
+partial description of a larger world, so absence of proof is never
+proof of absence. It will never tell you
 `father ⊑ not tall`; it cannot even express that (Lesson 11's limits
 section, no ⊥, no negation at all).
 
