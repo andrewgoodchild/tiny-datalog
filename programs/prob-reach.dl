@@ -5,7 +5,7 @@
 % Viterbi (max, x) scores the MOST LIKELY single route — a true semiring.
 % "Total probability of reachability" is deliberately not offered: its
 % natural sum (a + b - ab) breaks distributivity, so it is not a semiring
-% at all.  See lessons/08-probabilistic.md for why that failure is the
+% at all.  See lessons/09-probabilistic.md for why that failure is the
 % doorway to Scallop-style neurosymbolic systems.
 
 link(s, a) @ 0.9.

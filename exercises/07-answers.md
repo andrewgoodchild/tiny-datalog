@@ -1,69 +1,75 @@
 # Lesson 7 — answers
 
-Runnable program: `exercises/07-answers.dl` (routes plus a new direct
-edge `a → d @ 3`).
+**1. `ancestor(abe, X)` with and without `--magic` on
+`programs/family.dl`.**
 
-**1. Predict all three semirings for `path(a, e)`.**
+Measured: magic derives **11 IDB facts vs 14** under full evaluation.
+The margin is modest because abe is the root — nearly everything is
+relevant to him. Ask from the leaf instead (`ancestor(bob, X)`) and the
+pruning is dramatic: 1 `ancestor#bf` fact and 2 magic facts, against
+the same 14. Demand-driven evaluation pays off in proportion to how
+*specific* the demand is.
 
-| semiring | value | reading |
-|---|---|---|
-| minplus | **6** | the new a→d (3) + d→e (3) beats the old best 7 |
-| count | **4** | a-b-d, a-c-d, a-b-c-d, and now a-d, each continued to e |
-| why | 4 witness sets | one per route; the new `{edge(a,d), edge(d,e)}` joins the three old sets |
+**2. The rewriting for `ancestor(X, dana)` (adornment `fb`), by hand.**
 
-One fact changed; the cheapest route, the route count, and the evidence
-sets all moved, same program, three questions.
+The head binds only the second argument, so bindings flow differently:
 
-**2. Weights as multiplicities (bag semantics).**
-
-If `@ n` meant "n parallel copies of the edge", `count` would multiply
-along a path and sum across paths: on the original `routes.dl`,
-path(a, d) = 1×4 (a-b-d) + 2×2 (a-c-d) + 1×1×2 (a-b-c-d) = **10**.
-(Amusingly, this repo's count semiring briefly *did* behave this way
-during development: the code-review process caught it as a bug, which
-it is under set semantics, and a feature, which it is under bag
-semantics. Semantics decisions are exactly this consequential.)
-
-**3. A "longest path" semiring.**
-
-(max, +) — max across routes, sum along a route. On any cyclic graph it
-diverges for the same reason counting does: going around the cycle once
-more always produces a longer path, so no fixpoint exists: the answer
-is genuinely infinite. Divergence isn't an implementation weakness;
-it's the semiring faithfully reporting that the question has no finite
-answer. (Idempotent min never has this problem: extra laps only ever
-lose.)
-
-**4. Writing `h : why → minplus`.**
-
-```python
-def h(why_value, weights):
-    return min(sum(weights[f] for f in witness) for witness in why_value)
+```prolog
+% base rule: nothing binds X before parent is scanned
+ancestor#fb(X, Y) :- magic#ancestor#fb(Y), parent(X, Y).
+% recursive rule: parent(X, Y) binds both, so the inner call is bb
+magic#ancestor#bb(Y, Z) :- magic#ancestor#fb(Z), parent(X, Y).
+ancestor#fb(X, Z) :- magic#ancestor#fb(Z), parent(X, Y), ancestor#bb(Y, Z).
+% ...plus the bb specialisation's own copies of both rules
+magic#ancestor#fb(dana).
 ```
 
-Verified against `--semiring minplus` on all ten `path` facts by
-`exercises/07-homomorphism.py`. The axiom that takes thought is
-**times**: why's `times` is *pairwise union* of witness sets (every
-combination of one witness from each side), and it must land on `+`.
-It does, because the cost of a union of disjoint fact sets is the sum
-of their costs, and where the sets overlap, the shared fact is counted
-once on the left and twice on the right. That is the one case worth
-checking by hand; it is exactly why min-plus over *sets* behaves and
-counting over sets does not.
+One query, two adornments (`fb` and `bb`) — check every line against
+`--magic --trace -q 'ancestor(X, dana)'`.
 
-**5. Breaking `why → count`, and why `why → bool` is safe.**
+**3. When does magic not help? Two different failures.**
 
-Any program where one conclusion has two derivations over the same base
-facts will do; `programs/two-derivations.dl` uses a second rule that
-adds an already-implied literal. The sharpest form is the one the
-shipped program produces: `p(a, c)` and `q(a, c)` end up with
-*identical* why-values but counts of 1 and 2, so no function of the
-why-value can be correct for both.
+*(a) Nothing bound.* `-q 'ancestor(X, Y)'` — adornment `ff`, the magic
+seed is a zero-arity fact that is simply "true", and every guard
+passes. Measured: **12 IDB facts vs 14**. The rewriting reproduces
+nearly the full computation plus its own bookkeeping. Magic sets
+exploits *bindings*; with none there is nothing to exploit. (Same in
+SQL: predicate pushdown with no predicate pushes nothing.)
 
-`why → bool` cannot be broken this way because bool has already thrown
-away strictly more than why has: it records only *whether* a fact is
-derivable, and both a one-derivation and a two-derivation fact are
-simply true. Sending every non-empty witness collection to `true` and
-the empty one to `false` respects both operations. The general rule is
-that you can always specialise *down* a chain of quotients — polynomial
-→ why → bool, and never back up it.
+*(b) Bound, but the binding prunes nothing.* On chain-150,
+`-q 'path(n1, X)'` is bound, and still loses badly: **11,325 facts and
+2.19s, against 11,175 facts and 0.62s** for plain evaluation. The
+binding is real but useless, because everything downstream of n1 is
+genuinely demanded: the magic set grows to all 150 nodes, so the
+rewriting adds 150 magic facts and a guard literal per rule and prunes
+nothing. Compare `-q 'path(n140, X)'`: 66 facts and 0.05s, a 12× win. The
+governing quantity is how much demand is *smaller* than the relation.
+
+*The crossover.* Measured on chain-150 against 0.63s for plain
+evaluation:
+
+| query start | magic time | |
+|---|---|---|
+| n1 | 2.18s | lose |
+| n40 | 1.16s | lose |
+| n75 | 0.53s | win (just) |
+| n110 | 0.18s | win |
+| n140 | 0.05s | win |
+
+The crossover sits near the chain's midpoint, and the advantage
+compounds as demand shrinks. That curve, not a single number — is the
+honest answer to "is magic sets faster?"
+
+**4. Hand-simulating the magic rewriting of `ancestor(bob, X)`.**
+
+```prolog
+ancestor#bf(X, Y) :- magic#ancestor#bf(X), parent(X, Y).
+magic#ancestor#bf(Y) :- magic#ancestor#bf(X), parent(X, Y).
+ancestor#bf(X, Z) :- magic#ancestor#bf(X), parent(X, Y), ancestor#bf(Y, Z).
+magic#ancestor#bf(bob).
+```
+
+Evaluation: magic = {bob, carl} (the demanded start points), then
+`ancestor#bf(bob, carl)` and nothing else — 3 IDB facts where full
+evaluation derives 14. Check against `--magic --trace`.
+

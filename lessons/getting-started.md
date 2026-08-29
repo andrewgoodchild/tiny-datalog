@@ -87,13 +87,13 @@ a given purpose.
 
 | If you are here to... | Read |
 |---|---|
-| write rules for a real policy | 12 (aggregation), 4 (missing data), 16 (authoring) |
-| understand how evaluation works | 2, 6 (magic sets), 14 (tabling), and the *Under the hood* sections |
+| write rules for a real policy | 13 (aggregation), 4 (missing data), 6 (for-all), 17 (authoring) |
+| understand how evaluation works | 2, 7 (magic sets), 15 (tabling), and the *Under the hood* sections |
 | know what a rule set *means* | 5 (stable models), 4 (open vs closed worlds) |
-| get at the theory | 7 (semirings), 10 (Horn clauses), 15 (containment), 17 (category theory) |
-| see where it meets machine learning | 7, 8 (probabilistic) |
-| keep answers fresh as data changes | 9 (incremental) |
-| reason about definitions, not data | 11 (subsumption) |
+| get at the theory | 8 (semirings), 11 (Horn clauses), 16 (containment), 18 (category theory) |
+| see where it meets machine learning | 8, 9 (probabilistic) |
+| keep answers fresh as data changes | 10 (incremental) |
+| reason about definitions, not data | 12 (subsumption) |
 
 **The full list:**
 
@@ -103,25 +103,26 @@ a given purpose.
 3. [Negation and stratification](03-negation.md)
 4. [Closed and open worlds](04-closed-and-open-worlds.md)
 5. [Beyond stratification: stable models](05-beyond-stratification.md)
-6. [Magic sets: asking questions efficiently](06-magic-sets.md)
-7. [Semirings: provenance and recursive aggregation](07-semirings.md)
-8. [Probabilistic Datalog, honestly](08-probabilistic.md)
-9. [Incremental maintenance](09-incremental.md)
-10. [Horn clauses: the boundary Datalog lives on](10-horn-clauses.md)
-11. [KL-ONE and subsumption](11-kl-one-subsumption.md)
-12. [Aggregation: counting without contradiction](12-aggregation.md)
-13. [Arithmetic: the price of numbers](13-arithmetic.md)
-14. [Tabling: top-down without the cliff](14-tabling.md)
-15. [Containment: the same search, one level up](15-containment.md)
-16. [Writing rules that survive review](16-writing-rules.md)
-17. [The road not taken: category theory](17-category-theory.md)
+6. [For all, in a language that only has there-exists](06-for-all.md)
+7. [Magic sets: asking questions efficiently](07-magic-sets.md)
+8. [Semirings: provenance and recursive aggregation](08-semirings.md)
+9. [Probabilistic Datalog, honestly](09-probabilistic.md)
+10. [Incremental maintenance](10-incremental.md)
+11. [Horn clauses: the boundary Datalog lives on](11-horn-clauses.md)
+12. [KL-ONE and subsumption](12-kl-one-subsumption.md)
+13. [Aggregation: counting without contradiction](13-aggregation.md)
+14. [Arithmetic: the price of numbers](14-arithmetic.md)
+15. [Tabling: top-down without the cliff](15-tabling.md)
+16. [Containment: the same search, one level up](16-containment.md)
+17. [Writing rules that survive review](17-writing-rules.md)
+18. [The road not taken: category theory](18-category-theory.md)
 
 Three groupings worth knowing about, because each is a single idea told
 across several lessons: **3, 5 and 12** share one thesis (finish a
 relation before you negate or summarise it); **10 and 13** are one
-argument about top-down evaluation; **4 and 11** are one contrast
+argument about top-down evaluation; **4 and 12** are one contrast
 met twice — 4 shows closed against open worlds from the data side,
-and 11 builds the reasoner living on the other side of it.
+and 12 builds the reasoner living on the other side of it.
 
 Hit a word you don't know? [glossary.md](glossary.md) defines every
 technical term the course uses, with the lesson that introduces it.

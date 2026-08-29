@@ -1,49 +1,57 @@
 # Lesson 13 — answers
 
-Runnable rules: `exercises/13-answers.dl`.
+Runnable rules for exercise 1: `exercises/13-answers.dl`.
 
-**1. `times/3`, and sixteen.**
-
-```prolog
-times(n0, Y, n0) :- num(Y).
-times(X, Y, Z) :- succ(X1, X), times(X1, Y, Z1), plus(Z1, Y, Z).
-```
-
-The recursion is (x+1)·y = x·y + y, with `plus` doing the adding.
-`times(n2, n3, Z)` gives n6; `times(n4, n4, Z)` gives **no answers** —
-sixteen does not exist in a ten-numeral world, so the product
-overflows into absence, exactly as `plus` did. Bounded arithmetic
-saturates by omission.
-
-**2. `times(n3, X, n6)`.**
-
-One answer: `times(n3, n2, n6)`. You just performed **division** — six
-divided by three — without writing a division rule. The relation
-contains all its triples, so any argument can be the unknown; division
-is multiplication queried backwards, and (bonus) integer division's
-awkward cases surface as answer *counts*: `times(n4, X, n6)` has zero
-answers because three-halves is not a numeral, and `times(n0, X, n0)`
-has ten, because zero times anything is zero.
-
-**3. `lt/2` over ten numerals.**
+**1. `average` from `sum` and `count`.**
 
 ```prolog
-lt(X, Y) :- succ(X, Y).
-lt(X, Z) :- succ(X, Y), lt(Y, Z).
+spend_sum(P, sum(A))     :- charge(P, C, A).
+spend_count(P, count(C)) :- charge(P, C, A).
+average_parts(P, S, N)   :- spend_sum(P, S), spend_count(P, N).
 ```
 
-The transitive closure of `succ`: one fact per ordered pair, so
-10·9/2 = **45**. (It is `path` from Lesson 2 wearing number clothing —
-which is the lesson's point made backwards: on a bounded domain,
-arithmetic is just graph reachability.)
+`average_parts(alice, 180, 2)`: the division is the consumer's job,
+because dividing requires arithmetic over *derived* values, which is a
+built-in, which the README lists as a deliberate omission: a built-in must fire at the moment its operands bind, and
+this engine refuses to make join order semantically significant.
 
-**4. The mode of `!=`, and why it is harmless.**
+**2. `reach(alice, N)`, and dana's absence.**
 
-Its declaration in this lesson's terms: *both arguments must be ground
-at call time* — check-only, never enumerate. The reason `!=` never
-threatens termination while `+` does: checking a disequality of two
-existing constants creates nothing, but `+` with an unbound result
-argument *manufactures a new constant*, and new constants are exactly
-what the finiteness argument of Lesson 2 forbids. A built-in is safe
-precisely when it can only filter the Herbrand universe, never grow
-it.
+`reach(alice, 3)`: alice is connected to bob, carol, and dana. dana
+produces *no* `reach` fact at all — she knows no one, so the body has
+no solutions for her, so there is no group. `count` never returns 0
+because a zero-count group has nothing to attach the zero to; if you
+want "dana: 0" you need a universe predicate and negation, which is a
+nice extra exercise.
+
+**3. The forbidden program.**
+
+```prolog
+p(a, 1).
+q(count(X)) :- q(Y), p(X, N).
+```
+
+```
+REJECTED: program is not stratifiable — aggregation occurs inside a
+recursive cycle: q --agg--> q.
+```
+
+Why no answer could be stable, in one sentence: the count is only
+correct once `q` is complete, but the count itself adds to `q` —
+"complete" can never arrive, the same knot as `p :- not p` with
+counting in place of negation.
+
+**4. `--explain` on an aggregate.**
+
+```
+total(bob, 990)   [via total(P, sum(A)) :- charge(P, C, A).]
+  = sum over 2 body solutions of A: [90, 900]
+```
+
+Instead of premises, the tree shows the *group*: one entry per body
+solution, in a list rather than a set, because two solutions
+contributing equal values are two contributions. An aggregate fact
+isn't supported by any single body fact: remove either charge and the
+conclusion doesn't weaken, it *changes*. That non-monotonicity is
+exactly why aggregation lives a stratum up, and why its explanation is
+a collection, not a chain.

@@ -28,7 +28,7 @@ names three properties; here is what each one costs and buys:
 2. **Recursive** — reachability, hierarchies, and dependency closures are
    native, not bolted on.
 3. **Terminating**, every Datalog program finishes. Always. This is a
-   theorem, not a convention, and Lesson 10 shows the price paid for it.
+   theorem, not a convention, and Lesson 11 shows the price paid for it.
 
 If you know SQL: Datalog is roughly "SELECT–JOIN plus real recursion,
 minus the ceremony." If you know Prolog: Datalog is Prolog without
@@ -77,11 +77,11 @@ exactly what needs no coordination.
 
 **The present (2020s).** The active research threads: **semiring
 provenance** (one program computing costs, counts, and evidence —
-Lesson 7), **incremental computation** (DBSP and differential dataflow —
-Lesson 9's DRed is their ancestor), **neurosymbolic AI** (Scallop:
-differentiable Datalog inside neural networks — Lesson 8 is the on-ramp),
+Lesson 8), **incremental computation** (DBSP and differential dataflow —
+Lesson 10's DRed is their ancestor), **neurosymbolic AI** (Scallop:
+differentiable Datalog inside neural networks — Lesson 9 is the on-ramp),
 equality saturation (egglog), and verification via constrained Horn
-clauses (Lesson 10's closing note).
+clauses (Lesson 11's closing note).
 
 ## Who invented Datalog?
 
@@ -104,7 +104,7 @@ History, and Outlook"*: the definitive account of the language's life,
 by people who lived it. Warren built XSB, the tabling engine that kept
 the well-founded semantics alive through the winter years of Act 3.
 
-So when this course's Lesson 10 shows you the function-symbol boundary,
+So when this course's Lesson 11 shows you the function-symbol boundary,
 you are looking at the exact line Maier drew when he needed a name for
 "Prolog's logic, a database's discipline."
 
@@ -169,18 +169,18 @@ much larger territory than the one science fiction warned us about.
 | Era | Idea | Where here |
 |---|---|---|
 | 1977–1985 | facts, rules, joins, recursion, semi-naive | Lessons 1–2 · `datalog.py` |
-| 1986 | magic sets | Lesson 6 · `magic.py` |
+| 1986 | magic sets | Lesson 7 · `magic.py` |
 | 1988–1991 | stratification; stable models; well-founded | Lessons 3 & 5 · `semantics.py` |
-| 2007– | provenance semirings, recursive aggregation | Lesson 7 · `semiring.py` |
-| 2020s | probabilistic / neurosymbolic | Lesson 8 |
-| 1993 → 2023 | DRed → differential dataflow → DBSP | Lesson 9 · `incremental.py` |
-| 1965–1972 | Horn clauses, resolution, Prolog | Lesson 10 · `prolog.py` |
-| 1977 | conjunctive-query containment (Chandra–Merlin) | Lesson 15 · `containment.py` |
-| 1978 → today | KL-ONE → description logics → OWL / SNOMED CT | Lesson 11 · `subsumption.py` |
+| 2007– | provenance semirings, recursive aggregation | Lesson 8 · `semiring.py` |
+| 2020s | probabilistic / neurosymbolic | Lesson 9 |
+| 1993 → 2023 | DRed → differential dataflow → DBSP | Lesson 10 · `incremental.py` |
+| 1965–1972 | Horn clauses, resolution, Prolog | Lesson 11 · `prolog.py` |
+| 1977 | conjunctive-query containment (Chandra–Merlin) | Lesson 16 · `containment.py` |
+| 1978 → today | KL-ONE → description logics → OWL / SNOMED CT | Lesson 12 · `subsumption.py` |
 | throughout | closed vs open worlds — what absence means | Lesson 4 |
-| the practice | authoring rules others must review | Lesson 16 |
-| the mathematics | what the course is made of, and the road not taken | Lesson 17 |
-| 1990s → today | recursive aggregation; SLG tabling, the resolution strategy XSB implements | Lessons 12 & 14 · `tabling.py` |
+| the practice | authoring rules others must review | Lesson 17 |
+| the mathematics | what the course is made of, and the road not taken | Lesson 18 |
+| 1990s → today | recursive aggregation; SLG tabling, the resolution strategy XSB implements | Lessons 13 & 15 · `tabling.py` |
 
 The repository is small on purpose, every algorithm named above is
 implemented in readable standard-library Python, and every example in
@@ -196,17 +196,17 @@ that teaches its core idea.
    became GitHub's **CodeQL**, which scans code across GitHub today.
    The **Soufflé** dialect writes pointer analyses for Java and
    control-flow analyses for Scheme. Recursion over a program's
-   dependency graph is Lessons 2 and 6's material.
+   dependency graph is Lessons 2 and 7's material.
 2. **Databases that speak it.** **Datomic** uses Datalog as its query
    language on a distributed database; **LogicBlox** ran web-based
    retail planning and insurance applications on it; and the **magic
-   sets** algorithm — Lesson 6 — is implemented inside IBM's DB2.
+   sets** algorithm — Lesson 7 — is implemented inside IBM's DB2.
 3. **Knowledge graphs and medical terminology.** **RDFox** is a
-   main-memory triple store built on Datalog reasoning, with Lesson 9's
+   main-memory triple store built on Datalog reasoning, with Lesson 10's
    Backward/Forward as its deletion algorithm. And every release of
    **SNOMED CT**, the ~350,000-concept clinical terminology behind
    electronic health records, is classified by EL reasoners running the
-   saturation calculus Lesson 11 compiles to Datalog.
+   saturation calculus Lesson 12 compiles to Datalog.
 4. **Industrial scheduling and configuration.** Answer set programming
    — Lesson 5's stable models, industrialised — was first applied to
    **product configuration** in 1998 (Soininen and Niemelä), and
@@ -214,16 +214,27 @@ that teaches its core idea.
    optimisation together) with clingo's hybrid extensions (Abels et
    al., arXiv 2003.08598).
 5. **Program verification.** Compilers and verifiers discharge safety
-   questions as **constrained Horn clauses** — Lesson 10's clause shape
+   questions as **constrained Horn clauses** — Lesson 11's clause shape
    plus arithmetic — solved by engines like Z3's Spacer, with an annual
    solver competition (CHC-COMP) to keep everyone honest.
+
+And a second index, for the reader arriving stuck rather than curious
+— the symptom, and the lesson that is about it:
+
+| If you find yourself... | Read |
+|---|---|
+| banning cycles so your checker terminates | [6](06-for-all.md) |
+| inventing extra entities to carry a definition | [12](12-kl-one-subsumption.md) |
+| returning a disjunction and calling the reasoning NP-hard | [5](05-beyond-stratification.md) |
+| precomputing derived facts by hand and asserting them | [10](10-incremental.md) |
+| brute-force searching a whole database per query | [7](07-magic-sets.md) |
 
 The pattern across all five: small rule sets, large or changing data,
 and answers someone must be able to trust or audit — exactly the
 territory the README stakes out.
 
 For everything else, there is [the glossary](glossary.md), and for the
-mathematically curious there is [Lesson 17](17-category-theory.md) —
+mathematically curious there is [Lesson 18](18-category-theory.md) —
 what the course's mathematics actually is, and why the categorical
 recasting of it was a road deliberately not taken.
 
@@ -238,21 +249,22 @@ and the lesson that builds the machinery:
 | What follows from these facts and rules? | `python3 datalog.py programs/family.dl` | [1](01-first-steps.md) |
 | What's reachable, at any depth? | `python3 datalog.py --trace programs/reachability.dl` | [2](02-recursion.md) |
 | What holds *unless* something else does? | `python3 datalog.py programs/tweety.dl` | [3](03-negation.md) |
-| Answer just this query — don't compute everything | `python3 datalog.py --magic -q 'path(n5, X)' programs/reachability.dl` | [6](06-magic-sets.md) |
+| Answer just this query — don't compute everything | `python3 datalog.py --magic -q 'path(n5, X)' programs/reachability.dl` | [7](07-magic-sets.md) |
 | Is this rule set self-contradictory? | `python3 datalog.py --models programs/eligibility-paradox.dl` | [5](05-beyond-stratification.md) |
 | Why did you conclude that? | `python3 datalog.py --explain 'eligible(bob)' programs/eligibility.dl` | [1](01-first-steps.md), [2](02-recursion.md) |
-| Which facts does the conclusion rest on? | `python3 semiring.py -s why programs/routes.dl` | [7](07-semirings.md) |
-| What's the cheapest route? How many ways? | `python3 semiring.py -s minplus programs/routes.dl` | [7](07-semirings.md) |
-| How likely is it? | `python3 semiring.py -s viterbi programs/prob-reach.dl` | [8](08-probabilistic.md) |
-| The data changed — what changed in the answers? | `python3 incremental.py programs/dred-graph.dl -u 'edge(n3, n4)~.'` | [9](09-incremental.md) |
-| How many, how much, largest? | `python3 datalog.py programs/spending.dl` | [12](12-aggregation.md) |
-| Answer a goal top-down, even left-recursive | `python3 tabling.py programs/left-recursive.dl -q 'ancestor(abe, X)'` | [14](14-tabling.md) |
-| What if I allow function symbols, and lose termination? | `python3 prolog.py programs/peano.pl -q 'add(X, Y, s(s(zero)))'` | [10](10-horn-clauses.md) |
-| What do these definitions entail about each other? | `python3 subsumption.py programs/family-ontology.dl` | [11](11-kl-one-subsumption.md) |
-| Are these two queries the same query? | `python3 containment.py programs/minimise.dl` | [15](15-containment.md) |
+| Which facts does the conclusion rest on? | `python3 semiring.py -s why programs/routes.dl` | [8](08-semirings.md) |
+| What's the cheapest route? How many ways? | `python3 semiring.py -s minplus programs/routes.dl` | [8](08-semirings.md) |
+| How likely is it? | `python3 semiring.py -s viterbi programs/prob-reach.dl` | [9](09-probabilistic.md) |
+| The data changed — what changed in the answers? | `python3 incremental.py programs/dred-graph.dl -u 'edge(n3, n4)~.'` | [10](10-incremental.md) |
+| How many, how much, largest? | `python3 datalog.py programs/spending.dl` | [13](13-aggregation.md) |
+| Answer a goal top-down, even left-recursive | `python3 tabling.py programs/left-recursive.dl -q 'ancestor(abe, X)'` | [15](15-tabling.md) |
+| What if I allow function symbols, and lose termination? | `python3 prolog.py programs/peano.pl -q 'add(X, Y, s(s(zero)))'` | [11](11-horn-clauses.md) |
+| What do these definitions entail about each other? | `python3 subsumption.py programs/family-ontology.dl` | [12](12-kl-one-subsumption.md) |
+| Are these two queries the same query? | `python3 containment.py programs/minimise.dl` | [16](16-containment.md) |
 | Does absence mean false, or just unrecorded? | `python3 datalog.py programs/missing-data.dl` | [4](04-closed-and-open-worlds.md) |
-| Can it do arithmetic? | `python3 datalog.py -q 'plus(X, Y, n4)' programs/bounded-arithmetic.dl` | [13](13-arithmetic.md) |
-| How do I write rules someone else can sign off? | `python3 datalog.py --explain 'may_borrow(iris)' programs/lending.dl` | [16](16-writing-rules.md) |
+| Can it do arithmetic? | `python3 datalog.py -q 'plus(X, Y, n4)' programs/bounded-arithmetic.dl` | [14](14-arithmetic.md) |
+| Can it say "for all"? | `python3 datalog.py -q 'sub(rich, stream)' programs/record-subtyping.dl` | [6](06-for-all.md) |
+| How do I write rules someone else can sign off? | `python3 datalog.py --explain 'may_borrow(iris)' programs/lending.dl` | [17](17-writing-rules.md) |
 
 Provenance, in full:
 

@@ -1,4 +1,4 @@
-# Lesson 12 — Aggregation: counting without contradiction
+# Lesson 13 — Aggregation: counting without contradiction
 
 Datalog derives facts; real questions often want *summaries* — how many,
 how much, the least, the most. This lesson adds aggregation to the
@@ -84,7 +84,7 @@ Aggregating a *recursive* relation is perfectly fine; it just lands in
 the next stratum (`reach(P, count(Q)) :- connected(P, Q).` in the
 example program). What's forbidden is the summary feeding back into what
 it summarises. (Letting *monotone* aggregation recurse safely — min
-inside shortest-path — is precisely the semiring story of Lesson 7 and
+inside shortest-path — is precisely the semiring story of Lesson 8 and
 the current research thread behind it; the two lessons are one idea
 seen from two sides.)
 
@@ -94,7 +94,7 @@ seen from two sides.)
 1. Add `average(P, ...)`. You can't, with one aggregate per head. Build
    it from two rules (`sum` and `count`) and explain why the engine
    can't divide for you (no arithmetic —
-   [lesson 13](13-arithmetic.md) is the whole story).
+   [lesson 14](14-arithmetic.md) is the whole story).
 2. Predict `reach(alice, N)` in `spending.dl` before running it.
    Why does dana not appear at all?
 3. Write the forbidden program: make a predicate's count feed its own
@@ -103,5 +103,5 @@ seen from two sides.)
 4. `--explain 'total(bob, 990)'` — what does the tree show instead of
    premises, and why can't an aggregate have a normal premise list?
 
-Next: [arithmetic](13-arithmetic.md) — why the engine has no `+`,
+Next: [arithmetic](14-arithmetic.md) — why the engine has no `+`,
 and what to do about it.

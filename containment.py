@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 containment.py — query containment and minimisation for conjunctive
-queries, by homomorphism.  (Lesson 15.)
+queries, by homomorphism.  (Lesson 16.)
 
 Two questions an optimiser asks that evaluation never does:
 

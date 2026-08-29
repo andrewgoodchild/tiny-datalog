@@ -1,57 +1,40 @@
 # Lesson 12 — answers
 
-Runnable rules for exercise 1: `exercises/12-answers.dl`.
+Runnable ontology (exercises 1 and 4): `exercises/12-answers.dl`.
 
-**1. `average` from `sum` and `count`.**
+**1. Predict grandmother's classification.**
 
-```prolog
-spend_sum(P, sum(A))     :- charge(P, C, A).
-spend_count(P, count(C)) :- charge(P, C, A).
-average_parts(P, S, N)   :- spend_sum(P, S), spend_count(P, N).
+`grandmother ⊑ mother*` — directly under mother (woman ∧ ∃has_child.
+parent ⊑ woman ∧ ∃has_child.person = mother, since every parent is a
+person), and through mother, under woman, parent, and person. The
+mirror image of grandfather ⊑ father, and the classifier finds it
+unaided.
+
+**2. Why doesn't `isa(father, tall)` make every man tall?**
+
+`isa` states a *necessary* condition: every father is tall. Inference
+flows upward from father only. Nothing says tall things are
+fathers, and nothing connects man to tall at all. A `define(father,
+and(man, tall, ...))` would be different: definitions are necessary
+AND sufficient, so any concept provably man-and-tall-with-a-child would
+then classify *under* father. Primitive vs defined is the whole game in
+KL-ONE: only definitions let the classifier discover.
+
+**3. Goal-directed subsumption via `--emit` + magic.**
+
+```sh
+python3 subsumption.py --emit programs/family-ontology.dl > /tmp/ont.dl
+python3 datalog.py --magic --trace -q 'subs(grandfather, parent)' /tmp/ont.dl
 ```
 
-`average_parts(alice, 180, 2)`: the division is the consumer's job,
-because dividing requires arithmetic over *derived* values, which is a
-built-in, which the README lists as a deliberate omission: a built-in must fire at the moment its operands bind, and
-this engine refuses to make join order semantically significant.
+The magic facts that appear are `magic#subs#bb(grandfather, parent)`
+and the subgoals demand discovers from it: the classifier's work
+narrowed to one subsumption question. (Tabling the same query shows the
+same sets as tables: lesson 15's punchline, in ontology form.)
 
-**2. `reach(alice, N)`, and dana's absence.**
+**4. A discovered equivalence.**
 
-`reach(alice, 3)`: alice is connected to bob, carol, and dana. dana
-produces *no* `reach` fact at all — she knows no one, so the body has
-no solutions for her, so there is no group. `count` never returns 0
-because a zero-count group has nothing to attach the zero to; if you
-want "dana: 0" you need a universe predicate and negation, which is a
-nice extra exercise.
-
-**3. The forbidden program.**
-
-```prolog
-p(a, 1).
-q(count(X)) :- q(Y), p(X, N).
-```
-
-```
-REJECTED: program is not stratifiable — aggregation occurs inside a
-recursive cycle: q --agg--> q.
-```
-
-Why no answer could be stable, in one sentence: the count is only
-correct once `q` is complete, but the count itself adds to `q` —
-"complete" can never arrive, the same knot as `p :- not p` with
-counting in place of negation.
-
-**4. `--explain` on an aggregate.**
-
-```
-total(bob, 990)   [via total(P, sum(A)) :- charge(P, C, A).]
-  = sum over 2 body solutions of A: [90, 900]
-```
-
-Instead of premises, the tree shows the *group*: one entry per body
-solution, in a list rather than a set, because two solutions
-contributing equal values are two contributions. An aggregate fact
-isn't supported by any single body fact: remove either charge and the
-conclusion doesn't weaken, it *changes*. That non-monotonicity is
-exactly why aggregation lives a stratum up, and why its explanation is
-a collection, not a chain.
+`exercises/12-answers.dl` defines `dad` as "a person who is a man with
+a child who is a person" — syntactically different from father,
+semantically identical, and the classifier prints `dad ≡ father`.
+Equivalence discovery is just subsumption run both ways.

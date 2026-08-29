@@ -7,14 +7,14 @@ something isn't there?**
 - `datalog.py` — the engine you have been using — says: *absent means
   false.* If I cannot derive `employed(dana)`, then `not
   employed(dana)` succeeds.
-- `subsumption.py` — Lesson 11's ontology classifier, which you can
+- `subsumption.py` — Lesson 12's ontology classifier, which you can
   treat as a black box today — says: *absent means unknown.* If the
   ontology never says fathers are tall, it does not conclude they
   aren't. It concludes nothing.
 
 (This is Lesson 3's missing half. The two demo commands below need no
 knowledge of how the classifier works, only of what it concludes —
-Lesson 11 builds it properly.)
+Lesson 12 builds it properly.)
 
 Neither is wrong. They are answers to different questions, and knowing
 which one you are standing in is the difference between a benefits
@@ -89,7 +89,7 @@ the **open-world assumption (OWA)**: *a fact that is neither stated
 nor derivable is not false — it is unknown.* The axioms are read as a
 partial description of a larger world, so absence of proof is never
 proof of absence. It will never tell you
-`father ⊑ not tall`; it cannot even express that (Lesson 11's limits
+`father ⊑ not tall`; it cannot even express that (Lesson 12's limits
 section, no ⊥, no negation at all).
 
 The consequence is worth seeing rather than being told, because it is
@@ -198,7 +198,7 @@ marker mean":
   placeholder witness. Unlike SQL's NULL, two occurrences of the same
   labelled null are *known equal*: it is an unknown individual, not an
   unknown value, and positive queries can treat it as an ordinary
-  constant (the certain-answers story — Lesson 15's homomorphisms
+  constant (the certain-answers story — Lesson 16's homomorphisms
   doing the work). This repository mints miniature ones: the `gen_N`
   names `subsumption.py` invents during normalisation are exactly
   this, Skolem constants with identity.

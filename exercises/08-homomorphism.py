@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Lesson 7, the specialisation exercises — is "materialise provenance
+"""Lesson 8, the specialisation exercises — is "materialise provenance
 once, specialise later" sound?
 
 Checks two candidate maps out of why-provenance:
@@ -7,7 +7,7 @@ Checks two candidate maps out of why-provenance:
     why -> minplus   a semiring homomorphism; agrees everywhere
     why -> count     no homomorphism exists; a counterexample proves it
 
-Run:  python3 exercises/07-homomorphism.py
+Run:  python3 exercises/08-homomorphism.py
 """
 
 import os

@@ -1,4 +1,4 @@
-# Lesson 15 — Containment: the same search, one level up
+# Lesson 16 — Containment: the same search, one level up
 
 > **Self-contained.** Needs lessons 1–3 only, despite the number.
 
@@ -32,7 +32,7 @@ Q2 can be satisfied there, it can be satisfied wherever Q1 is.
 
 ## The model theory underneath
 
-Name the frame, because Lesson 17 will claim this lesson runs on it.
+Name the frame, because Lesson 18 will claim this lesson runs on it.
 **Model theory** studies the relationship between sentences and the
 structures that satisfy them; its workhorse map is the
 **homomorphism**, a function between structures that preserves every
@@ -121,7 +121,7 @@ humans are small, and the exponential lives in the number of atoms, not
 the size of the data. Optimisers apply minimisation once per query and
 then evaluate the minimised form over millions of rows, so an expensive
 analysis buys cheap execution: the same trade magic sets makes in
-Lesson 6.
+Lesson 7.
 
 ## Where the theory stops
 
@@ -131,7 +131,7 @@ Two boundaries, both sharp:
   Add `not` and containment becomes a different (and harder) problem;
   `containment.py` refuses such rules rather than answering wrongly.
 - **Recursion.** Containment of *recursive* Datalog programs is
-  undecidable (Shmueli). This is the same wall Lesson 10 hit from the
+  undecidable (Shmueli). This is the same wall Lesson 11 hit from the
   other side: the question is decidable exactly where the language is
   restricted enough, and Datalog's recursion is expressive enough to
   break it. Uniform containment: a stronger, sufficient condition — is
@@ -139,8 +139,8 @@ Two boundaries, both sharp:
 
 Notice the pattern the course keeps returning to: a question about all
 possible worlds becomes a finite computation only when the language is
-deliberately weakened. Function symbols (Lesson 10), negation-in-cycles
-(Lesson 3), aggregation-in-cycles (Lesson 12), and now recursion in
+deliberately weakened. Function symbols (Lesson 11), negation-in-cycles
+(Lesson 3), aggregation-in-cycles (Lesson 13), and now recursion in
 containment — four different fences, same reason for the fence.
 
 ## Exercises
@@ -162,6 +162,6 @@ containment — four different fences, same reason for the fence.
    what happens when a view is inlined into another view, and why
    optimisers minimise *after* rewriting rather than before.)
 
-Next: [writing rules that survive review](16-writing-rules.md) —
+Next: [writing rules that survive review](17-writing-rules.md) —
 sixteen lessons on how engines evaluate rules, and one on authoring
 them.

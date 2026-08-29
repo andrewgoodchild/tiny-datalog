@@ -1,4 +1,4 @@
-# Lesson 10 — Horn clauses: the boundary Datalog lives on
+# Lesson 11 — Horn clauses: the boundary Datalog lives on
 
 Every rule in this repository is a **Horn clause**: a formula with at
 most one positive literal, `b₁ ∧ … ∧ bₙ → h`. Datalog is Horn-clause
@@ -21,7 +21,7 @@ every program has a least model — the properties this whole course
 runs on — and the name stuck. Horn identified the clauses; he never
 knew what they would become. It is a recurring pattern in this field:
 the fragment chosen for one good property turns out to have been
-chosen for all of them (Lesson 15 meets it again when a 1977
+chosen for all of them (Lesson 16 meets it again when a 1977
 containment theorem turns out to be the theory of 2020s query
 optimisers).
 
@@ -117,10 +117,10 @@ cut, arithmetic, or I/O. Just resolution.
 | function symbols | banned | yes |
 | termination | guaranteed | undecidable |
 | all answers at once | yes (fixpoint) | enumerated, maybe forever |
-| goal-directed | via magic sets (Lesson 6) | natively |
+| goal-directed | via magic sets (Lesson 7) | natively |
 | data structures | none — facts only | lists, trees, numbers |
 
-Magic sets (Lesson 6) is this table's punchline: it imports top-down's
+Magic sets (Lesson 7) is this table's punchline: it imports top-down's
 goal-direction into bottom-up evaluation *without* importing the
 non-termination — possible only because the function-symbol ban keeps
 everything finite.
@@ -153,5 +153,5 @@ the whole top-down/bottom-up debate in code.
 3. `lt(X, zero)` should fail. Does it fail *finitely* here? Explain
    why the depth bound isn't needed for this one.
 
-Next: [KL-ONE and subsumption](11-kl-one-subsumption.md) — Datalog's
+Next: [KL-ONE and subsumption](12-kl-one-subsumption.md) — Datalog's
 *other* neighbour, and this one compiles back in.

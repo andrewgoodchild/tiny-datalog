@@ -43,7 +43,7 @@ overdue loan at all" and "there is some book P doesn't have out" — two
 different policies. The fix is to project first (`has_overdue(P) :-
 overdue(P, _).`) and negate that. **Drafting habit: negate a
 proposition about one thing; a spare variable under `not` means you
-haven't finished modelling.** (Lesson 16 builds a whole policy around
+haven't finished modelling.** (Lesson 17 builds a whole policy around
 this mistake.)
 
 **Order of computation.** To evaluate `not reach(X)` you must be *done*
@@ -141,6 +141,11 @@ inside a component — that *is* "negation in a recursive cycle", and the
 error message reconstructs the offending cycle by breadth-first search. Stratum numbers
 then fall out by relaxation: strictly above what you negate, at least as
 high as what you use.
+
+A third case completes the gallery, and it is the one working
+programmers hit most: a *legitimate universal condition* inside a
+recursion, which looks like one of the above and is neither.
+[Lesson 6](06-for-all.md) is entirely about it.
 
 ## Exercises
 

@@ -1,62 +1,38 @@
 # Lesson 9 — answers
 
-Runnable graph for exercise 2: `exercises/09-answers.dl`.
+Verification script for exercise 3: `exercises/09-exact-prob.py`.
 
-**1. Which single edge deletion removes the most path facts net?**
+**1. All routes s → t, by hand.**
 
-Measured over `programs/dred-graph.dl`, `net_removed` per edge:
+| route | probability |
+|---|---|
+| s-a-t | 0.9 × 0.9 = **0.81** ← Viterbi's answer |
+| s-a-b-t | 0.9 × 0.8 × 0.95 = 0.684 |
+| s-b-t | 0.5 × 0.95 = 0.475 |
 
-| deleted edge | over_deleted | rederived | net_removed |
-|---|---|---|---|
-| edge(n1, n2) | 4 | 0 | **5** |
-| edge(n4, n5) | 4 | 0 | **5** |
-| edge(n2, n3) | 7 | 5 | 3 |
-| edge(n3, n4) | 7 | 5 | 3 |
-| edge(n2, n4) | 5 | 5 | 1 |
+`reach(s, b)` similarly: max(0.5, 0.9 × 0.8 = 0.72) = **0.72** — the
+indirect route through a is more reliable than the direct link.
 
-The chain's *end* edges hurt most, because nothing routes around them,
-while the shortcut edge(n2, n4) barely matters (everything it carried
-survives via n3). Damage is a function of redundancy, not position in
-the file.
+**2. Drop `link(s, a)` to 0.6.**
 
-**2. over_deleted ≫ net_removed.**
+s-a-t becomes 0.6 × 0.9 = **0.54** — still the winner (s-b-t stays
+0.475, s-a-b-t falls to 0.456). Verified by re-running; the interesting
+part is how *close* it gets: single-fact confidence changes reorder
+route rankings, which is why systems that reason over model-produced
+confidences need exactly this kind of recomputation.
 
-The diamond in `exercises/09-answers.dl`: deleting `edge(s, m1)`
-implicates six facts (the edge, `path(s, m1)`, and the four paths
-s→t→u...) — over-delete sweeps them all, but the four through-paths
-survive via m2 and are re-derived; only the edge and `path(s, m1)`
-are truly gone (`over_deleted: 6, rederived: 4, net_removed: 2`).
-DRed's worst case is exactly a
-well-connected graph: the more redundant the derivations, the more
-phase 1 over-reacts and phase 2 repairs. That is precisely the case
-`--strategy bf` exists for — see exercise 4 — and counting-based
-maintenance (track *how many* derivations support each fact) is the
-third answer, restricted to non-recursive rules for the reason the
-lesson gives.
+**3. Exact total probability, by world enumeration.**
 
-**3. Why does `insert()` never need a re-derive phase?**
+`python3 exercises/09-exact-prob.py` enumerates all 2⁵ = 32 worlds:
 
-One sentence: insertion is monotone — new facts can only *add*
-derivations, never invalidate one, so nothing previously derived is
-ever in doubt.
+```
+exact P(s reaches t)  = 0.934450
+Viterbi (best route)  = 0.810000
+```
 
-**4. B/F on the diamond, and its opposite case.**
-
-On the diamond, `delete("edge(s, m1).", strategy="bf")` reports
-`affected: 6, confirmed: 4, removed: 2, backward_checks: 6` — one
-check per affected fact, each of the four through-paths confirmed on
-its first alternative derivation (via m2). B/F's best case.
-
-The opposite case is a bare chain: delete the first edge of
-`a->b->c->d->e` and every path fact out of `a` genuinely dies. B/F must
-run a *failed* backward search for each — and a failed search is the
-expensive kind, because it exhausts every rule and every candidate
-match before giving up — while DRed deletes the lot and its re-derive
-phase finds nothing to do almost immediately.
-
-The property that decides it is **derivation redundancy**: how many
-independent ways the affected facts can be derived. Redundant graph →
-B/F (survival is confirmed cheaply, and survivors are never touched);
-brittle graph → DRed (there is nothing to save, so demolition is the
-efficient move). Neither dominates, which is why both are in the
-module and real systems ship hybrids.
+The exact answer must always be ≥ Viterbi, because "some route works"
+includes the event "the best route works" — Viterbi is a lower bound
+that ignores the redundancy between routes. The gap (0.12) is the value
+of the backup paths, and computing it required leaving semirings for
+world-counting, precisely the boundary the lesson drew, and precisely
+where Scallop-style systems bring in weighted model counting.

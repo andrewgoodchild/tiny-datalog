@@ -1,4 +1,4 @@
-# Lesson 6 — Magic sets: asking questions efficiently
+# Lesson 7 — Magic sets: asking questions efficiently
 
 Bottom-up evaluation has a blind spot. Ask `path(n5, X)` — "what can n5
 reach?", and the engine computes *every* path in the graph, then throws
@@ -175,5 +175,5 @@ you observe rather than take on faith.
    hand-rewriting beside it, and find the function that produced each
    rule you wrote.
 
-Next: [semirings](07-semirings.md), which asks what a derivation
+Next: [semirings](08-semirings.md), which asks what a derivation
 carries besides truth.

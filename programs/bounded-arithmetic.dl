@@ -1,5 +1,5 @@
 % Arithmetic inside the fence: numbers as facts, addition as rules.
-% Lesson 13 explains why the engine has no built-in + at all.
+% Lesson 14 explains why the engine has no built-in + at all.
 %
 %   python3 datalog.py -q 'plus(n2, n3, Z)' programs/bounded-arithmetic.dl
 %   python3 datalog.py -q 'plus(X, Y, n4)' programs/bounded-arithmetic.dl

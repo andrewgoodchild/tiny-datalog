@@ -1,32 +1,62 @@
 # Lesson 10 — answers
 
-**1. `mult` forwards and backwards.**
+Runnable graph for exercise 2: `exercises/10-answers.dl`.
 
-```sh
-python3 prolog.py programs/peano.pl -q 'mult(s(s(zero)), s(s(zero)), X)'
-   X = s(s(s(s(zero))))          # 2 × 2 = 4
-python3 prolog.py programs/peano.pl -q 'mult(X, s(s(zero)), s(s(s(s(zero)))))'
-   X = s(s(zero))                # 4 ÷ 2 = 2, by running × in reverse
-```
+**1. Which single edge deletion removes the most path facts net?**
 
-Division as reversed multiplication — unification's party trick, and
-verified by the test suite.
+Measured over `programs/dred-graph.dl`, `net_removed` per edge:
 
-**2. Why does ancestor behave identically under both engines?**
+| deleted edge | over_deleted | rederived | net_removed |
+|---|---|---|---|
+| edge(n1, n2) | 4 | 0 | **5** |
+| edge(n4, n5) | 4 | 0 | **5** |
+| edge(n2, n3) | 7 | 5 | 3 |
+| edge(n3, n4) | 7 | 5 | 3 |
+| edge(n2, n4) | 5 | 5 | 1 |
 
-It is function-free and every SLD derivation for it terminates (the
-recursion consumes a `parent` fact each step), so top-down enumerates
-exactly the finite answer set that bottom-up computes — on the Datalog
-fragment with terminating derivations, the two strategies are two
-routes to the same least model. The divergence between engines only
-appears when function symbols (lesson 10) or left recursion (lesson 14)
-enter.
+The chain's *end* edges hurt most, because nothing routes around them,
+while the shortcut edge(n2, n4) barely matters (everything it carried
+survives via n3). Damage is a function of redundancy, not position in
+the file.
 
-**3. Does `lt(X, zero)` fail finitely?**
+**2. over_deleted ≫ net_removed.**
 
-Yes, no depth bound needed. Both `lt` clauses have `s(N)` as their
-second argument, and `zero` unifies with neither, so resolution has
-zero matching clauses and fails immediately. This is *finite failure*:
-the honest kind of "no", as opposed to the depth-bound's "unproven".
-The test suite asserts both the empty answer set and the
-`incomplete = False` flag.
+The diamond in `exercises/10-answers.dl`: deleting `edge(s, m1)`
+implicates six facts (the edge, `path(s, m1)`, and the four paths
+s→t→u...) — over-delete sweeps them all, but the four through-paths
+survive via m2 and are re-derived; only the edge and `path(s, m1)`
+are truly gone (`over_deleted: 6, rederived: 4, net_removed: 2`).
+DRed's worst case is exactly a
+well-connected graph: the more redundant the derivations, the more
+phase 1 over-reacts and phase 2 repairs. That is precisely the case
+`--strategy bf` exists for — see exercise 4 — and counting-based
+maintenance (track *how many* derivations support each fact) is the
+third answer, restricted to non-recursive rules for the reason the
+lesson gives.
+
+**3. Why does `insert()` never need a re-derive phase?**
+
+One sentence: insertion is monotone — new facts can only *add*
+derivations, never invalidate one, so nothing previously derived is
+ever in doubt.
+
+**4. B/F on the diamond, and its opposite case.**
+
+On the diamond, `delete("edge(s, m1).", strategy="bf")` reports
+`affected: 6, confirmed: 4, removed: 2, backward_checks: 6` — one
+check per affected fact, each of the four through-paths confirmed on
+its first alternative derivation (via m2). B/F's best case.
+
+The opposite case is a bare chain: delete the first edge of
+`a->b->c->d->e` and every path fact out of `a` genuinely dies. B/F must
+run a *failed* backward search for each — and a failed search is the
+expensive kind, because it exhausts every rule and every candidate
+match before giving up — while DRed deletes the lot and its re-derive
+phase finds nothing to do almost immediately.
+
+The property that decides it is **derivation redundancy**: how many
+independent ways the affected facts can be derived. Redundant graph →
+B/F (survival is confirmed cheaply, and survivors are never touched);
+brittle graph → DRed (there is nothing to save, so demolition is the
+efficient move). Neither dominates, which is why both are in the
+module and real systems ship hybrids.

@@ -1,0 +1,15 @@
+% Lesson 14, exercises 1-3: times, division-by-query, and lt over the
+% bounded numerals.  Loaded and checked by ExerciseTests.
+
+succ(n0, n1). succ(n1, n2). succ(n2, n3). succ(n3, n4).
+succ(n4, n5). succ(n5, n6). succ(n6, n7). succ(n7, n8). succ(n8, n9).
+num(X) :- succ(X, _).
+num(X) :- succ(_, X).
+plus(n0, Y, Y) :- num(Y).
+plus(X, Y, Z) :- succ(X1, X), plus(X1, Y, Z1), succ(Z1, Z).
+
+times(n0, Y, n0) :- num(Y).
+times(X, Y, Z) :- succ(X1, X), times(X1, Y, Z1), plus(Z1, Y, Z).
+
+lt(X, Y) :- succ(X, Y).
+lt(X, Z) :- succ(X, Y), lt(Y, Z).

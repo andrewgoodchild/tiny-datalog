@@ -210,6 +210,6 @@ learning instead of enumeration.
 3. Invent a third reading of the café: make `household_cooks` an EDB
    fact you assert or don't. What happens in each case?
 
-Next: [magic sets](06-magic-sets.md), which leaves semantics behind
-and asks a performance question: how do you stop computing the whole
-world when you only asked one thing?
+Next: [for all](06-for-all.md) — the third figure in this lesson's
+gallery: after the contradictory and the ambiguous, the rejected
+program that was neither, and the construction that rescues it.

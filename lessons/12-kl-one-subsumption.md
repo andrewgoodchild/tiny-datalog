@@ -1,4 +1,4 @@
-# Lesson 11 — KL-ONE and subsumption: reasoning about definitions
+# Lesson 12 — KL-ONE and subsumption: reasoning about definitions
 
 Everything so far reasoned about *facts*: which tuples are in which
 relations. This lesson's question is one level up: what follows from
@@ -173,13 +173,16 @@ Every other module in this course says where it runs out; here is this
 one's boundary, and it matters because the gap to a *real* medical
 classifier is exactly one letter of the alphabet.
 
-What ships is plain **EL**. Missing: **⊤** (no universal concept), **⊥
-and disjointness** (so this classifier can never tell you a definition
-is unsatisfiable: a significant thing for a knowledge base to be
-unable to say), **role hierarchies** (`subrole(has_part, has_component)`
-is rejected, loudly, rather than silently ignored), **role chains and
-right identities**, nominals, datatypes, and there is no ABox at all:
-this reasons about definitions, never about individuals.
+What ships is **EL⊥**: plain EL plus `disjoint/2` axioms. Disjointness
+buys the one verdict pure EL cannot give — *this definition is
+unsatisfiable*. Declare `disjoint(cat, dog).` and a concept defined as
+`and(cat, dog)` classifies under ⊥, as does anything with an
+unsatisfiable existential filler; two extra completion rules carry the
+whole feature. Still missing: **⊤** (no universal concept), **role
+hierarchies** (`subrole(has_part, has_component)` is rejected, loudly,
+rather than silently ignored), **role chains and right identities**,
+nominals, datatypes, and there is no ABox at all: this reasons about
+definitions, never about individuals.
 
 SNOMED CT genuinely needs the role hierarchy and right identities
 (that's how "a fracture of the femur is a fracture of a bone" and
@@ -187,10 +190,11 @@ part-whole propagation work), so it needs **ELH with right identities**
 — which is precisely what ELK and Snorocket implement, and precisely
 what this file does not. What generalises is the *method*: EL++
 reasoners are more completion rules of the same shape, over a richer
-normal form. Adding ⊥ alone is a genuinely tractable exercise; adding
-role chains is a research-grade one.
+normal form. Adding ⊥ was a genuinely tractable exercise — the two
+CR5/CR6 rules in `subsumption.py` are what it took; adding role chains
+is a research-grade one.
 
-## The tradeoff saga: the same lesson as Lesson 10, rediscovered
+## The tradeoff saga: the same lesson as Lesson 11, rediscovered
 
 KL-ONE's own subsumption algorithm was *structural*: normalise both
 definitions, compare part by part. Then came the shock results: Brachman
@@ -199,7 +203,7 @@ language flip subsumption from polynomial to intractable, and
 Schmidt-Schauß (1989) proved subsumption in full KL-ONE **undecidable**.
 The field's response created **description logics**: pick your fragment
 deliberately, and know its price. It is exactly the move Datalog made by
-banning function symbols — Lesson 10's boundary, drawn through a
+banning function symbols — Lesson 11's boundary, drawn through a
 different logic.
 
 There is a twist in that saga worth its own paragraph, because it
@@ -253,7 +257,7 @@ engine under a schema-flexible surface. Where it genuinely exceeds the
 core, it lands on machinery from this course — its overridable
 inheritance needs the well-founded semantics (Lesson 5), and its
 flagship implementation, FLORA-2, compiles to XSB, David Warren's
-tabling engine (Lesson 14).
+tabling engine (Lesson 15).
 
 In the Semantic Web wars, F-logic carried the closed-world rules camp
 against this lesson's open-world classifiers; OWL went to the
@@ -277,5 +281,5 @@ rejected the logic and adopted the encoding.
    another (hint: two syntactically different definitions of the same
    thing: the classifier reports `≡`).
 
-Next: [aggregation](12-aggregation.md) — counting without
+Next: [aggregation](13-aggregation.md) — counting without
 contradiction.

@@ -1,0 +1,35 @@
+% Subtyping of recursive record types — "for all" done with "there
+% exists".  Lesson 6 derives this program; the direct version is
+% rejected by the engine, and this one is why the rejection is right.
+%
+%   python3 datalog.py -q 'sub(rich, stream)' programs/record-subtyping.dl
+%   python3 datalog.py --explain 'nsub(brok, stream)' programs/record-subtyping.dl
+%
+% S is a subtype of T when EVERY field of T appears on S with a
+% subtype-compatible type.  The universal is computed as the negation
+% of its counterexample: nsub derives "here is a field that fails",
+% and sub is the absence of any such witness — which also makes the
+% cyclic types below come out right, coinductively.
+
+prim(int). prim(str).
+distinct(int, str). distinct(str, int).
+
+field(stream, val, int).  field(stream, next, stream).
+field(rich, val, int).    field(rich, meta, str).  field(rich, next, rich).
+field(brok, val, str).    field(brok, next, brok).
+field(ping, val, int).    field(ping, next, pong).
+field(pong, val, int).    field(pong, next, ping).
+
+type(X) :- prim(X).
+type(X) :- field(X, _, _).
+hasfield(S, F) :- field(S, F, _).
+
+% nsub: a finite witness that S is NOT a subtype of T.
+nsub(S, T) :- prim(S), prim(T), distinct(S, T).
+nsub(S, T) :- prim(S), field(T, _, _).
+nsub(S, T) :- field(S, _, _), prim(T).
+nsub(S, T) :- type(S), field(T, F, _), not hasfield(S, F).
+nsub(S, T) :- field(T, F, Tp), field(S, F, Sp), nsub(Sp, Tp).
+
+% sub: no witness exists.
+sub(S, T) :- type(S), type(T), not nsub(S, T).

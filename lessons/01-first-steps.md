@@ -126,13 +126,13 @@ in `_Parser`'s docstring.
 **Safety is range restriction** (`validate`): every head variable and
 every variable under `not` must be bound by a positive body literal.
 This is what keeps every relation finite. The same function enforces the
-function-symbol ban: the Datalog boundary from Lesson 10 is four lines
+function-symbol ban: the Datalog boundary from Lesson 11 is four lines
 of `isinstance(a, Struct)`.
 
 **Safety is range restriction** (`validate`): every head variable and
 every variable under `not` must be bound by a positive body literal.
 This is what keeps every relation finite. The same function enforces
-the function-symbol ban: the Datalog boundary of Lesson 10 is four
+the function-symbol ban: the Datalog boundary of Lesson 11 is four
 lines of `isinstance(a, Struct)`.
 
 ## Exercises

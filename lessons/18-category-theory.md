@@ -1,4 +1,4 @@
-# Lesson 17 — The road not taken: category theory
+# Lesson 18 — The road not taken: category theory
 
 > **Entirely optional.** Nothing later depends on this lesson, because
 > nothing comes later. It exists for one kind of reader: the one who
@@ -31,15 +31,17 @@ apart.
 
 The course's mathematics is **lattice theory** (fixpoints —
 [Lesson 2](02-recursion.md)), **model theory** (homomorphisms and
-containment — [Lesson 15](15-containment.md)), and **universal
+containment — [Lesson 16](16-containment.md)), and **universal
 algebra** (semirings and their quotients —
-[Lesson 7](07-semirings.md)). Those are the tools the field actually
+[Lesson 8](08-semirings.md)). Those are the tools the field actually
 reaches for, and every result in these lessons is stated in them.
 
 A reader arriving from category theory will notice that much of this
 *can* be recast categorically: instances and homomorphisms form a
 category, `lfp(T_P)` is an initial algebra, semiring specialisation is
-a functor. All true, and, for classical Datalog — none of it doing
+a functor, and Lesson 6's coinductive subtyping — a greatest fixpoint
+obtained as the complement of a least one — is the terminal coalgebra
+sitting dual to Lesson 2's initial algebra. All true, and, for classical Datalog — none of it doing
 work the lattice-and-semiring toolkit wasn't already doing. Nothing in
 `datalog.py` would be different. It is worth saying plainly, because
 the vocabulary is attractive enough to mistake for content.
@@ -79,7 +81,7 @@ signpost.
    initial algebra of a functor on sets of facts, then identify what
    the initiality property gives you that Lesson 2's Knaster–Tarski
    argument did not already give. (The honest answer is short.)
-2. Lesson 15's canonical-instance trick — freeze a query's variables
+2. Lesson 16's canonical-instance trick — freeze a query's variables
    into constants — is an adjunction in disguise. Which two maps form
    the unit and counit, and between which categories?
 3. Apply the criterion to something outside databases you know well.

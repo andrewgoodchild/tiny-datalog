@@ -125,7 +125,7 @@ cannot answer them. Datalog can, because it gave things up:
 (Containment and equivalence become undecidable once recursion is
 involved — Shmueli, 1993, which is why `containment.py` handles
 conjunctive queries and refuses the rest.
-[Lesson 15](lessons/15-containment.md) covers the boundary.)
+[Lesson 16](lessons/16-containment.md) covers the boundary.)
 
 Being declarative, recursive and terminating is not a feature list. It
 is the trade that makes rules analysable, and three things follow from
@@ -153,7 +153,7 @@ the better tool, and that covers most problems.
 ## What else you can ask it
 
 The worked example above is one row of a table. Lesson 0 ends with the
-full version — 18 questions, each with the command that answers it and
+full version — 19 questions, each with the command that answers it and
 the lesson that builds the machinery:
 [lesson 0](lessons/00-what-is-datalog.md).
 
@@ -178,7 +178,7 @@ python3 benchmarks/generate.py chain 150 > chain150.dl
 The last two are the same rewriting on the same program. Magic sets
 pays in proportion to how much the query's bindings prune; when demand
 is the whole relation the guards are pure overhead.
-[Lesson 6](lessons/06-magic-sets.md) works through why.
+[Lesson 7](lessons/07-magic-sets.md) works through why.
 
 Correctness is checked by a seeded differential fuzzer that generates
 stratified programs and demands semi-naive, naive, magic-sets and
@@ -200,12 +200,12 @@ Three of them teach things that are hard to find taught well anywhere
 else, and they are the reason the course exists rather than just the
 engine:
 
-- **[Lesson 7](lessons/07-semirings.md)** proves that why-provenance
+- **[Lesson 8](lessons/08-semirings.md)** proves that why-provenance
   cannot be specialised into derivation counts, with a program that
   prints the disproof: two facts with identical provenance and different
   counts. That settles "materialise provenance once, specialise later,"
   which is a real design-review question with a real answer.
-- **[Lesson 15](lessons/15-containment.md)** shows that the containment
+- **[Lesson 16](lessons/16-containment.md)** shows that the containment
   test you need for query minimisation is the search already sitting in
   `datalog.py`: `_match` maps a rule body into a database,
   `find_homomorphism` maps a rule body into another rule body. Same
@@ -224,7 +224,7 @@ regression test without writing Python.
 
 Static analysis at scale (CodeQL, Soufflé) is Datalog. Knowledge graphs
 (RDFox) are Datalog. Incremental view maintenance is a live commercial
-category: Lesson 9 implements both DRed (1993) and RDFox's
+category: Lesson 10 implements both DRed (1993) and RDFox's
 Backward/Forward (2015), and DBSP — the Z-set formulation behind
 Feldera — is the descendant that took a different route to the same
 problem.
@@ -243,7 +243,7 @@ quietly:
 - **Arithmetic and comparisons.** A built-in isn't a relation you can
   enumerate, so it must be *evaluated* the moment its operands bind —
   which entangles correctness with join order and forces terms to
-  become trees. [Lesson 13](lessons/13-arithmetic.md) is the whole
+  become trees. [Lesson 14](lessons/14-arithmetic.md) is the whole
   story, including what to do instead.
 - **Indexes and join planning.** Every join is a nested loop so the
   algorithms stay one-screen readable. It is also why the magic-sets
@@ -255,7 +255,7 @@ quietly:
 - **A REPL (interactive prompt) and packaging.** `git clone` and run.
 
 Aggregation used to be on this list;
-[lesson 12](lessons/12-aggregation.md) is what promoting an omission
+[lesson 13](lessons/13-aggregation.md) is what promoting an omission
 into a feature looks like.
 
 ## Layout
@@ -274,7 +274,7 @@ subsumption.py  KL-ONE-style EL classifier, compiled to Datalog
 containment.py  query containment and minimisation by homomorphism
 programs/       teaching programs, numbered by the lesson that uses
                 them (00-* are the README's examples)
-lessons/        getting started, glossary, and lessons 0–17
+lessons/        getting started, glossary, and lessons 0–18
 exercises/      worked answers, verified by the test suite
 cases/          golden test cases — add one without writing Python
 benchmarks/     scaled input generators (chain/tree/clique/grid)

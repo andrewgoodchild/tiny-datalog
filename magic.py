@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 magic.py — the magic-sets transformation: goal-directed queries for a
-bottom-up engine.  (Lesson 6, which ends with a tour of this module.)
+bottom-up engine.  (Lesson 7, which ends with a tour of this module.)
 
 The problem: bottom-up evaluation computes *whole relations*, but a query
 like path(n5, X) only needs facts reachable from n5.  Top-down engines

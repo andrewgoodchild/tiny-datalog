@@ -1,4 +1,4 @@
-# Lesson 13 — Arithmetic: the price of numbers
+# Lesson 14 — Arithmetic: the price of numbers
 
 Every newcomer asks this in week one. Here is the engine's answer:
 
@@ -31,7 +31,7 @@ part of what a program *means*. Engines that take this path must add a
 ground, and safety checking grows from one rule into a dataflow
 analysis.
 
-The deeper problem is Lesson 10's fence wearing a disguise. The
+The deeper problem is Lesson 11's fence wearing a disguise. The
 integers under successor *are* a free term algebra — `n+1` is `s(n)`
 spelled differently — so admitting unbounded arithmetic is admitting
 function symbols, and the Herbrand universe goes infinite exactly as
@@ -67,19 +67,19 @@ Three things fall out that a built-in would not give you. Overflow is
 closed-world reading is the honest overflow flag. The relation is
 *reversible* — `plus(X, Y, n4)` returns all five splits of four,
 because bottom-up evaluation computes the whole relation and a query
-is just a filter (Lesson 10's Peano program gets the same reversibility
+is just a filter (Lesson 11's Peano program gets the same reversibility
 top-down, one solution at a time). And `--explain plus(n2, n3, n5)`
 prints a counting proof, since arithmetic done as derivation has
 derivations.
 
-**Aggregation is the sanctioned arithmetic.** Lesson 12's `sum`,
+**Aggregation is the sanctioned arithmetic.** Lesson 13's `sum`,
 `count`, `min` and `max` do real number-crunching — but only in the
 head, over a finished group, a stratum above the recursion they
 summarise. That placement is not a syntax quirk; it is exactly the
 discipline that keeps the arithmetic from feeding back into the
 enumeration.
 
-**Weights push numbers into the algebra.** Lesson 7's `@` annotations
+**Weights push numbers into the algebra.** Lesson 8's `@` annotations
 do costs and probabilities without a single number ever appearing *in
 a rule* — the semiring multiplies along derivations while the logic
 stays pure. That is the cleanest of the three answers: numbers as
@@ -95,7 +95,7 @@ values facts carry, not terms rules build.
   real-world train scheduling in Lesson 0's deployments list runs
   clingo *hybridised with a difference-logic solver* rather than
   grounding times into atoms.
-- **Constrained Horn clauses** (Lesson 10's closing note) go the other
+- **Constrained Horn clauses** (Lesson 11's closing note) go the other
   way entirely: keep the clause shape, hand every arithmetic literal
   to an SMT solver, accept undecidability, and get the language modern
   program verification actually uses.
@@ -117,5 +117,5 @@ the termination theorem survives.
    lesson's terms, and explain why `!=` never threatens termination
    while `+` does.
 
-Next: [tabling](14-tabling.md) — the third way to evaluate, and the
+Next: [tabling](15-tabling.md) — the third way to evaluate, and the
 secret identity of magic sets.

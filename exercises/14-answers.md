@@ -1,45 +1,49 @@
 # Lesson 14 — answers
 
-**1. Tables vs magic facts for `ancestor(bob, X)` on
-`programs/family.dl`.**
+Runnable rules: `exercises/14-answers.dl`.
 
-Measured, side by side:
+**1. `times/3`, and sixteen.**
 
-| tabling (`-t`) | magic (`--magic --trace`) |
-|---|---|
-| table `ancestor(bob, _)` | `magic#ancestor#bf(bob)` |
-| table `ancestor(carl, _)` | `magic#ancestor#bf(carl)` |
-| table `parent(bob, _)`, `parent(carl, _)` | (EDB literals aren't adorned) |
+```prolog
+times(n0, Y, n0) :- num(Y).
+times(X, Y, Z) :- succ(X1, X), times(X1, Y, Z1), plus(Z1, Y, Z).
+```
 
-The `ancestor` call patterns and the magic facts are the same set
-{bob, carl}, the compile-time/run-time duality made concrete. The
-only difference is bookkeeping style: tabling also tables EDB subgoals,
-where magic sets leaves EDB literals untouched.
+The recursion is (x+1)·y = x·y + y, with `plus` doing the adding.
+`times(n2, n3, Z)` gives n6; `times(n4, n4, Z)` gives **no answers** —
+sixteen does not exist in a ten-numeral world, so the product
+overflows into absence, exactly as `plus` did. Bounded arithmetic
+saturates by omission.
 
-**2. Why more rounds than answers?**
+**2. `times(n3, X, n6)`.**
 
-Iterative QSQR re-solves *every* table from scratch each round, and a
-new answer discovered deep in one rule chain only propagates one
-"level" per outer round, so rounds track derivation depth, not answer
-count. Real SLG engines suspend a consumer exactly where it blocked and
-resume it when its table gains an answer, doing each piece of work
-once.
+One answer: `times(n3, n2, n6)`. You just performed **division** — six
+divided by three — without writing a division rule. The relation
+contains all its triples, so any argument can be the unknown; division
+is multiplication queried backwards, and (bonus) integer division's
+awkward cases surface as answer *counts*: `times(n4, X, n6)` has zero
+answers because three-halves is not a numeral, and `times(n0, X, n0)`
+has ten, because zero times anything is zero.
 
-**3. Why do tables reset per query?**
+**3. `lt/2` over ten numerals.**
 
-`query()` rebuilds `self.tables` because answers are *per call
-pattern*, and a fresh query's patterns may overlap the old ones —
-keeping them would be correct (tables are monotone truths) but requires
-knowing when a table is *complete* versus still growing. Production
-systems keep a shared "table space" with completion tracking for
-exactly this reuse, and it is their central engineering artifact.
+```prolog
+lt(X, Y) :- succ(X, Y).
+lt(X, Z) :- succ(X, Y), lt(Y, Z).
+```
 
-**4. Can tabling create fewer tables than magic creates magic facts?**
+The transitive closure of `succ`: one fact per ordered pair, so
+10·9/2 = **45**. (It is `path` from Lesson 2 wearing number clothing —
+which is the lesson's point made backwards: on a bounded domain,
+arithmetic is just graph reachability.)
 
-For the IDB, no — by construction they are the same demand set: a table
-is created exactly when a subgoal pattern is demanded, and a magic fact
-is derived exactly when a bound-argument tuple is demanded, through the
-same left-to-right binding flow. The honest asymmetry runs the other
-way: tabling also creates tables for EDB subgoals (see exercise 1), so
-its table *count* can exceed the magic-fact count, never undercut the
-demand it represents.
+**4. The mode of `!=`, and why it is harmless.**
+
+Its declaration in this lesson's terms: *both arguments must be ground
+at call time* — check-only, never enumerate. The reason `!=` never
+threatens termination while `+` does: checking a disequality of two
+existing constants creates nothing, but `+` with an unbound result
+argument *manufactures a new constant*, and new constants are exactly
+what the finiteness argument of Lesson 2 forbids. A built-in is safe
+precisely when it can only filter the Herbrand universe, never grow
+it.

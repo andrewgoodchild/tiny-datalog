@@ -1,75 +1,65 @@
 # Lesson 6 — answers
 
-**1. `ancestor(abe, X)` with and without `--magic` on
-`programs/family.dl`.**
+**1. `sub(lazy, stream)`?**
 
-Measured: magic derives **11 IDB facts vs 14** under full evaluation.
-The margin is modest because abe is the root — nearly everything is
-relevant to him. Ask from the leaf instead (`ancestor(bob, X)`) and the
-pruning is dramatic: 1 `ancestor#bf` fact and 2 magic facts, against
-the same 14. Demand-driven evaluation pays off in proportion to how
-*specific* the demand is.
+No. The chain of disagreement: `stream`'s `next` field is `stream`,
+`lazy`'s is `brok`, so the question reduces to `nsub(brok, stream)` —
+and that bottoms out at the primitive mismatch `nsub(str, int)` on the
+`val` field. Three links: lazy→brok on `next`, brok→brok's own `val`,
+str≠int. Run `--explain 'nsub(lazy, stream)'` and the engine prints
+exactly this chain.
 
-**2. The rewriting for `ancestor(X, dana)` (adornment `fb`), by hand.**
+**2. The general principle.**
 
-The head binds only the second argument, so bindings flow differently:
+More fields make a *more specific* type, and a more specific type may
+stand wherever a more general one is expected — `rich` has everything
+`stream` promises (and more), so it can serve as a `stream`; `stream`
+lacks `meta`, so it cannot serve as a `rich`. It is the same principle
+as "a subclass may add methods": adding capabilities narrows the set
+of values while widening where they are accepted. (Model-theoretically
+it is Lesson 16's homomorphism direction, one level down.)
 
-```prolog
-% base rule: nothing binds X before parent is scanned
-ancestor#fb(X, Y) :- magic#ancestor#fb(Y), parent(X, Y).
-% recursive rule: parent(X, Y) binds both, so the inner call is bb
-magic#ancestor#bb(Y, Z) :- magic#ancestor#fb(Z), parent(X, Y).
-ancestor#fb(X, Z) :- magic#ancestor#fb(Z), parent(X, Y), ancestor#bb(Y, Z).
-% ...plus the bb specialisation's own copies of both rules
-magic#ancestor#fb(dana).
+**3. The two stable models are the two fixpoints.**
+
+```
+Stable models: 2
+  model 1: badpair(stream, stream).  sub(int, int).  sub(int, stream).  sub(stream, int).  ...
+  model 2: sub(int, int).  sub(int, stream).  sub(stream, int).  sub(stream, stream).  ...
 ```
 
-One query, two adornments (`fb` and `bb`) — check every line against
-`--magic --trace -q 'ancestor(X, dana)'`.
+The models disagree on exactly one thing: `sub(stream, stream)`.
+Model 1 is the **inductive** (least-fixpoint) reading — a stream
+subtypes itself only if that can be finitely proven, and the cycle
+means it never can. Model 2 is the **coinductive** (greatest-fixpoint)
+reading — it holds because nothing refutes it. The well-founded model
+refuses to choose and marks the atom undefined. The complement
+construction chose model 2: `nsub(stream, stream)` has no finite
+derivation, so `sub(stream, stream)` holds. The rejected program was
+not wrong, it was *ambiguous between μ and ν* — and the engine's
+"several stable models" verdict (Lesson 5) said so all along.
 
-**3. When does magic not help? Two different failures.**
+(The toy omits the primitive/record incompatibility rules, which is
+why `sub(int, stream)` appears; the shipped program has them.)
 
-*(a) Nothing bound.* `-q 'ancestor(X, Y)'` — adornment `ff`, the magic
-seed is a zero-arity fact that is simply "true", and every guard
-passes. Measured: **12 IDB facts vs 14**. The rewriting reproduces
-nearly the full computation plus its own bookkeeping. Magic sets
-exploits *bindings*; with none there is nothing to exploit. (Same in
-SQL: predicate pushdown with no predicate pushes nothing.)
-
-*(b) Bound, but the binding prunes nothing.* On chain-150,
-`-q 'path(n1, X)'` is bound, and still loses badly: **11,325 facts and
-2.19s, against 11,175 facts and 0.62s** for plain evaluation. The
-binding is real but useless, because everything downstream of n1 is
-genuinely demanded: the magic set grows to all 150 nodes, so the
-rewriting adds 150 magic facts and a guard literal per rule and prunes
-nothing. Compare `-q 'path(n140, X)'`: 66 facts and 0.05s, a 12× win. The
-governing quantity is how much demand is *smaller* than the relation.
-
-*The crossover.* Measured on chain-150 against 0.63s for plain
-evaluation:
-
-| query start | magic time | |
-|---|---|---|
-| n1 | 2.18s | lose |
-| n40 | 1.16s | lose |
-| n75 | 0.53s | win (just) |
-| n110 | 0.18s | win |
-| n140 | 0.05s | win |
-
-The crossover sits near the chain's midpoint, and the advantage
-compounds as demand shrinks. That curve, not a single number — is the
-honest answer to "is magic sets faster?"
-
-**4. Hand-simulating the magic rewriting of `ancestor(bob, X)`.**
+**4. The build-system trap.**
 
 ```prolog
-ancestor#bf(X, Y) :- magic#ancestor#bf(X), parent(X, Y).
-magic#ancestor#bf(Y) :- magic#ancestor#bf(X), parent(X, Y).
-ancestor#bf(X, Z) :- magic#ancestor#bf(X), parent(X, Y), ancestor#bf(Y, Z).
-magic#ancestor#bf(bob).
+dep(app, libx). dep(libx, liby). dep(liby, libx).
+pkg(app). pkg(libx). pkg(liby). pkg(solo).
+buildable(X) :- pkg(X), not blocked(X).
+blocked(X) :- dep(X, Y), not buildable(Y).
 ```
 
-Evaluation: magic = {bob, carl} (the demanded start points), then
-`ancestor#bf(bob, carl)` and nothing else — 3 IDB facts where full
-evaluation derives 14. Check against `--magic --trace`.
-
+`--models` reports two stable models — one where the whole cycle is
+blocked, one where the whole cycle is buildable — and a well-founded
+model with `solo` buildable and every cycle member **undefined**. The
+undefined is the honest verdict: *these rules cannot decide a cycle*,
+because the rules only say "buildable unless something blocks it" and
+on a cycle each package's fate rests on its own. Builds want the
+inductive reading (a cycle should fail), but the complement
+construction would deliver the coinductive one (a cycle would
+"succeed" vacuously) — the same trick that saved subtyping betrays
+builds. The repair is Lesson 4's move exactly: absence of a blocker is
+not evidence of a build. Add a recorded fact per package —
+`built(X)`, a ledger written by the build system itself — and derive
+from the ledger, not from the absence of failure.

@@ -4,7 +4,7 @@ Worked answers for every lesson's exercises — attempt them first; the
 learning is in the attempt, and several exercises are designed to make
 you hit an instructive wall before the answer names it.
 
-- One `NN-answers.md` per lesson (lessons 1–15; lessons 0, 16 and 17
+- One `NN-answers.md` per lesson (lessons 1–16; lessons 0, 17 and 18
   have no
   exercises).
 - Where an answer is a runnable program it ships alongside as

@@ -1,4 +1,4 @@
-# Lesson 16 — Writing rules that survive review
+# Lesson 17 — Writing rules that survive review
 
 Fifteen lessons have been about how engines evaluate rules. This one is
 about writing them, which is a different skill and the one the rest of
@@ -9,8 +9,9 @@ The drafting habits themselves were met one at a time along the way —
 negate one thing, not a relation with a spare variable (Lesson 3);
 negating base facts is free, negating derived predicates forces an
 order (Lesson 3); several models means a choice unmade (Lesson 5); mind
-the rows that produce no group (Lesson 12); ask whose authority says
-this is absent (Lesson 4). What no single lesson could show is the
+the rows that produce no group (Lesson 13); when you want "for all",
+derive the counterexample and negate it one stratum up (Lesson 6); ask
+whose authority says this is absent (Lesson 4). What no single lesson could show is the
 habits *working together on one policy*, which is this lesson's job.
 
 We will write a small policy badly twice, and let the engine find both
@@ -182,7 +183,7 @@ actually do.
 ## Exercises
 
 1. Add "a member with more than two overdue loans is suspended
-   automatically". You cannot count without Lesson 12's aggregation —
+   automatically". You cannot count without Lesson 13's aggregation —
    write it with `count`, then check whether the program still
    stratifies and explain the result.
 2. Draft 2 had two rules where one silently overrode the other. Write a
@@ -195,6 +196,6 @@ actually do.
    run the five checks. The interesting output is not the answer — it
    is which question you could not express.
 
-Next (optional): [the road not taken](17-category-theory.md) — what
+Next (optional): [the road not taken](18-category-theory.md) — what
 the course's mathematics actually is, for readers who want the frame
 named.

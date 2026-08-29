@@ -171,7 +171,7 @@ class ClassicExamplesTests(unittest.TestCase):
         self.assertTrue(after > before)
 
     def test_lending_policy_drafts(self):
-        # lesson 16: the engine catches both drafts, in different ways
+        # lesson 17: the engine catches both drafts, in different ways
         with self.assertRaises(SafetyError) as cm:
             run_program("member(iris). may_borrow(P) :- member(P), "
                         "not overdue(P, B).")
@@ -190,8 +190,42 @@ class ClassicExamplesTests(unittest.TestCase):
         final = run_program(load("lending.dl"))
         self.assertEqual(final.rels["may_borrow"], {("iris",), ("lena",)})
 
+    def test_record_subtyping_universal_via_complement(self):
+        # lesson 6: for-all as negated counterexample; cycles resolve
+        # coinductively; the naive encoding is rejected
+        e = run_program(load("record-subtyping.dl"))
+        self.assertIn(("rich", "stream"), e.rels["sub"])
+        self.assertIn(("ping", "stream"), e.rels["sub"])
+        self.assertIn(("pong", "stream"), e.rels["sub"])
+        self.assertNotIn(("stream", "rich"), e.rels["sub"])
+        self.assertNotIn(("brok", "stream"), e.rels["sub"])
+        # reflexivity holds for every type, by unfalsifiability
+        types = {t for (t,) in e.rels["type"]}
+        self.assertTrue(all((x, x) in e.rels["sub"] for x in types))
+        with self.assertRaises(StratificationError):
+            run_program("""
+                field(stream, next, stream). type(X) :- field(X, _, _).
+                sub(S, T) :- type(S), type(T), not badpair(S, T).
+                badpair(S, T) :- field(T, F, Tp), field(S, F, Sp),
+                                 not sub(Sp, Tp).
+            """)
+
+    def test_naive_subtyping_is_ambiguous_between_mu_and_nu(self):
+        # lesson 6 exercise 3: the two stable models are the two
+        # fixpoints, disagreeing exactly on the cyclic atom
+        text = ("prim(int). field(stream, val, int). "
+                "field(stream, next, stream). type(X) :- prim(X). "
+                "type(X) :- field(X, _, _). "
+                "sub(S, T) :- type(S), type(T), not badpair(S, T). "
+                "badpair(S, T) :- field(T, F, Tp), field(S, F, Sp), "
+                "not sub(Sp, Tp).")
+        models = stable_models(parse(text))
+        self.assertEqual(len(models), 2)
+        cyclic = ("sub", ("stream", "stream"))
+        self.assertEqual(sum(1 for m in models if cyclic in m), 1)
+
     def test_bounded_arithmetic(self):
-        # lesson 13: numbers as facts; overflow is absence; the
+        # lesson 14: numbers as facts; overflow is absence; the
         # relation is reversible
         e = run_program(load("bounded-arithmetic.dl"))
         self.assertIn(("n2", "n3", "n5"), e.rels["plus"])
@@ -567,7 +601,7 @@ class IncrementalTests(unittest.TestCase):
                          {p: s for p, s in fresh.rels.items() if s})
 
     def test_bf_disturbs_only_what_died(self):
-        # lesson 9's headline: deleting the README's remediation edge
+        # lesson 10's headline: deleting the README's remediation edge
         # affects 112 facts and kills exactly one — the edge itself.
         # Every derived fact survives (pkg4 reaches pkg13 via pkg8), so
         # uses(pkg4, pkg13) is still true and pkg4 is still exposed:
@@ -948,7 +982,7 @@ class ConformanceTests(unittest.TestCase):
 
 
 class ContainmentTests(unittest.TestCase):
-    """Chandra–Merlin containment and minimisation (lesson 15)."""
+    """Chandra–Merlin containment and minimisation (lesson 16)."""
 
     @staticmethod
     def rule(text):
@@ -1004,12 +1038,12 @@ class ContainmentTests(unittest.TestCase):
 
 
 class SemiringHomomorphismTests(unittest.TestCase):
-    """Lesson 7: when may provenance be specialised after the fact?"""
+    """Lesson 8: when may provenance be specialised after the fact?"""
 
     def test_why_to_minplus_is_a_homomorphism(self):
         r = subprocess.run(
             [sys.executable, os.path.join(HERE, "exercises",
-                                          "07-homomorphism.py")],
+                                          "08-homomorphism.py")],
             capture_output=True, text=True, cwd=HERE)
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertIn("agrees on every fact", r.stdout)
@@ -1236,7 +1270,7 @@ class ExerciseTests(unittest.TestCase):
             return fh.read()
 
     def test_lesson13_bounded_arithmetic_answers(self):
-        engine = run_program(self.ex("13-answers.dl"))
+        engine = run_program(self.ex("14-answers.dl"))
         self.assertIn(("n2", "n3", "n6"), engine.rels["times"])
         # sixteen overflows into absence
         self.assertFalse({x for x in engine.rels["times"]
@@ -1297,7 +1331,7 @@ class ExerciseTests(unittest.TestCase):
                          {("win", ("a",)), ("win", ("c",))})
 
     def test_lesson6_modified_routes(self):
-        text = self.ex("07-answers.dl")
+        text = self.ex("08-answers.dl")
         self.assertEqual(
             run_semiring(text, "minplus").value("path", ("a", "e")), 6)
         self.assertEqual(
@@ -1308,14 +1342,14 @@ class ExerciseTests(unittest.TestCase):
     def test_lesson7_exact_probability_script(self):
         r = subprocess.run(
             [sys.executable, os.path.join(HERE, "exercises",
-                                          "08-exact-prob.py")],
+                                          "09-exact-prob.py")],
             capture_output=True, text=True, cwd=HERE)
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertIn("0.934450", r.stdout)
         self.assertIn("exact >= Viterbi: True", r.stdout)
 
     def test_lesson8_diamond_overdelete(self):
-        inc = IncrementalEngine(self.ex("09-answers.dl"))
+        inc = IncrementalEngine(self.ex("10-answers.dl"))
         stats = inc.delete("edge(s, m1).")
         self.assertEqual((stats["over_deleted"], stats["rederived"],
                           stats["net_removed"]), (6, 4, 2))
@@ -1334,7 +1368,7 @@ class ExerciseTests(unittest.TestCase):
         self.assertFalse(incomplete)   # finite failure, not a timeout
 
     def test_lesson10_grandmother_and_dad(self):
-        ont = subsumption.load(self.ex("11-answers.dl"))
+        ont = subsumption.load(self.ex("12-answers.dl"))
         self.assertEqual(ont.direct_subsumers()["grandmother"], {"mother"})
         self.assertIn(("dad", "father"), ont.equivalences())
 
@@ -1346,7 +1380,7 @@ class ExerciseTests(unittest.TestCase):
         self.assertEqual(m.rels["magic#ancestor#bf"], {("bob",), ("carl",)})
 
     def test_lesson12_average_parts(self):
-        engine = run_program(self.ex("12-answers.dl"))
+        engine = run_program(self.ex("13-answers.dl"))
         self.assertEqual(engine.rels["average_parts"],
                          {("alice", 180, 2), ("bob", 990, 2)})
 
@@ -1421,6 +1455,16 @@ class SubsumptionTests(unittest.TestCase):
         engine = run_program(text)
         self.assertIn(("father", "parent"), engine.rels["subs"])
         self.assertIn(("grandfather", "father"), engine.rels["subs"])
+
+    def test_disjointness_finds_unsatisfiable_concepts(self):
+        ont = subsumption.load(self.ONT + """
+            disjoint(man, woman).
+            define(both, and(man, woman)).
+            define(parent_of_both, and(person, some(has_child, both))).
+        """)
+        self.assertEqual(ont.unsatisfiable(), {"both", "parent_of_both"})
+        self.assertNotIn("both", ont.classify()["father"])   # ⊥ is not a parent
+        self.assertEqual(ont.classify()["both"], set())
 
     def test_rejects_rules_and_unknown_statements(self):
         with self.assertRaises(DatalogError):
