@@ -26,8 +26,8 @@ $ python3 semiring.py --semiring viterbi -q 'reach(s, t)' programs/prob-reach.dl
 ```
 
 The semiring is named after a person, and the person is why it is in
-your pocket. **Andrew Viterbi** — born in Bergamo in 1935, his family
-émigrés from Italy's anti-Jewish laws — published the algorithm in 1967
+your pocket. **Andrew Viterbi** — born in Bergamo in 1935 — published
+the algorithm in 1967
 for decoding convolutional codes: given a noisy signal, find the
 *single most probable* sequence of hidden states that produced it, by
 dynamic programming. He went on to co-found Qualcomm, and the algorithm
