@@ -67,6 +67,13 @@ for termination only if it filters the Herbrand universe rather than
 growing it, which is why `!=` is harmless and unbounded `+` is not.
 *(Lesson 13)*
 
+**Built-in.** An operation like `X != Y` or `Z = X + 1` evaluated by
+the engine rather than looked up in a relation. Safe only under a
+**mode** discipline saying which arguments must be ground — and safe
+for termination only if it filters the Herbrand universe rather than
+growing it, which is why `!=` is harmless and unbounded `+` is not.
+*(Lesson 13)*
+
 **CALM theorem.** Consistency As Logical Monotonicity: a distributed
 program can be run without coordination exactly when it is monotone,
 which for Datalog means negation-free. *(Lesson 0)*
