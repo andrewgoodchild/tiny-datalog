@@ -184,7 +184,8 @@ your input data. Contrast **IDB**. *(Lesson 1)*
 
 **EL.** The description logic of conjunction and existential
 restriction, with polynomial-time subsumption. The tractable core
-underneath OWL 2 EL. **EL++** and **ELH** add ⊥, role hierarchies and
+underneath OWL 2 EL (this repository ships **EL⊥**, adding
+disjointness). **EL++** and **ELH** add role hierarchies and
 right identities. *(Lesson 12)*
 
 **Equivalence.** See **Containment**.

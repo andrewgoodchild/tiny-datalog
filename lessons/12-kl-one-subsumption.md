@@ -148,14 +148,14 @@ Classification (7 named concepts):
 Three subsumptions nobody stated: every father is a parent, every mother
 is a parent, and every grandfather is a *father* (having a child who is
 a parent is, in particular, having a child who is a person). That
-asterisked discovery is KL-ONE's party trick, reproduced by five
+asterisked discovery is KL-ONE's party trick, reproduced by seven
 Datalog rules.
 
 Two details worth reading in `subsumption.py`: normalisation mints fresh
 names (`gen_1`, ...) for nested expressions, choosing the inclusion's
 direction by which side of ⊑ the expression sits on: a conservative
 extension, and essentially the structural normalisation KL-ONE performed;
-and the completion rules in `datalog()` are the CR1–CR4 calculus
+and the completion rules in `datalog()` are the CR1–CR6 calculus
 that industrial EL reasoners (ELK, Snorocket) implement with exactly the
 optimisations this course already taught: saturation is semi-naive
 fixpoint, and goal-directed subsumption checks are magic sets.

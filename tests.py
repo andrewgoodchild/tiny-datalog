@@ -1274,7 +1274,8 @@ class LessonOutputTests(unittest.TestCase):
                     os.path.join(HERE, "lessons", "getting-started.md")])
         ncmd = 0
         for f in files:
-            lines = open(f).read().split("\n")
+            with open(f) as fh:
+                lines = fh.read().split("\n")
             in_fence, lang, buf, blocks = False, "", [], []
             for l in lines:
                 if l.startswith("```"):

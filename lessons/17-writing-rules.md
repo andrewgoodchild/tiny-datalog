@@ -183,6 +183,7 @@ anyone to review a rule set.
 | Does it have exactly one answer? | `--models` | none = contradictory, several = you left a choice unmade |
 | Any rule doing no work? | `containment.py` | a redundant rule is usually a modelling mistake |
 | Does the reason read correctly? | `--explain` on a surprising answer | the derivation names the rule at fault |
+| Why is this *missing*? | `--explain` the absent fact | every rule's first failing literal, blockers explained |
 
 The fourth is the one people skip. A redundant rule is rarely harmless:
 it usually means you wrote the same condition twice in different words,

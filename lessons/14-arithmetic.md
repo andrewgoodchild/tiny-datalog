@@ -39,10 +39,11 @@ The deeper problem is Lesson 11's fence wearing a disguise. The
 integers under successor *are* a free term algebra — `n+1` is `s(n)`
 spelled differently — so admitting unbounded arithmetic is admitting
 function symbols, and the Herbrand universe goes infinite exactly as
-it did there. SQL demonstrates the price: `WITH RECURSIVE` allows
-arithmetic in recursion, and in exchange a recursive SQL query has no
-termination guarantee at all — Lesson 2's theorem, traded away in one
-feature.
+it did there. SQL demonstrates the price — in practice if not in the standard's
+prose: engines accept arithmetic inside `WITH RECURSIVE`, and a
+one-line counter query will happily run forever. Whatever the
+specification says, what shipped trades Lesson 2's theorem for a
+`+`.
 
 ## What you can do inside the fence
 

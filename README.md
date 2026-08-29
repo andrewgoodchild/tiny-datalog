@@ -159,8 +159,11 @@ the lesson that builds the machinery:
 
 ## Claims you can check
 
-Every performance claim here is reproducible from the shipped
-generator, including the one that goes the wrong way. Timings are on an
+Beyond the benchmarks: **every shell command quoted in every lesson is
+executed in CI and its quoted output diffed against reality** — the
+course cannot silently rot, which is a rarer property than anything
+else on this page. Every performance claim below is reproducible from
+the shipped generator, including the one that goes the wrong way. Timings are on an
 Apple M1 Pro, CPython 3.10, single core:
 
 ```sh
@@ -248,10 +251,10 @@ quietly:
 - **Indexes and join planning.** Every join is a nested loop so the
   algorithms stay one-screen readable. It is also why the magic-sets
   timing above goes the way it does.
-- **⊤, ⊥, role hierarchies** in the classifier — what ships is plain
-  EL. SNOMED needs ELH (EL plus role hierarchies) with right identities,
-  which is what the ELK and Snorocket reasoners implement and this does
-  not.
+- **⊤ and role hierarchies** in the classifier — what ships is EL⊥
+  (disjointness and unsatisfiability detection included). SNOMED needs
+  ELH (EL plus role hierarchies) with right identities, which is what
+  the ELK and Snorocket reasoners implement and this does not.
 - **A REPL (interactive prompt) and packaging.** `git clone` and run.
 
 Aggregation used to be on this list;

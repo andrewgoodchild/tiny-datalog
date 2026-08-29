@@ -103,8 +103,9 @@ the **open-world assumption (OWA)**: *a fact that is neither stated
 nor derivable is not false — it is unknown.* The axioms are read as a
 partial description of a larger world, so absence of proof is never
 proof of absence. It will never tell you
-`father ⊑ not tall`; it cannot even express that (Lesson 12's limits
-section, no ⊥, no negation at all).
+`father ⊑ not tall`; it cannot even express that — the classifier has
+disjointness (⊥), but no general negation on concepts (Lesson 12's
+limits section).
 
 The consequence is worth seeing rather than being told, because it is
 the sharpest observable difference between the two engines. Add
