@@ -143,16 +143,11 @@ Under the closed-world assumption (CWA), new facts can shrink what
 assumption (OWA), nothing was ever concluded from absence,
 so nothing has to be taken back.
 
-## Interlude: the many meanings of null
+## No nulls, by design
 
-Everything above is about *absence*. Most systems instead have a
-*presence that marks absence* — a null — and it is worth a detour,
-because "null" is not one concept. Different systems use the same word
-for genuinely different things, and several famous bugs live in the
-gaps between them.
-
-**Datalog has no null, by design.** A fact is a ground atom; if you
-don't know a value, you don't write the fact. SQL's nullable column
+Most systems have a *presence that marks absence* — a null. Datalog
+has none: a fact is a ground atom, and if you don't know a value, you
+don't write the fact. SQL's nullable column
 
 ```sql
 person(id, name, phone NULL)
@@ -166,52 +161,21 @@ phone(p1, "555-0100").     % no phone? then no phone fact
 ```
 
 A nullable column is really an *optional relation*, and Datalog makes
-you say so. (Datomic works exactly this way in production: its
-entity-attribute-value datoms have no null anywhere — an absent
-attribute is simply no datom.) Asking "who has no phone" then goes
-through the moves this course already taught: project first
-(`has_phone(P) :- phone(P, _).`) because a spare variable under `not`
-is rejected (Lesson 3), and remember that `not has_phone(P)` reads the
-checking assumption of this lesson — no phone *recorded*.
+you say so. (Datomic works exactly this way in production: an absent
+attribute is simply no datom.) Asking "who has no phone" then runs
+through this course's own moves: project first (`has_phone(P) :-
+phone(P, _).`, Lesson 3's spare-variable habit), and remember that
+`not has_phone(P)` reads this lesson's checking assumption — no phone
+*recorded*.
 
-Now the flavours, because each is a different answer to "what does the
-marker mean":
-
-- **SQL's NULL: one marker, at least three meanings.** *Unknown* (they
-  have a phone, we don't know it), *inapplicable* (the fax column, for
-  someone born in 2005), and *withheld* (they declined to say). Codd
-  himself later argued one marker was a mistake and proposed splitting
-  it into "applicable but unknown" and "inapplicable" — the industry
-  kept the single NULL, plus a three-valued logic in which
-  `NULL = NULL` is not true, `NOT IN` returns nothing if one null
-  slips into the subquery, and `SUM` over no rows is NULL while
-  `COUNT` is 0. Every one of those is a support ticket somewhere.
-- **The labelled null: exists, unknown, but *self-identical*.** In
-  database theory (incomplete databases, data exchange, the chase of
-  Datalog±), "every person has a mother — someone" invents a
-  placeholder witness. Unlike SQL's NULL, two occurrences of the same
-  labelled null are *known equal*: it is an unknown individual, not an
-  unknown value, and positive queries can treat it as an ordinary
-  constant (the certain-answers story — Lesson 16's homomorphisms
-  doing the work). This repository mints miniature ones: the `gen_N`
-  names `subsumption.py` invents during normalisation are exactly
-  this, Skolem constants with identity.
-- **The null reference: absence as a crash.** Programming languages'
-  `null`/`nil` is a pointer that goes nowhere — Tony Hoare called
-  inventing it his "billion-dollar mistake". The modern fix, option
-  types (`Maybe`, `Optional`), is the type system forcing the
-  decomposition Datalog forces relationally: absence becomes a case
-  you must handle, not a value that detonates on contact.
-
-Laid against this lesson's axis, the flavours sort cleanly. Datalog's
-no-fact is **closed-world absence**: it means false. SQL's
-NULL-as-unknown is an attempt to smuggle one **open-world** cell into a
-closed-world table — the row asserts the person exists while one
-column pleads ignorance — and the three-valued logic is the bill for
-mixing the two assumptions in a single relation. The labelled null is
-open-world absence done honestly, with identity instead of a shrug.
-When a schema forces you to pick what each nullable column *means*,
-you are doing this lesson's work in disguise.
+That is the whole design position; the comparative tour — SQL's one
+marker carrying three meanings and the three-valued logic that bills
+for it, database theory's self-identical labelled nulls, Hoare's
+billion-dollar reference — waits for [Lesson 18](18-neighbours.md),
+where the neighbours get their due. The sentence to carry out of *this*
+lesson: SQL's NULL-as-unknown smuggles one open-world cell into a
+closed-world table, and every nullable column is quietly asking the
+question this lesson taught you to ask.
 
 ## The trade, stated plainly
 

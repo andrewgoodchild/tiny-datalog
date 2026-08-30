@@ -294,27 +294,6 @@ The last row deserves its sentence: cyclic definitions are not a
 modelling error, they are a *checker* limitation, and the fix is to
 change the checker, not the model.
 
-## The road the rules camp took: F-logic
-
-The description-logic line was not the frame tradition's only heir.
-**F-logic** (Kifer and Lausen, 1989) folded frames into deductive
-databases instead — objects with attributes as first-class syntax,
-`bob : person[age -> 42]`, rules over all of it, even variables
-ranging over attribute names. It looks higher-order and is not: a
-molecule is sugar for `attr(bob, age, 42)` with `isa`/`sub` alongside,
-and the object machinery is two bridge rules any reader of Lesson 2
-can write. F-logic is to Datalog what objects are to relations — this
-lesson's compile-to-Datalog thesis run in reverse — and where it
-exceeds the core it lands on this course's own machinery: overridable
-inheritance needs Lesson 5's well-founded semantics, and its flagship
-implementation compiles to Lesson 15's tabling engine.
-
-In the Semantic Web wars F-logic carried the closed-world rules camp;
-OWL went to the description logics. The epilogue has a fine irony:
-F-logic's *compilation target* — entity, attribute, value — is the
-data model that won everywhere (RDF triples, Datomic's datoms). The
-industry rejected the logic and adopted the encoding.
-
 ## Exercises
 
 1. Add `define(grandmother, and(woman, some(has_child, parent))).` and

@@ -193,7 +193,7 @@ class hierarchies as first-class logical syntax, whose rule fragment
 compiles to Datalog over a fixed vocabulary (`attr`/`isa`/`sub` plus
 bridge rules). The closed-world counterpart to description logics in
 the ontology wars; its encoding survives as entity–attribute–value.
-*(Lesson 12)*
+*(Lesson 18)*
 
 **Fact.** A rule with an empty body; a ground atom asserted outright.
 *(Lesson 1)*

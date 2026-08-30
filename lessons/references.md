@@ -106,10 +106,6 @@ be defended.
 - T. Gruber, *A Translation Approach to Portable Ontology
   Specifications*, Knowledge Acquisition 1993 — "an explicit
   specification of a conceptualization".
-- M. Kifer and G. Lausen, *F-Logic: A Higher-Order Language for
-  Reasoning about Objects, Inheritance, and Scheme*, SIGMOD 1989;
-  the full treatment is Kifer, Lausen and Wu, JACM 1995.
-
 ## Lesson 13 — aggregation and lattices
 
 - Flix (Madsen, Yee and Lhoták, PLDI 2016) extends Datalog with
@@ -132,8 +128,16 @@ be defended.
 - A. Halevy, *Answering Queries Using Views: A Survey*, VLDB
   Journal 2001.
 
-## Lesson 18 — category theory
+## Lesson 18 — the neighbours
 
+- M. Kifer and G. Lausen, *F-Logic: A Higher-Order Language for
+  Reasoning about Objects, Inheritance, and Scheme*, SIGMOD 1989;
+  the full treatment is Kifer, Lausen and Wu, JACM 1995.
+- M. Arntzenius and N. Krishnaswami, *Datafun: a Functional Datalog*,
+  ICFP 2016.
+- E. F. Codd's proposal to split NULL into applicable-but-unknown and
+  inapplicable marks appears in *The Relational Model for Database
+  Management: Version 2*, 1990; descriptive.
 - S. Eilenberg and S. Mac Lane, *General Theory of Natural
   Equivalences*, Trans. AMS 1945.
 - D. Spivak, *Functorial Data Migration*, Information and

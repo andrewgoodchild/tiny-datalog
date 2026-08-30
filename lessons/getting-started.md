@@ -130,7 +130,7 @@ a given purpose.
 | write rules for a real policy | 13 (aggregation), 4 (missing data), 6 (for-all), 17 (authoring) |
 | understand how evaluation works | 2, 7 (magic sets), 15 (tabling), and the *Under the hood* sections |
 | know what a rule set *means* | 5 (stable models), 4 (open vs closed worlds) |
-| get at the theory | 8 (semirings), 11 (Horn clauses), 16 (containment), 18 (category theory) |
+| get at the theory | 8 (semirings), 11 (Horn clauses), 16 (containment), 18 (the neighbours) |
 | see where it meets machine learning | 8, 9 (probabilistic) |
 | keep answers fresh as data changes | 10 (incremental) |
 | reason about definitions, not data | 12 (subsumption) |
@@ -155,7 +155,7 @@ a given purpose.
 15. [Tabling: top-down without the cliff](15-tabling.md)
 16. [Containment: the same search, one level up](16-containment.md)
 17. [Writing rules that survive review](17-writing-rules.md)
-18. [The road not taken: category theory](18-category-theory.md)
+18. [The neighbours: SQL, F-logic, Haskell, category theory](18-neighbours.md)
 
 Three groupings worth knowing about, because each is a single idea told
 across several lessons: **3, 5 and 12** share one thesis (finish a
