@@ -10,12 +10,51 @@
 
 The nearest neighbour, and the one this course has been defining
 itself against since lesson 0: Datalog is roughly SELECT–JOIN plus
-real recursion, minus the ceremony. The two deep differences have both
-already earned their own sections — recursion with a termination
-theorem against `WITH RECURSIVE` with arithmetic and none (Lesson 14),
-and what absence means. That second one deserves its full tour here,
-because SQL's answer is a *presence that marks absence* — the null —
-and "null" is not one concept.
+real recursion, minus the ceremony. But the two languages are not
+strangers who happen to overlap — they are siblings with fifty years
+of traffic between them, and the ledger of what crossed over, what
+never did, and what each holds that the other cannot is the real
+comparison.
+
+**What crossed over.** More than recursion. A non-recursive Datalog
+rule *is* a SQL view — same semantics, different clothes — and view
+unfolding is rule unfolding. `WITH RECURSIVE` arrived in SQL:1999 from
+the deductive-database line (Lesson 0's winter). The **magic sets**
+rewriting of Lesson 7 is implemented inside IBM's DB2, quietly
+optimising queries for people who have never heard the word Datalog.
+And the optimizer equivalences every engine relies on rest on
+conjunctive-query containment — Lesson 16's theorem, industrialised.
+
+**What never made it, and should have.** SQL absorbed recursion's
+*syntax* without its *semantics*. `WITH RECURSIVE` is defined
+operationally — iterate this term, watch the bag grow — not as
+Lesson 2's least fixpoint, and the differences leak: `UNION` versus
+`UNION ALL` changes termination behaviour, mutual recursion is
+unsupported by most engines, and each engine forbids negation and
+aggregation over the recursive term in its own ad-hoc way. That last
+restriction is stratification, arrived at by folklore — the theory
+existed, and SQL absorbed the fence without the semantics that
+justifies it. Set semantics lost too: SQL chose bags with `DISTINCT`
+as an opt-in, and every accidental duplicate since has been the
+interest on that loan.
+
+**The honest ledger.** What SQL holds that Datalog does not: a type
+system and schema DDL (Lesson 17's lament, solved decades ago);
+arithmetic, strings and dates as first-class citizens (Lesson 14's
+whole trade, paid and banked); `ORDER BY` and `LIMIT` — a Datalog
+relation is a set, and *presentation order is not even expressible*;
+outer joins; window functions; transactions and updates as part of the
+language rather than a satellite module; and half a century of
+optimizer engineering plus every developer already knowing it. What
+Datalog holds: recursion that is native, uniform and terminating;
+rules that compose the way views always wished they did; a principled
+stratification discipline instead of per-engine folklore; and
+derivations, provenance and incremental maintenance falling out of the
+semantics rather than being bolted on.
+
+Which leaves the deepest difference of all — what absence means. SQL's
+answer is a *presence that marks absence*, the null, and "null" is not
+one concept:
 
 - **SQL's NULL: one marker, at least three meanings.** *Unknown* (they
   have a phone, we don't know it), *inapplicable* (the fax column, for
@@ -78,26 +117,58 @@ Functional programming is the other declarative tradition, and the
 kinship is real mathematics, not vibes. Both meanings live on
 fixpoints: Lesson 2's `lfp(T_P)` on a lattice of fact-sets is the same
 Kleene construction that gives a recursive function its meaning in
-domain theory — iterate from bottom, take the limit. Both families
-also made a deliberate trade around termination, in opposite
-directions: Datalog restricted the language until every program halts;
-Haskell kept Turing-completeness and bought back usable semantics with
-laziness. And this course's algebra is a functional programmer's home
-ground — a semiring is a typeclass, Lesson 8's evaluation is a fold
-with `⊕` and `⊗` plugged in, and Lesson 13's lattices are exactly the
-`join`-semilattice structures a Haskell library would abstract over.
+domain theory — iterate from bottom, take the limit.
 
-The bridge is no longer hypothetical. **Datafun** (Arntzenius and
-Krishnaswami, ICFP 2016) is a functional Datalog: a typed λ-calculus
-in which the type system tracks *monotonicity*, so that fixpoints over
-finite semilattices are guaranteed to exist for exactly Lesson 2's
-reasons — the load-bearing property of this whole course, made a
-static type. Read it after Lesson 13 and it is barely foreign.
+The differences are just as structural, and worth a ledger of their
+own:
 
-## What category theory is
+- **Direction of computation.** Datalog saturates: compute *all*
+  consequences bottom-up, then filter with a query. Haskell is
+  demand-driven: laziness evaluates only what the result forces. The
+  course has met both instincts converging — magic sets (Lesson 7) is
+  bottom-up evaluation *discovering demand*, and tabling (Lesson 15)
+  is top-down evaluation discovering memoisation. Haskell has both
+  natively: laziness is demand, sharing is the table.
+- **Relations against functions.** A function runs one way; a relation
+  has no way. Lesson 14's `plus(X, Y, n4)` returning all five splits
+  is unremarkable in Datalog and a party trick in Haskell — while
+  function composition, the thing Haskell does with a dot, takes
+  Datalog a fresh rule and a join.
+- **The termination trade, made in opposite directions.** Datalog
+  restricted the language until every program halts. Haskell kept
+  Turing-completeness and bought back usable semantics with laziness —
+  and its algebraic data types are precisely the function symbols
+  Lesson 11 banned: `s(N)` refused by this parser is a perfectly
+  ordinary Haskell constructor. One tradition fenced the infinite out;
+  the other learned to compute with it unevaluated.
+- **Who owns execution.** A Haskell program's performance is your
+  program — you chose the folds and the data structures. A Datalog
+  program's performance is the *engine's* choice: join order, indexes,
+  magic sets, saturation strategy, all invisible to the rules. That is
+  Datalog's deepest promise (the same rules, faster every engine
+  release) and its deepest frustration (when the engine chooses badly,
+  Lesson 17's guard-weaving is your only steering wheel).
+- **Types.** Haskell's are the best in the business; Datalog's absence
+  of them is Lesson 17's honest cost. There is no contest here, only a
+  debt.
 
-Founded by Samuel Eilenberg and Saunders Mac Lane in 1945, category
-theory is the mathematics of *composition*. A **category** is almost
+This course's algebra is a functional programmer's home ground
+regardless — a semiring is a typeclass, Lesson 8's evaluation is a
+fold with `⊕` and `⊗` plugged in, and Lesson 13's lattices are
+`join`-semilattices a Haskell library would abstract over. And the
+bridge is no longer hypothetical: **Datafun** (Arntzenius and
+Krishnaswami, ICFP 2016) is a functional Datalog — a typed λ-calculus
+whose type system tracks *monotonicity*, so that fixpoints over finite
+semilattices are guaranteed to exist for exactly Lesson 2's reasons.
+The load-bearing property of this whole course, made a static type.
+Read it after Lesson 13 and it is barely foreign.
+
+## Category theory
+
+The last neighbour is not a language but a lens — the one this course
+looked through, put down, and owes an explanation for. Category
+theory, founded by Samuel Eilenberg and Saunders Mac Lane in 1945, is
+the mathematics of *composition*. A **category** is almost
 embarrassingly little: a collection of **objects**, a collection of
 **arrows** between them (each with a source and a target), a rule for
 composing arrows that meet end-to-end, an identity arrow on every
