@@ -5,3 +5,8 @@ __pycache__/
 *.pyc
 .DS_Store
 .claude/
+
+# build artefacts
+build/
+dist/
+*.egg-info/

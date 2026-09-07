@@ -56,7 +56,7 @@ Lesson 5's grounding envelope.
 
 ## Under the hood: you already wrote the search
 
-Open `datalog.py` and read `_match` again:
+Open `tiny_datalog/datalog.py` and read `_match` again:
 
 ```python
 def _match(args, tup, subst):

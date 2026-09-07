@@ -15,7 +15,7 @@ import re
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from semiring import run_semiring  # noqa: E402
+from tiny_datalog.semiring import run_semiring  # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)

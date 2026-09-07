@@ -1,13 +1,28 @@
 # Getting started
 
-Everything is one file of standard-library Python — there is nothing to
-install beyond Python 3.9+.
+Everything is standard-library Python — there is nothing to install
+beyond Python 3.9+.
 
 ```sh
 git clone https://github.com/andrewgoodchild/tiny-datalog
 cd tiny-datalog
 python3 tests.py                     # 127 tests, should all pass
 python3 datalog.py programs/reachability.dl
+```
+
+### Where the code lives
+
+The engine and its satellites live in `tiny_datalog/`; the `.py` files
+at the repo root are three-line launchers so that every command in
+these lessons runs straight from a checkout. When a lesson says to read
+`semiring.py`, it means `tiny_datalog/semiring.py`.
+
+If you want the engine in a project of your own rather than a course to
+read, install it instead — the lessons are not needed:
+
+```sh
+pip install tiny-datalog
+tiny-datalog -q 'ancestor(abe, X)' family.dl
 ```
 
 ## Running programs
@@ -63,7 +78,8 @@ input facts). The other modes:
 ## Using it from Python
 
 ```python
-from datalog import run_program, parse, magic_query
+from tiny_datalog import run_program, parse
+from tiny_datalog.magic import magic_query
 
 engine = run_program(open("family.dl").read())
 print(engine.rels["ancestor"])           # set of tuples
@@ -71,6 +87,11 @@ print(engine.rels["ancestor"])           # set of tuples
 query = parse("ancestor(bob, X).")[0].head
 _, answers = magic_query(parse(open("family.dl").read()), query)
 ```
+
+`tiny_datalog` re-exports the engine's public names — the AST classes,
+`parse`, `validate`, `stratify`, `Program`, `Engine`, `run_program`,
+`explain`, `whynot` and the error types. The satellites keep their own
+modules: `from tiny_datalog import semiring, tabling, incremental`.
 
 ## Where to go next
 

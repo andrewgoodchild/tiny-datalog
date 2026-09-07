@@ -19,3 +19,46 @@ jobs:
       - run: python tests.py LessonOutputTests
         env:
           TINY_DATALOG_LESSONS: "1"
+
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: python -m pip install --upgrade build
+      - run: python -m build
+      - run: pip install dist/*.whl
+
+      # Run from /tmp so the checkout is invisible and these exercise
+      # the installed package rather than the files next door.
+      - name: package imports and evaluates
+        working-directory: /tmp
+        run: |
+          python - <<'EOF'
+          import tiny_datalog
+          e = tiny_datalog.run_program("p(a,b). q(X,Y) :- p(X,Y).")
+          assert sorted(e.rels["q"]) == [("a", "b")], e.rels
+          print("package import ok", tiny_datalog.__version__)
+          EOF
+
+      # The root launchers must never reach site-packages.  Their names
+      # collide with real projects -- python-magic owns `magic`, Twisted's
+      # incremental owns `incremental` -- so the wheel has to ship exactly
+      # one top-level name, and the check is on the wheel rather than on
+      # the environment, which may legitimately contain those others.
+      - name: wheel claims one top-level name
+        run: |
+          python - <<'EOF'
+          import glob, zipfile
+          whl = glob.glob("dist/*.whl")[0]
+          tops = {n.split("/")[0] for n in zipfile.ZipFile(whl).namelist()
+                  if not n.endswith(".dist-info") and ".dist-info" not in n}
+          assert tops == {"tiny_datalog"}, "wheel ships %s" % sorted(tops)
+          print("wheel ships exactly:", *sorted(tops))
+          EOF
+
+      - name: console script runs
+        working-directory: /tmp
+        run: tiny-datalog --help > /dev/null && echo "console script ok"

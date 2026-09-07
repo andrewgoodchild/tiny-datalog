@@ -12,19 +12,20 @@ import sys
 import tempfile
 import unittest
 
-from datalog import (
+from tiny_datalog.datalog import (
     parse, run_program, stratify,
     Engine, Program, SafetyError, StratificationError, DatalogError,
 )
-from magic import magic_query
-from semantics import stable_models, well_founded
-from semiring import run_semiring
-from incremental import IncrementalEngine
-import prolog
-import subsumption
-import containment
-from tabling import TabledEngine
-from datalog import match_answers, format_fact, _sort_key, explain
+from tiny_datalog.magic import magic_query
+from tiny_datalog.semantics import stable_models, well_founded
+from tiny_datalog.semiring import run_semiring
+from tiny_datalog.incremental import IncrementalEngine
+from tiny_datalog import prolog
+from tiny_datalog import subsumption
+from tiny_datalog import containment
+from tiny_datalog.tabling import TabledEngine
+from tiny_datalog.datalog import (
+    match_answers, format_fact, _sort_key, explain)
 
 
 def query_atom(q):
@@ -586,7 +587,7 @@ class IncrementalTests(unittest.TestCase):
         # axiom in, five facts derived; retiring it restores exactly
         emitted_rules = subsumption.load(
             load("family-ontology.dl")).datalog()
-        from datalog import format_fact as _ff
+        from tiny_datalog.datalog import format_fact as _ff
         text = "\n".join(str(r) for r in emitted_rules)
         inc = IncrementalEngine(text)
         before = set(inc.rels["subs"])
@@ -1337,7 +1338,7 @@ class WhyNotTests(unittest.TestCase):
     complement explained inline."""
 
     def lines(self, text, pred, tup):
-        from datalog import whynot
+        from tiny_datalog.datalog import whynot
         return "\n".join(whynot(run_program(text), pred, tup))
 
     def test_negated_blocker_explains_the_complement(self):
@@ -1391,9 +1392,10 @@ class RepositoryClaimTests(unittest.TestCase):
                   "subsumption.py", "containment.py"]
 
     def test_no_satellite_module_exceeds_400_lines(self):
+        # measured on the real module, not the root launcher shim
         for name in self.SATELLITES:
             with self.subTest(module=name):
-                with open(os.path.join(HERE, name)) as fh:
+                with open(os.path.join(HERE, "tiny_datalog", name)) as fh:
                     self.assertLessEqual(len(fh.read().splitlines()), 475)
 
     def test_incremental_reports_its_own_timing(self):

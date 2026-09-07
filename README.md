@@ -268,20 +268,50 @@ Aggregation used to be on this list;
 [lesson 13](lessons/13-aggregation.md) is what promoting an omission
 into a feature looks like.
 
+## Using it in your own project
+
+The engine is on PyPI, with no dependencies beyond the standard library:
+
+```sh
+pip install tiny-datalog
+```
+
+```python
+from tiny_datalog import run_program, explain
+
+engine = run_program(open("supply-chain.dl").read())
+for service, cve in sorted(engine.rels["exposed"]):
+    explain(engine, "exposed", (service, cve))
+```
+
+The command-line interface installs too, as `tiny-datalog` (and
+`tiny-datalog-semiring`, `-tabling`, `-incremental`, `-subsumption`,
+`-containment`, `-prolog` for the satellites):
+
+```sh
+tiny-datalog -q 'exposed(S, C)' supply-chain.dl
+```
+
+The course material — lessons, programs, exercises — is not part of the
+installed package; clone the repository for that.
+
 ## Layout
 
 ```
-datalog.py      the core: AST, parser, safety checks, stratification,
+tiny_datalog/   the engine and its satellites — the code you read:
+  datalog.py    the core: AST, parser, safety checks, stratification,
                 the semi-naive evaluator, and the CLI
-magic.py        the magic-sets rewriting (a program-to-program pass)
-semantics.py    grounding, stable models, the well-founded model
-semiring.py     semiring-valued evaluation (costs, counts, provenance,
+  magic.py      the magic-sets rewriting (a program-to-program pass)
+  semantics.py  grounding, stable models, the well-founded model
+  semiring.py   semiring-valued evaluation (costs, counts, provenance,
                 probabilities)
-incremental.py  insertions + DRed deletions over a live materialisation
-prolog.py       top-down SLD resolution with function symbols
-tabling.py      tabled top-down evaluation (iterative QSQR)
-subsumption.py  KL-ONE-style EL classifier, compiled to Datalog
-containment.py  query containment and minimisation by homomorphism
+  incremental.py  insertions + DRed deletions over a live materialisation
+  prolog.py     top-down SLD resolution with function symbols
+  tabling.py    tabled top-down evaluation (iterative QSQR)
+  subsumption.py  KL-ONE-style EL classifier, compiled to Datalog
+  containment.py  query containment and minimisation by homomorphism
+*.py            three-line launchers, so `python3 datalog.py ...` works
+                straight from a checkout with nothing installed
 programs/       teaching programs, numbered by the lesson that uses
                 them (00-* are the README's examples)
 lessons/        getting started, glossary, and lessons 0–18
@@ -301,7 +331,7 @@ used.
 
 ### How big is it, honestly
 
-The evaluator is about 800 lines (`datalog.py`, up to the
+The evaluator is about 800 lines (`tiny_datalog/datalog.py`, up to the
 command-line interface), the CLI, `--explain` and why-not another 500, and the eight satellite modules about
 2,200. Call it 3.4k lines of toolkit and 1.4k of tests, roughly a
 quarter of it commentary.

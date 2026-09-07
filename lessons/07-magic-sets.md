@@ -184,9 +184,9 @@ you observe rather than take on faith.
    binding failed to buy. Then find the crossover: how far along the
    chain must the query start before magic wins on wall-clock?
 
-4. Read `magic.py` end to end — it is 175 lines — with exercise 2's
-   hand-rewriting beside it, and find the function that produced each
-   rule you wrote.
+4. Read `tiny_datalog/magic.py` end to end — it is 175 lines — with
+   exercise 2's hand-rewriting beside it, and find the function that
+   produced each rule you wrote.
 
 Next: [semirings](08-semirings.md), which asks what a derivation
 carries besides truth.

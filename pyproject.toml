@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tiny-datalog"
+version = "0.1.0"
+description = "A Datalog engine small enough to read in an afternoon"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.9"
+authors = [{name = "Andrew Goodchild"}]
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/andrewgoodchild/tiny-datalog"
+
+[project.scripts]
+tiny-datalog = "tiny_datalog.datalog:main"
+tiny-datalog-prolog = "tiny_datalog.prolog:main"
+tiny-datalog-semiring = "tiny_datalog.semiring:main"
+tiny-datalog-tabling = "tiny_datalog.tabling:main"
+tiny-datalog-incremental = "tiny_datalog.incremental:main"
+tiny-datalog-subsumption = "tiny_datalog.subsumption:main"
+tiny-datalog-containment = "tiny_datalog.containment:main"
+
+[tool.setuptools.packages.find]
+include = ["tiny_datalog*"]

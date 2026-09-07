@@ -31,8 +31,8 @@ from __future__ import annotations
 
 from collections import defaultdict
 
-from datalog import (Const, DatalogError, _aggregate_of, _match, _sort_key,
-                     validate)
+from tiny_datalog.datalog import (
+    Const, DatalogError, _aggregate_of, _match, _sort_key, validate)
 
 
 def _instantiate_atom(atom, subst):

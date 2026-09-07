@@ -36,9 +36,9 @@ from __future__ import annotations
 
 from collections import defaultdict
 
-from datalog import (Atom, Const, Engine, Literal, Program, Rule, Var,
-                     _aggregate_of, check_query_atom, match_answers,
-                     validate)
+from tiny_datalog.datalog import (
+    Atom, Const, Engine, Literal, Program, Rule, Var, _aggregate_of,
+    check_query_atom, match_answers, validate)
 
 
 def _adorned_name(pred, adorn):

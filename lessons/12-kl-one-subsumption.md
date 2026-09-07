@@ -151,10 +151,11 @@ a parent is, in particular, having a child who is a person). That
 asterisked discovery is KL-ONE's party trick, reproduced by seven
 Datalog rules.
 
-Two details worth reading in `subsumption.py`: normalisation mints fresh
-names (`gen_1`, ...) for nested expressions, choosing the inclusion's
-direction by which side of ⊑ the expression sits on: a conservative
-extension, and essentially the structural normalisation KL-ONE performed;
+Two details worth reading in `tiny_datalog/subsumption.py`:
+normalisation mints fresh names (`gen_1`, ...) for nested expressions,
+choosing the inclusion's direction by which side of ⊑ the expression
+sits on: a conservative extension, and essentially the structural
+normalisation KL-ONE performed;
 and the completion rules in `datalog()` are the CR1–CR6 calculus
 that industrial EL reasoners (ELK, Snorocket) implement with exactly the
 optimisations this course already taught: saturation is semi-naive

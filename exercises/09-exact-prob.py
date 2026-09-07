@@ -15,7 +15,7 @@ import os
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from semiring import run_semiring  # noqa: E402
+from tiny_datalog.semiring import run_semiring  # noqa: E402
 
 LINKS = {("s", "a"): 0.9, ("a", "t"): 0.9, ("s", "b"): 0.5,
          ("b", "t"): 0.95, ("a", "b"): 0.8}
