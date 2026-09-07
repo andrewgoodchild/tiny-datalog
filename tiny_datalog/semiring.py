@@ -41,8 +41,8 @@ import argparse
 import sys
 
 from tiny_datalog.datalog import (
-    Const, DatalogError, _aggregate_of, _match, _sort_key, format_atom, parse,
-    validate)
+    Const, DatalogError, format_atom, parse, read_program, validate,
+    _aggregate_of, _match, _sort_key)
 
 
 # ---------------------------------------------------------------------------
@@ -205,7 +205,15 @@ class SemiringEngine:
 
     def __init__(self, clauses, semiring):
         if isinstance(semiring, str):
-            semiring = SEMIRINGS[semiring]
+            try:
+                semiring = SEMIRINGS[semiring]
+            except KeyError:
+                # the CLI is guarded by argparse choices; this is the
+                # library caller's path, and a bare KeyError names the
+                # typo without saying what would have been right
+                raise DatalogError(
+                    "unknown semiring %r — choose one of %s"
+                    % (semiring, ", ".join(sorted(SEMIRINGS))))
         self.sr = semiring
         self.arity = validate(clauses)
         for r in clauses:
@@ -290,10 +298,9 @@ def main(argv=None):
                     help="Kleene round budget before giving up (default 200)")
     args = ap.parse_args(argv)
 
-    with open(args.file) as fh:
-        text = fh.read()
     try:
-        engine = run_semiring(text, args.semiring, args.max_rounds)
+        engine = run_semiring(read_program(args.file),
+                              args.semiring, args.max_rounds)
     except DatalogError as exc:
         print("error: %s" % exc, file=sys.stderr)
         return 1

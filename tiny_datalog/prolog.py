@@ -35,8 +35,8 @@ import sys
 from collections import defaultdict
 
 from tiny_datalog.datalog import (
-    Atom, Const, DatalogError, Literal, ParseError, Rule, Struct, Var, parse,
-    parse_goal)
+    Atom, Const, DatalogError, Literal, parse, parse_goal, ParseError,
+    read_program, Rule, Struct, Var)
 
 
 # ---------------------------------------------------------------------------
@@ -258,8 +258,11 @@ def main(argv=None):
                     help="stop after this many answers (default 10)")
     args = ap.parse_args(argv)
 
-    with open(args.file) as fh:
-        engine = load(fh.read())
+    try:
+        engine = load(read_program(args.file))
+    except DatalogError as exc:
+        print("error: %s" % exc, file=sys.stderr)
+        return 1
     if not args.query:
         print("loaded %d clauses; pass -q 'goal(...)' to prove something"
               % len(engine.clauses))

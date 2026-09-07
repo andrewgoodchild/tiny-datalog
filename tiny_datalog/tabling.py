@@ -47,8 +47,8 @@ import sys
 from collections import defaultdict
 
 from tiny_datalog.datalog import (
-    Const, DatalogError, _aggregate_of, _match, _sort_key, check_query_atom,
-    format_fact, parse, parse_goal, validate)
+    check_query_atom, Const, DatalogError, format_fact, parse, parse_goal,
+    read_program, validate, _aggregate_of, _match, _sort_key)
 
 
 class TabledEngine:
@@ -186,10 +186,8 @@ def main(argv=None):
                          "magic predicates from datalog.py --magic!)")
     args = ap.parse_args(argv)
 
-    with open(args.file) as fh:
-        text = fh.read()
     try:
-        engine = TabledEngine(parse(text))
+        engine = TabledEngine(parse(read_program(args.file)))
     except DatalogError as exc:
         print("error: %s" % exc, file=sys.stderr)
         return 1

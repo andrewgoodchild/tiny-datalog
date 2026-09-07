@@ -6,7 +6,7 @@ beyond Python 3.9+.
 ```sh
 git clone https://github.com/andrewgoodchild/tiny-datalog
 cd tiny-datalog
-python3 tests.py                     # 127 tests, should all pass
+python3 tests.py                     # 195 tests, should all pass
 python3 datalog.py programs/reachability.dl
 ```
 

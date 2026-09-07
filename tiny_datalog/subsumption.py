@@ -64,8 +64,8 @@ import time
 from collections import defaultdict
 
 from tiny_datalog.datalog import (
-    Atom, Const, DatalogError, Engine, Literal, Program, Rule, Struct, Var,
-    parse)
+    Atom, Const, DatalogError, Engine, Literal, parse, Program, read_program,
+    Rule, Struct, Var)
 
 _RESERVED = {"subs", "link", "concept", "isa1", "isa2", "isa_some",
              "some_isa", "bot"}
@@ -419,10 +419,8 @@ def main(argv=None):
                          "tests hold the two equal)")
     args = ap.parse_args(argv)
 
-    with open(args.file) as fh:
-        text = fh.read()
     try:
-        ont = load(text)
+        ont = load(read_program(args.file))
         if args.emit:
             sys.stdout.write(ont.emit())
             return 0

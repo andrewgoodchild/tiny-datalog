@@ -813,6 +813,22 @@ def run_program(text):
 # CLI
 # ---------------------------------------------------------------------------
 
+def read_program(path):
+    """Read a program file, reporting the everyday mistakes — a typo in
+    the name, a directory, an unreadable file — as a DatalogError, which
+    every CLI here already knows how to print.  Without this they escape
+    as a traceback, which tells a reader nothing they can act on."""
+    try:
+        with open(path) as fh:
+            return fh.read()
+    except OSError as exc:
+        raise DatalogError("cannot read %s: %s"
+                           % (path, exc.strerror or exc))
+    except UnicodeDecodeError:
+        raise DatalogError("cannot read %s: not text (a binary file?)"
+                           % path)
+
+
 def _sort_key(tup):
     # numbers sort numerically (and before strings); strings sort as text
     return tuple((0, v) if isinstance(v, (int, float)) else (1, str(v))
@@ -1205,13 +1221,10 @@ def main(argv=None):
                          "print the rewritten program and derivation counts")
     args = ap.parse_args(argv)
 
-    with open(args.file) as fh:
-        text = fh.read()
-
     try:
         # every mode re-validates via Program / magic_transform /
         # ground_program, so parsing is all that must happen up front
-        clauses = parse(text)
+        clauses = parse(read_program(args.file))
     except DatalogError as exc:
         print("error: %s" % exc, file=sys.stderr)
         return 1

@@ -50,8 +50,8 @@ import time
 from collections import defaultdict
 
 from tiny_datalog.datalog import (
-    DatalogError, Engine, Program, _aggregate_of, _match, _sort_key,
-    format_fact, parse, validate)
+    DatalogError, Engine, format_fact, parse, Program, read_program, validate,
+    _aggregate_of, _match, _sort_key)
 
 
 class IncrementalEngine:
@@ -380,8 +380,7 @@ def main(argv=None):
     if not args.file:
         return _demo()
     try:
-        with open(args.file) as fh:
-            inc = IncrementalEngine(fh.read())
+        inc = IncrementalEngine(read_program(args.file))
         print("materialised: %d facts" % inc.total_facts())
         for script in args.update:
             t0 = time.perf_counter()
@@ -390,7 +389,7 @@ def main(argv=None):
             print("%s\n  -> %r in %.3fs" % (script.strip(), stats, elapsed))
         if args.update:
             t0 = time.perf_counter()
-            fresh = Engine(Program(parse(open(args.file).read())))
+            fresh = Engine(Program(parse(read_program(args.file))))
             fresh.run()
             print("  (a from-scratch rebuild of this program: %.3fs)"
                   % (time.perf_counter() - t0))

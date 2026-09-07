@@ -15,6 +15,8 @@ import unittest
 from tiny_datalog.datalog import (
     parse, run_program, stratify,
     Engine, Program, SafetyError, StratificationError, DatalogError,
+    ParseError, Atom, Literal, Rule, Var, validate, parse_goal,
+    check_query_atom, read_program,
 )
 from tiny_datalog.magic import magic_query
 from tiny_datalog.semantics import stable_models, well_founded
@@ -1370,6 +1372,8 @@ class WhyNotTests(unittest.TestCase):
 
 
 class RepositoryClaimTests(unittest.TestCase):
+    """Claims the README makes about the repository itself, so they
+    cannot rot silently."""
 
     def test_no_lesson_paragraph_is_duplicated(self):
         # a bad merge once pasted fifty lines twice; prose structure is
@@ -1384,9 +1388,6 @@ class RepositoryClaimTests(unittest.TestCase):
             self.assertEqual(dups, [], "duplicated paragraph(s) in %s"
                              % os.path.basename(f))
 
-    """Claims the README makes about the repository itself, so they
-    cannot rot silently."""
-
     SATELLITES = ["magic.py", "semantics.py", "semiring.py",
                   "incremental.py", "prolog.py", "tabling.py",
                   "subsumption.py", "containment.py"]
@@ -1397,6 +1398,28 @@ class RepositoryClaimTests(unittest.TestCase):
             with self.subTest(module=name):
                 with open(os.path.join(HERE, "tiny_datalog", name)) as fh:
                     self.assertLessEqual(len(fh.read().splitlines()), 475)
+
+    def test_quoted_test_count_is_current(self):
+        # "127 tests" sat in three files while the suite grew past it;
+        # a claim about the repository belongs in the repository's tests
+        import re as _re
+        actual = unittest.defaultTestLoader.loadTestsFromModule(
+            sys.modules[__name__]).countTestCases()
+        sources = [os.path.join(HERE, "README.md"),
+                   os.path.join(HERE, "lessons", "getting-started.md")]
+        found = 0
+        for path in sources:
+            with open(path) as fh:
+                # the negative lookbehind keeps "python3 tests.py" from
+                # reading as a claim of "3 tests"
+                for claimed in _re.findall(
+                        r"(?<![A-Za-z])(\d+) tests", fh.read()):
+                    found += 1
+                    self.assertEqual(
+                        int(claimed), actual,
+                        "%s claims %s tests; the suite has %d"
+                        % (os.path.basename(path), claimed, actual))
+        self.assertGreater(found, 0, "no test-count claim found to check")
 
     def test_incremental_reports_its_own_timing(self):
         # the README quotes a repair time; the tool must actually print
@@ -1688,6 +1711,467 @@ class SubsumptionTests(unittest.TestCase):
             subsumption.load("isa(X, Y) :- other(X, Y).")
         with self.assertRaises(DatalogError):
             subsumption.load("frame(man).")
+
+
+# ---------------------------------------------------------------------------
+# Error reporting
+#
+# The tests above mostly assert *that* bad input is refused.  These assert
+# what the refusal SAYS, because a rejection a reader cannot act on is
+# barely better than a wrong answer: the message has to name the offending
+# variable, predicate or line, and the CLI has to report it as a message
+# with an exit code rather than as a traceback.
+# ---------------------------------------------------------------------------
+
+class ParseErrorTests(unittest.TestCase):
+    """The parser's three diagnostics, and the line numbers on them."""
+
+    MALFORMED = [
+        ("p(a)",            "expected dot"),      # no terminating period
+        ("p(a.",            "expected rparen"),   # unclosed argument list
+        ("p(f(a).",         "expected rparen"),   # unclosed nested term
+        ("p(a) $ q(b).",    "unexpected character"),
+        ('p("abc).',        "unexpected character"),   # unterminated string
+        ("p(,).",           "expected a term"),
+        ("p(X) :- .",       "expected ident"),    # empty body
+        ("p(X) :- q(X),.",  "expected ident"),    # trailing comma
+        (".",               "expected ident"),
+        (":- q(X).",        "expected ident"),
+        ("42(a).",          "expected ident"),    # number as predicate
+    ]
+
+    def test_malformed_programs_are_parse_errors(self):
+        for text, fragment in self.MALFORMED:
+            with self.subTest(program=text):
+                with self.assertRaises(ParseError) as cm:
+                    parse(text)
+                self.assertIn(fragment, str(cm.exception))
+
+    def test_every_parse_error_carries_a_line_number(self):
+        for text, _ in self.MALFORMED:
+            with self.subTest(program=text):
+                with self.assertRaises(ParseError) as cm:
+                    parse(text)
+                self.assertRegex(str(cm.exception), r"^line \d+: ")
+
+    def test_line_number_points_at_the_offending_line(self):
+        # the whole value of a line number is that it is the RIGHT line
+        for n in (1, 2, 5):
+            text = "".join("p(c%d).\n" % i for i in range(n - 1)) + "r(a) $ ."
+            with self.subTest(line=n):
+                with self.assertRaises(ParseError) as cm:
+                    parse(text)
+                self.assertIn("line %d:" % n, str(cm.exception))
+
+    def test_line_number_survives_comments_and_blank_lines(self):
+        text = "% a comment\n\n# another\n\np(a) $ ."
+        with self.assertRaises(ParseError) as cm:
+            parse(text)
+        self.assertIn("line 5:", str(cm.exception))
+
+    def test_parse_error_is_a_datalog_error(self):
+        # callers should be able to catch the whole family with one except
+        with self.assertRaises(DatalogError):
+            parse("p(a)")
+
+    def test_goal_must_be_a_single_atom(self):
+        for bad in ("p(X) :- q(X)", "p(a). q(b)"):
+            with self.subTest(goal=bad):
+                with self.assertRaises(ParseError) as cm:
+                    parse_goal(bad)
+                self.assertIn("single atom", str(cm.exception))
+
+    def test_goal_accepts_a_trailing_period_or_not(self):
+        self.assertEqual(str(parse_goal("p(X)")), str(parse_goal("p(X).")))
+
+
+class SafetyMessageTests(unittest.TestCase):
+    """Safety refusals name the thing that is wrong.  `unsafe rule` alone
+    would leave a reader hunting; the variable and the rule do not."""
+
+    def test_arity_mismatch_names_predicate_and_both_arities(self):
+        with self.assertRaises(SafetyError) as cm:
+            run_program("p(a). p(a, b).")
+        msg = str(cm.exception)
+        self.assertIn("p", msg)
+        self.assertIn("1", msg)
+        self.assertIn("2", msg)
+
+    def test_unbound_head_variable_is_named(self):
+        with self.assertRaises(SafetyError) as cm:
+            run_program("q(a). p(X) :- q(Y).")
+        msg = str(cm.exception)
+        self.assertIn("X", msg)
+        self.assertIn("positive", msg)
+        self.assertIn("p(X) :- q(Y).", msg)   # and the rule it is in
+
+    def test_unbound_negated_variable_names_variable_and_literal(self):
+        with self.assertRaises(SafetyError) as cm:
+            run_program("q(a). p(X) :- q(X), not r(X, Y).")
+        msg = str(cm.exception)
+        self.assertIn("Y", msg)
+        self.assertIn("not r(X, Y)", msg)
+
+    def test_nonground_fact_is_named(self):
+        with self.assertRaises(SafetyError) as cm:
+            run_program("p(X).")
+        self.assertIn("not ground", str(cm.exception))
+        self.assertIn("p(X).", str(cm.exception))
+
+    def test_aggregate_variable_must_be_bound(self):
+        with self.assertRaises(SafetyError) as cm:
+            run_program("q(a). t(sum(Y)) :- q(X).")
+        self.assertIn("Y", str(cm.exception))
+
+    def test_one_aggregate_per_head(self):
+        with self.assertRaises(SafetyError) as cm:
+            run_program("p(a, 1). t(sum(X), sum(Y)) :- p(K, X), p(K, Y).")
+        self.assertIn("at most one aggregate", str(cm.exception))
+
+    def test_aggregate_needs_a_body(self):
+        with self.assertRaises(SafetyError) as cm:
+            run_program("t(k, sum(X)).")
+        self.assertIn("needs a rule body", str(cm.exception))
+
+    def test_weight_belongs_to_facts_only(self):
+        # unreachable through the parser (`@` is only in the fact branch of
+        # the grammar), so build the Rule directly -- validate() is public
+        # API and incremental.py calls it with clauses it assembled itself
+        rule = Rule(Atom("p", (Var("X"),)),
+                    (Literal(Atom("q", (Var("X"),))),), weight=0.5)
+        with self.assertRaises(SafetyError) as cm:
+            validate([rule])
+        self.assertIn("@ weight", str(cm.exception))
+
+    def test_function_symbols_refused_with_reason_and_way_out(self):
+        for text in ("p(f(a)).", "q(a). p(X) :- q(f(X))."):
+            with self.subTest(program=text):
+                with self.assertRaises(SafetyError) as cm:
+                    run_program(text)
+                msg = str(cm.exception)
+                self.assertIn("function symbols are not Datalog", msg)
+                self.assertIn("terminat", msg)   # why the ban exists
+                self.assertIn("prolog.py", msg)  # and where to go instead
+
+    def test_aggregate_over_non_numeric_values_says_so(self):
+        with self.assertRaises(DatalogError) as cm:
+            run_program('p(a, "x"). p(a, "y"). t(K, sum(V)) :- p(K, V).')
+        msg = str(cm.exception)
+        self.assertIn("sum", msg)
+        self.assertIn("non-numeric", msg)
+
+
+class StratificationMessageTests(unittest.TestCase):
+    """A rejection here is a claim about the whole program, so it has to
+    show the cycle it found rather than just naming a predicate."""
+
+    def test_negative_cycle_is_shown_as_a_cycle(self):
+        with self.assertRaises(StratificationError) as cm:
+            run_program("move(a, b). win(X) :- move(X, Y), not win(Y).")
+        msg = str(cm.exception)
+        self.assertIn("not stratifiable", msg)
+        self.assertIn("negation", msg)
+        self.assertIn("win --not--> win", msg)
+
+    def test_longer_cycle_is_shown_in_full(self):
+        with self.assertRaises(StratificationError) as cm:
+            run_program("base(a). p(X) :- base(X), not q(X). q(X) :- p(X).")
+        msg = str(cm.exception)
+        self.assertIn("-->", msg)
+        self.assertIn("not", msg)
+        for pred in ("p", "q"):
+            self.assertIn(pred, msg)
+
+    def test_cycle_is_available_as_structured_data(self):
+        # the message is for humans; `cycle` is for callers that want to
+        # render or repair the program themselves
+        with self.assertRaises(StratificationError) as cm:
+            run_program("move(a, b). win(X) :- move(X, Y), not win(Y).")
+        self.assertIn(("win", "win", "not"), cm.exception.cycle)
+
+    def test_aggregation_cycle_says_aggregation_not_negation(self):
+        with self.assertRaises(StratificationError) as cm:
+            run_program("e(a, 1). c(X, sum(V)) :- e(X, V). e(X, V) :- c(X, V).")
+        self.assertIn("aggregation", str(cm.exception))
+
+
+class QueryErrorTests(unittest.TestCase):
+    """Query atoms are user input too, and get the same treatment."""
+
+    ARITY = {"p": 1}
+
+    def test_arity_disagreement_reports_both(self):
+        with self.assertRaises(SafetyError) as cm:
+            check_query_atom(parse_goal("p(X, Y)"), self.ARITY)
+        msg = str(cm.exception)
+        self.assertIn("arity 2", msg)
+        self.assertIn("arity 1", msg)
+
+    def test_compound_term_in_query_points_at_prolog(self):
+        with self.assertRaises(SafetyError) as cm:
+            check_query_atom(parse_goal("p(f(X))"), self.ARITY)
+        self.assertIn("prolog.py", str(cm.exception))
+
+    def test_unknown_predicate_is_not_an_error(self):
+        # an unknown predicate is a legitimate question with no answers,
+        # not a malformed query -- the closed world says "no", not "huh?"
+        check_query_atom(parse_goal("nosuch(X)"), self.ARITY)
+
+    def test_query_arity_unchecked_without_a_program(self):
+        check_query_atom(parse_goal("p(X, Y, Z)"))
+
+
+class SatelliteRefusalTests(unittest.TestCase):
+    """Each satellite implements one strategy, and every strategy has a
+    boundary.  Refusing at the boundary is correct; refusing without
+    saying which boundary was hit is not."""
+
+    def test_tabling_refuses_negation_and_says_what_would_be_needed(self):
+        with self.assertRaises(DatalogError) as cm:
+            TabledEngine(parse("p(a). q(X) :- p(X), not r(X)."))
+        msg = str(cm.exception)
+        self.assertIn("SLG", msg)
+        self.assertIn("well-founded", msg)
+
+    def test_tabling_refuses_aggregation(self):
+        with self.assertRaises(DatalogError) as cm:
+            TabledEngine(parse("p(a, 1). t(sum(X)) :- p(K, X)."))
+        self.assertIn("aggregation", str(cm.exception))
+
+    def test_tabling_refuses_retraction_and_names_the_right_module(self):
+        with self.assertRaises(DatalogError) as cm:
+            TabledEngine(parse("p(a). p(a)~."))
+        self.assertIn("incremental.py", str(cm.exception))
+
+    def test_semiring_refuses_negation(self):
+        with self.assertRaises(DatalogError) as cm:
+            run_semiring("p(a). q(X) :- p(X), not r(X).", "count")
+        msg = str(cm.exception)
+        self.assertIn("positive", msg)
+        self.assertIn("not r(X)", msg)
+
+    def test_semiring_refuses_head_aggregation_with_the_reason(self):
+        with self.assertRaises(DatalogError) as cm:
+            run_semiring("p(a, 1). t(sum(X)) :- p(K, X).", "count")
+        self.assertIn("semiring already IS the aggregation",
+                      str(cm.exception))
+
+    def test_unknown_semiring_lists_the_real_ones(self):
+        # the CLI is guarded by argparse choices; this is the library path
+        with self.assertRaises(DatalogError) as cm:
+            run_semiring("p(a).", "tropical")
+        msg = str(cm.exception)
+        self.assertIn("tropical", msg)
+        for name in ("bool", "count", "minplus", "viterbi", "why"):
+            self.assertIn(name, msg)
+
+    def test_semiring_divergence_is_reported_not_hung(self):
+        with self.assertRaises(DatalogError) as cm:
+            run_semiring("e(a, b). e(b, a). "
+                         "r(X, Y) :- e(X, Y). r(X, Z) :- e(X, Y), r(Y, Z).",
+                         "count", 5)
+        msg = str(cm.exception)
+        self.assertIn("no fixpoint", msg)
+        self.assertIn("5", msg)          # the budget that was exhausted
+
+    def test_stable_model_search_reports_its_own_limit(self):
+        clauses = parse("\n".join("p(c%d)." % i for i in range(30))
+                        + "\nq(X) :- p(X), not r(X). r(X) :- p(X), not q(X).")
+        with self.assertRaises(DatalogError) as cm:
+            stable_models(clauses)
+        msg = str(cm.exception)
+        self.assertIn("limited to", msg)
+        self.assertIn("60", msg)         # what this program actually grounds to
+
+    def test_semantics_refuses_aggregation(self):
+        with self.assertRaises(DatalogError) as cm:
+            stable_models(parse("p(a, 1). t(sum(X)) :- p(K, X)."))
+        self.assertIn("aggregates", str(cm.exception))
+
+    def test_incremental_refuses_a_rule_where_a_fact_belongs(self):
+        with self.assertRaises(DatalogError) as cm:
+            IncrementalEngine("p(a).").insert("q(X) :- p(X).")
+        self.assertIn("facts only", str(cm.exception))
+
+    def test_incremental_refuses_to_delete_a_derived_fact(self):
+        with self.assertRaises(DatalogError) as cm:
+            IncrementalEngine("p(a). q(X) :- p(X).").delete("q(a).")
+        msg = str(cm.exception)
+        self.assertIn("base facts", msg)
+        self.assertIn("q(a)", msg)
+
+    def test_subsumption_names_the_statements_it_understands(self):
+        with self.assertRaises(DatalogError) as cm:
+            subsumption.load("p(a).")
+        msg = str(cm.exception)
+        self.assertIn("isa", msg)
+        self.assertIn("define", msg)
+
+
+class ReadProgramTests(unittest.TestCase):
+    """A typo in a filename is the most common bad input of all, and it
+    used to arrive as a FileNotFoundError traceback."""
+
+    def test_missing_file(self):
+        with self.assertRaises(DatalogError) as cm:
+            read_program(os.path.join(HERE, "no-such-program.dl"))
+        msg = str(cm.exception)
+        self.assertIn("cannot read", msg)
+        self.assertIn("no-such-program.dl", msg)
+        self.assertIn("No such file", msg)
+
+    def test_directory_instead_of_file(self):
+        with self.assertRaises(DatalogError) as cm:
+            read_program(os.path.join(HERE, "programs"))
+        self.assertIn("Is a directory", str(cm.exception))
+
+    def test_binary_file(self):
+        with tempfile.NamedTemporaryFile(suffix=".dl", delete=False) as fh:
+            fh.write(b"\x00\x01\xff\xfe not text at all \x80")
+            path = fh.name
+        try:
+            with self.assertRaises(DatalogError) as cm:
+                read_program(path)
+            self.assertIn("not text", str(cm.exception))
+        finally:
+            os.unlink(path)
+
+    def test_reads_a_real_program(self):
+        text = read_program(os.path.join(HERE, "programs", "family.dl"))
+        self.assertIn("parent", text)
+
+
+class CLIErrorReportingTests(unittest.TestCase):
+    """The command line is the interface most readers meet first.  Bad
+    input must leave by the front door: a one-line message on stderr and
+    a non-zero exit code, never a traceback."""
+
+    SCRIPTS = ["datalog.py", "semiring.py", "tabling.py", "incremental.py",
+               "containment.py", "prolog.py", "subsumption.py"]
+
+    @staticmethod
+    def cli(script, *args):
+        return subprocess.run(
+            [sys.executable, os.path.join(HERE, script)] + list(args),
+            capture_output=True, text=True, cwd=HERE)
+
+    @staticmethod
+    def program(text, suffix=".dl"):
+        fh = tempfile.NamedTemporaryFile("w", suffix=suffix, delete=False)
+        fh.write(text)
+        fh.close()
+        return fh.name
+
+    def assertClean(self, r, code=1):
+        """A reportable failure: the right exit code, an explanation on
+        stderr, and no traceback anywhere."""
+        self.assertEqual(r.returncode, code, r.stderr)
+        self.assertNotIn("Traceback", r.stderr)
+        self.assertNotIn("Traceback", r.stdout)
+        self.assertTrue(r.stderr.strip(), "nothing explained on stderr")
+
+    def test_missing_file_reports_cleanly_in_every_cli(self):
+        for script in self.SCRIPTS:
+            with self.subTest(script=script):
+                r = self.cli(script, "no-such-program.dl")
+                self.assertClean(r)
+                self.assertIn("cannot read", r.stderr)
+
+    def test_malformed_program_reports_cleanly_in_every_cli(self):
+        path = self.program("p(a) $ .\n")
+        try:
+            for script in self.SCRIPTS:
+                with self.subTest(script=script):
+                    r = self.cli(script, path)
+                    self.assertClean(r)
+                    self.assertIn("line 1:", r.stderr)
+        finally:
+            os.unlink(path)
+
+    def test_errors_go_to_stderr_not_stdout(self):
+        path = self.program("p(a) $ .\n")
+        try:
+            r = self.cli("datalog.py", path)
+            self.assertEqual(r.stdout, "")
+            self.assertIn("error:", r.stderr)
+        finally:
+            os.unlink(path)
+
+    def test_unstratifiable_program_exits_2_and_offers_the_next_step(self):
+        # 2 is distinct from 1 on purpose: the program parsed and was
+        # safe, and was still refused -- a different kind of answer
+        path = self.program("move(a, b). win(X) :- move(X, Y), not win(Y).")
+        try:
+            r = self.cli("datalog.py", path)
+            self.assertClean(r, code=2)
+            self.assertIn("REJECTED", r.stderr)
+            self.assertIn("--models", r.stderr)
+        finally:
+            os.unlink(path)
+
+    def test_models_answers_what_stratification_refused(self):
+        # the hint the previous test asserts has to actually work
+        path = self.program("move(a, b). win(X) :- move(X, Y), not win(Y).")
+        try:
+            r = self.cli("datalog.py", "--models", path)
+            self.assertEqual(r.returncode, 0, r.stderr)
+            self.assertIn("not stratifiable", r.stdout)
+        finally:
+            os.unlink(path)
+
+    def test_unsafe_program_exits_1(self):
+        path = self.program("q(a). p(X) :- q(Y).")
+        try:
+            r = self.cli("datalog.py", path)
+            self.assertClean(r)
+            self.assertIn("unsafe rule", r.stderr)
+        finally:
+            os.unlink(path)
+
+    def test_bad_query_atom_is_reported(self):
+        path = self.program("p(a). p(b).")
+        try:
+            for flag in ("-q", "-e"):
+                with self.subTest(flag=flag):
+                    r = self.cli("datalog.py", flag, "p(", path)
+                    self.assertClean(r)
+                    self.assertIn("line 1:", r.stderr)
+        finally:
+            os.unlink(path)
+
+    def test_query_arity_mismatch_is_reported(self):
+        path = self.program("p(a). p(b).")
+        try:
+            r = self.cli("datalog.py", "-q", "p(X, Y)", path)
+            self.assertClean(r)
+            self.assertIn("arity", r.stderr)
+        finally:
+            os.unlink(path)
+
+    def test_magic_without_a_query_says_what_is_missing(self):
+        path = self.program("p(a). q(X) :- p(X).")
+        try:
+            r = self.cli("datalog.py", "--magic", path)
+            self.assertClean(r)
+            self.assertIn("--magic requires", r.stderr)
+        finally:
+            os.unlink(path)
+
+    def test_satellite_boundaries_are_reported_not_crashed(self):
+        strat = self.program("move(a, b). win(X) :- move(X, Y), not win(Y).")
+        try:
+            r = self.cli("tabling.py", "-q", "win(X)", strat)
+            self.assertClean(r)
+            self.assertIn("SLG", r.stderr)
+        finally:
+            os.unlink(strat)
+
+    def test_a_good_program_still_exits_0_and_says_nothing_on_stderr(self):
+        # the control: none of the above fires on valid input
+        r = self.cli("datalog.py", os.path.join("programs", "family.dl"))
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertEqual(r.stderr, "")
+
 
 
 if __name__ == "__main__":

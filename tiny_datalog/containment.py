@@ -40,7 +40,8 @@ from __future__ import annotations
 import argparse
 import sys
 
-from tiny_datalog.datalog import Const, DatalogError, Var, parse, validate
+from tiny_datalog.datalog import (
+    Const, DatalogError, parse, read_program, validate, Var)
 
 
 def _extend(mapping, source_args, target_args):
@@ -191,8 +192,7 @@ def main(argv=None):
 
         if not args.file:
             ap.error("give a program to minimise, or use --contains")
-        with open(args.file) as fh:
-            clauses = parse(fh.read())
+        clauses = parse(read_program(args.file))
         validate(clauses)
         for rule in clauses:
             if not rule.body:
