@@ -375,6 +375,10 @@ def validate(clauses, arity=None):
                 check_term(a, rule)
         if agg and not rule.body:
             raise SafetyError("an aggregate needs a rule body: %s" % rule)
+        # unreachable from parse() — the grammar's `@ weight` and `:- body`
+        # are exclusive branches — but validate() is the checkpoint for
+        # clauses a caller assembled directly, and semiring.py silently
+        # skips weighted rules rather than failing on them
         if rule.weight is not None and rule.body:
             raise SafetyError("only facts may carry an @ weight: %s" % rule)
         for lit in rule.body:
