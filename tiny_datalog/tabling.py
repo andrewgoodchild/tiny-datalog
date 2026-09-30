@@ -175,7 +175,6 @@ class TabledEngine:
 
 def main(argv=None):
     ap = argparse.ArgumentParser(
-        prog="tabling.py",
         description="Tabled top-down (QSQR) evaluation of positive "
                     "Datalog — handles left recursion SLD cannot.")
     ap.add_argument("file", help="Datalog program (.dl), positive rules only")

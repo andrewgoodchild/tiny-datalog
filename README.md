@@ -92,7 +92,7 @@ Nothing to install:
 
 ```sh
 git clone https://github.com/andrewgoodchild/tiny-datalog && cd tiny-datalog
-python3 tests.py        # 195 tests, ~8s
+python3 tests.py        # 234 tests, ~12s
 ```
 
 ## Why the language choice decides what you can ask later
@@ -281,7 +281,7 @@ from tiny_datalog import run_program, explain
 
 engine = run_program(open("supply-chain.dl").read())
 for service, cve in sorted(engine.rels["exposed"]):
-    explain(engine, "exposed", (service, cve))
+    print("\n".join(explain(engine, "exposed", (service, cve))))
 ```
 
 The command-line interface installs too, as `tiny-datalog` (and
@@ -318,7 +318,7 @@ lessons/        getting started, glossary, and lessons 0–18
 exercises/      worked answers, verified by the test suite
 cases/          golden test cases — add one without writing Python
 benchmarks/     scaled input generators (chain/tree/clique/grid)
-tests.py        195 tests: every shipped program and exercise answer is
+tests.py        234 tests: every shipped program and exercise answer is
                 executed, a conformance suite runs every query through
                 every applicable strategy, and a seeded fuzzer checks
                 the same property on random programs

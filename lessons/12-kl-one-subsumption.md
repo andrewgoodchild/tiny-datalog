@@ -152,7 +152,8 @@ asterisked discovery is KL-ONE's party trick, reproduced by seven
 Datalog rules.
 
 Two details worth reading in `tiny_datalog/subsumption.py`:
-normalisation mints fresh names (`gen_1`, ...) for nested expressions,
+normalisation mints fresh names (`gen_1`, ...) for nested expressions
+(so your own concept names may not begin `gen_`: they would merge),
 choosing the inclusion's direction by which side of ⊑ the expression
 sits on: a conservative extension, and essentially the structural
 normalisation KL-ONE performed;

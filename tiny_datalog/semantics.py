@@ -32,7 +32,7 @@ from __future__ import annotations
 from collections import defaultdict
 
 from tiny_datalog.datalog import (
-    Const, DatalogError, _aggregate_of, _match, _sort_key, validate)
+    Const, DatalogError, Program, _aggregate_of, _match, _sort_key, validate)
 
 
 def _instantiate_atom(atom, subst):
@@ -57,6 +57,10 @@ def ground_program(clauses):
     """
     validate(clauses)
     for r in clauses:
+        if r.retract:
+            # `q~.` is an update, not a fact; let the base engine's
+            # Program reject it with its own explanation
+            Program([r])
         if r.body and _aggregate_of(r.head):
             raise DatalogError(
                 "stable-model and well-founded semantics for aggregates "

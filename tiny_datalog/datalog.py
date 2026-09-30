@@ -62,6 +62,7 @@ CLI
 from __future__ import annotations
 
 import argparse
+import math
 import re
 import sys
 import time
@@ -78,7 +79,16 @@ class Var:
     name: str
 
     def __str__(self):
-        return self.name
+        return "_" if self.anonymous else self.name
+
+    @property
+    def anonymous(self):
+        """True for a renamed `_`.  The parser names each one `_#1`, `_#2`,
+        ...: '#' starts a comment, so no variable a user writes can have
+        that name, and none can collide with it.  (prolog.py's renamings
+        append '#n', so a renamed `_` still starts '_#' and a renamed X,
+        as 'X#3', still prints as itself.)"""
+        return self.name.startswith("_#")
 
 
 @dataclass(frozen=True)
@@ -86,10 +96,7 @@ class Const:
     value: object  # str or int
 
     def __str__(self):
-        v = self.value
-        if isinstance(v, str) and not re.fullmatch(r"[a-z][A-Za-z0-9_]*", v):
-            return '"%s"' % v
-        return str(v)
+        return _format_value(self.value)
 
 
 @dataclass(frozen=True)
@@ -175,7 +182,7 @@ _TOKEN = re.compile(
     | (?P<implies>:-)
     | (?P<lparen>\() | (?P<rparen>\)) | (?P<comma>,) | (?P<at>@)
     | (?P<retract>~)
-    | (?P<number>-?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?)
+    | (?P<number>-?[0-9]+(?:\.[0-9]+)?(?:[eE][-+]?[0-9]+)?)
     | (?P<dot>\.)
     | (?P<string>"[^"\n]*"|'[^'\n]*')
     | (?P<var>[A-Z_][A-Za-z0-9_]*)
@@ -185,8 +192,17 @@ _TOKEN = re.compile(
 )
 
 
-def _num(text):
-    return float(text) if any(c in text for c in ".eE") else int(text)
+def _num(text, line):
+    n = float(text) if any(c in text for c in ".eE") else int(text)
+    if isinstance(n, float) and not math.isfinite(n):
+        # 1e400 would become inf, which prints as a constant named inf
+        raise ParseError("line %d: number %s is too large" % (line, text))
+    return n
+
+
+def _shown(tok):
+    """A token as an error message quotes it."""
+    return "end of input" if tok[0] == "eof" else repr(tok[1])
 
 
 def _tokenize(text):
@@ -236,7 +252,8 @@ class _Parser:
     def _expect(self, kind):
         tok = self._next()
         if tok[0] != kind:
-            raise ParseError("line %d: expected %s, got %r" % (tok[2], kind, tok[1]))
+            raise ParseError("line %d: expected %s, got %s"
+                             % (tok[2], kind, _shown(tok)))
         return tok
 
     def parse_program(self):
@@ -254,7 +271,7 @@ class _Parser:
         if kind == "at":
             self._next()
             tok = self._expect("number")
-            weight = _num(tok[1])
+            weight = _num(tok[1], tok[2])
         elif kind == "retract":
             self._next()
             retract = True
@@ -269,16 +286,22 @@ class _Parser:
         return Rule(head, body, weight, retract)
 
     def _parse_literal(self):
-        kind, value, _line = self._peek()
+        kind, value, line = self._peek()
         negated = False
         if kind == "ident" and value == "not":
             self._next()
             negated = True
+            if self._peek()[0] == "lparen":
+                raise ParseError("line %d: `not` is negation, not a predicate "
+                                 "— write `not p(X)`" % line)
         return Literal(self._parse_atom(), negated)
 
     def _parse_atom(self):
         tok = self._expect("ident")
         pred = tok[1]
+        if pred == "not":
+            raise ParseError("line %d: `not` is reserved for negation and "
+                             "cannot name a predicate" % tok[2])
         args = []
         if self._peek()[0] == "lparen":
             self._next()
@@ -290,13 +313,17 @@ class _Parser:
         return Atom(pred, tuple(args))
 
     def _parse_term(self):
-        kind, value, line = self._next()
+        tok = self._next()
+        kind, value, line = tok
         if kind == "var":
             if value == "_":
                 self.fresh += 1
-                return Var("_G%d" % self.fresh)
+                return Var("_#%d" % self.fresh)   # see Var.anonymous
             return Var(value)
         if kind == "ident":
+            if value == "not":
+                raise ParseError("line %d: `not` is reserved for negation; "
+                                 "write the constant as \"not\"" % line)
             if self._peek()[0] == "lparen":
                 self._next()
                 args = [self._parse_term()]
@@ -307,10 +334,11 @@ class _Parser:
                 return Struct(value, tuple(args))
             return Const(value)
         if kind == "number":
-            return Const(_num(value))
+            return Const(_num(value, line))
         if kind == "string":
             return Const(value[1:-1])
-        raise ParseError("line %d: expected a term, got %r" % (line, value))
+        raise ParseError("line %d: expected a term, got %s"
+                         % (line, _shown(tok)))
 
 
 def parse(text):
@@ -771,7 +799,16 @@ class Engine:
         Stratification has already guaranteed the body relations are
         complete (aggregation edges are strict, like negation), so one
         evaluation suffices."""
-        idx, func, var = _aggregate_of(rule.head)
+        idx, func, _var = _aggregate_of(rule.head)
+        for key, values in self._aggregate_groups(rule).items():
+            out = list(key)
+            out.insert(idx, _fold(func, values, rule))
+            yield tuple(out)
+
+    def _aggregate_groups(self, rule):
+        """{group key: [aggregated value per distinct body solution]} for
+        an aggregate rule; the key is the head's plain arguments."""
+        idx, _func, var = _aggregate_of(rule.head)
         groups = defaultdict(list)
         seen = set()
         for s in self._rule_substitutions(rule):
@@ -782,28 +819,36 @@ class Engine:
             key = tuple(a.value if isinstance(a, Const) else s[a.name]
                         for j, a in enumerate(rule.head.args) if j != idx)
             groups[key].append(s[var.name])
-        for key, values in groups.items():
-            try:
-                if func == "count":
-                    agg = len(values)
-                elif func == "sum":
-                    agg = sum(values)
-                elif func == "min":
-                    agg = min(values)
-                else:
-                    agg = max(values)
-            except TypeError:
-                raise DatalogError(
-                    "cannot %s over mixed or non-numeric values in: %s"
-                    % (func, rule))
-            out = list(key)
-            out.insert(idx, agg)
-            yield tuple(out)
+        return groups
 
     @staticmethod
     def _instantiate(atom, subst):
         return tuple(a.value if isinstance(a, Const) else subst[a.name]
                      for a in atom.args)
+
+
+def _fold(func, values, rule):
+    """Fold one group's values with count, sum, min, or max."""
+    try:
+        if func == "count":
+            agg = len(values)
+        elif func == "sum":
+            agg = sum(values)
+        elif func == "min":
+            agg = min(values)
+        else:
+            agg = max(values)
+    except TypeError:
+        raise DatalogError(
+            "cannot %s over mixed or non-numeric values in: %s"
+            % (func, rule))
+    except OverflowError:   # e.g. a float added to an int beyond its range
+        raise DatalogError("%s overflowed in: %s" % (func, rule))
+    if isinstance(agg, float) and not math.isfinite(agg):
+        # a float sum can overflow; inf would print as a constant named inf
+        raise DatalogError("%s gives %s, which is not a finite number, in: %s"
+                           % (func, agg, rule))
+    return agg
 
 
 def run_program(text):
@@ -840,11 +885,16 @@ def _sort_key(tup):
 
 
 def _format_value(v):
-    if isinstance(v, str) and re.fullmatch(r"[a-z][A-Za-z0-9_]*", v):
+    """A value as source text that parses back to it: bare identifiers
+    stay bare, anything else is quoted — with single quotes if it
+    contains a double one.  (The lexer has no escapes, so a string with
+    both kinds of quote cannot be written, and so never needs printing.)"""
+    if isinstance(v, str) and re.fullmatch(r"[a-z][A-Za-z0-9_]*", v) \
+            and v != "not":
         return v
     if isinstance(v, (int, float)):
         return str(v)
-    return '"%s"' % v
+    return "'%s'" % v if '"' in v else '"%s"' % v
 
 
 def format_atom(pred, tup):
@@ -916,10 +966,16 @@ def _print_models(clauses):
               "stable models.)")
     grounding = ground_program(clauses)
     facts = grounding[0]
-    models = stable_models(clauses, grounding=grounding)
-    if not models:
+    try:
+        models = stable_models(clauses, grounding=grounding)
+    except DatalogError as exc:
+        # too big for exhaustive search -- but the well-founded model
+        # below takes polynomial time, so it is still worth reporting
+        print("Stable models: search skipped (%s)." % exc)
+        models = None
+    if models == []:
         print("Stable models: none — no consistent two-valued model exists.")
-    else:
+    elif models:
         print("Stable models: %d" % len(models))
         for i, m in enumerate(
                 sorted(models, key=lambda m: _format_atoms(m - facts)), 1):
@@ -934,10 +990,19 @@ def _print_models(clauses):
 
 def parse_goal(q):
     """Parse a query/goal string into a single atom (no validation —
-    prolog.py uses this too, and its goals may carry compound terms)."""
-    clauses = parse(q if q.rstrip().endswith(".") else q + ".")
+    prolog.py uses this too, and its goals may carry compound terms).
+    The final '.' is optional; it is added as a token, not as text, so
+    that a trailing `% comment` cannot swallow it."""
+    parser = _Parser(q)
+    tokens = parser.tokens
+    if len(tokens) > 1 and tokens[-2][0] != "dot":
+        tokens.insert(-1, ("dot", ".", tokens[-1][2]))
+    clauses = parser.parse_program()
     if len(clauses) != 1 or clauses[0].body:
         raise ParseError("query must be a single atom: %r" % q)
+    if clauses[0].weight is not None or clauses[0].retract:
+        raise ParseError("a query is a plain atom — no @ weight or ~ "
+                         "retraction: %r" % q)
     return clauses[0].head
 
 
@@ -986,50 +1051,105 @@ def _print_answers(atom, tuples, suffix=""):
 # positive premises all precede the fact always succeeds and can never
 # justify a fact by itself.
 
-def _derivation_of(engine, pred, tup):
+def _derivation_of(engine, pred, tup, index=None):
     """A (rule, premises) justification for a derived fact, where every
     positive premise strictly precedes it in derivation order; None for
-    base facts.  premises is a list of (literal, ground_tuple)."""
+    base facts.  premises is a list of (literal, ground_tuple).  `index`
+    is a lookup cache shared across one explanation (see _earlier_solution)."""
     stamp = engine.first_seen.get((pred, tup), 0)
+    if stamp == 0:
+        return None     # stated in the program, whatever rules also say
+    index = {} if index is None else index
     for rule in engine.program.rules:
         if rule.head.pred != pred:
             continue
         if _aggregate_of(rule.head):
-            group = _aggregate_group(engine, rule, tup)
+            group = _aggregate_group(engine, rule, tup, index)
             if group is not None:
                 return rule, group
             continue
         seed = _match(rule.head.args, tup, {})
         if seed is None:
             continue
-        for s in engine._rule_substitutions(rule, seed=seed):
-            premises = [(lit, engine._instantiate(lit.atom, s))
-                        for lit in rule.body]
-            if all(engine.first_seen.get((lit.atom.pred, p), 0) < stamp
-                   for lit, p in premises if not lit.negated):
-                return rule, premises
+        s = _earlier_solution(engine, rule, seed, stamp, index)
+        if s is not None:
+            return rule, [(lit, engine._instantiate(lit.atom, s))
+                          for lit in rule.body]
     return None
 
 
-def _aggregate_group(engine, rule, tup):
-    """For an aggregate-rule head tuple, the group's contributing values
-    (one per distinct body solution), presented as a pseudo-premise."""
-    idx, func, var = _aggregate_of(rule.head)
+def _earlier_solution(engine, rule, seed, stamp, index):
+    """One body solution extending `seed` whose positive premises all
+    carry stamps below `stamp`, or None.  The evaluator's join scans
+    whole relations, which is fine once per round but far too slow once
+    per tree node — a 400-step chain would cost 400 full joins.  So this
+    join takes the head's bindings first, always picks next the positive
+    literal with the most arguments already known, and looks its matches
+    up in a hash index (built once per relation and pattern of known
+    positions, then reused down the tree).  Negatives filter at the end."""
+    positives = [lit for lit in rule.body if not lit.negated]
+    substs = [seed]
+    known = set(seed)
+
+    def is_known(a):
+        return isinstance(a, Const) or a.name in known
+
+    while positives and substs:
+        lit = max(positives, key=lambda l: sum(map(is_known, l.atom.args)))
+        positives.remove(lit)
+        args, pred = lit.atom.args, lit.atom.pred
+        cols = tuple(j for j, a in enumerate(args) if is_known(a))
+        table = _index_on(engine, index, pred, cols)
+        new = []
+        for s in substs:
+            key = tuple(args[j].value if isinstance(args[j], Const)
+                        else s[args[j].name] for j in cols)
+            for t in table.get(key, ()):
+                if engine.first_seen.get((pred, t), 0) < stamp:
+                    m = _match(args, t, s)
+                    if m is not None:
+                        new.append(m)
+        substs = new
+        known |= {a.name for a in args if isinstance(a, Var)}
+    for s in substs:
+        if all(engine._instantiate(lit.atom, s)
+               not in engine.rels.get(lit.atom.pred, _EMPTY)
+               for lit in rule.body if lit.negated):
+            return s
+    return None
+
+
+def _index_on(engine, index, pred, cols):
+    """pred's tuples grouped by their values at positions `cols`."""
+    if (pred, cols) not in index:
+        table = defaultdict(list)
+        for t in engine.rels.get(pred, _EMPTY):
+            table[tuple(t[j] for j in cols)].append(t)
+        index[pred, cols] = table
+    return index[pred, cols]
+
+
+def _group_values(engine, rule, tup, index=None):
+    """The aggregated values (one per distinct body solution) of the
+    group that head tuple `tup` belongs to; [] if the group is empty.
+    The rule's groups are computed once per `index` cache."""
+    index = {} if index is None else index
+    if rule not in index:
+        index[rule] = engine._aggregate_groups(rule)
+    idx = _aggregate_of(rule.head)[0]
     key = tuple(v for j, v in enumerate(tup) if j != idx)
-    values = []
-    seen = set()
-    for s in engine._rule_substitutions(rule):
-        witness = tuple(sorted(s.items()))
-        if witness in seen:
-            continue
-        seen.add(witness)
-        k = tuple(a.value if isinstance(a, Const) else s[a.name]
-                  for j, a in enumerate(rule.head.args) if j != idx)
-        if k == key:
-            values.append(s[var.name])
-    if not values:
+    return index[rule].get(key, [])
+
+
+def _aggregate_group(engine, rule, tup, index=None):
+    """If this aggregate rule computes exactly `tup` — its group exists
+    *and* folds to tup's value — the contributing values, presented as a
+    pseudo-premise; otherwise None."""
+    idx, func, var = _aggregate_of(rule.head)
+    values = _group_values(engine, rule, tup, index)
+    if not values or _fold(func, values, rule) != tup[idx]:
         return None
-    shown = ", ".join(str(v) for v in
+    shown = ", ".join(_format_value(v) for v in
                       sorted(values, key=lambda x:
                              (0, x) if isinstance(x, (int, float))
                              else (1, str(x))))
@@ -1038,31 +1158,43 @@ def _aggregate_group(engine, rule, tup):
                 shown))]
 
 
-def explain(engine, pred, tup, indent=0, shown=None, lines=None):
-    """Build an indented derivation tree for one fact; returns the lines."""
-    lines = [] if lines is None else lines
-    shown = set() if shown is None else shown
-    pad = "  " * indent
-    label = format_atom(pred, tup)
-    if (pred, tup) in shown:
-        lines.append("%s%s   (derivation shown above)" % (pad, label))
-        return lines
-    derivation = _derivation_of(engine, pred, tup)
-    if derivation is None:
-        lines.append("%s%s   (base fact)" % (pad, label))
-        return lines
-    shown.add((pred, tup))
-    rule, premises = derivation
-    lines.append("%s%s   [via %s]" % (pad, label, rule))
-    for item in premises:
-        if item[0] == "aggregate":
-            lines.append("%s  = %s" % (pad, item[1]))
-        elif item[0].negated:
-            lines.append("%s  not %s   (absent from its completed stratum)"
-                         % (pad, format_atom(item[0].atom.pred, item[1])))
-        else:
-            explain(engine, item[0].atom.pred, item[1], indent + 1,
-                    shown, lines)
+def explain(engine, pred, tup):
+    """Build an indented derivation tree for one fact; returns the lines.
+    Depth-first with an explicit stack rather than recursion, so a long
+    derivation chain can't hit Python's recursion limit (the same reason
+    _tarjan is iterative).  Stack entries are (indent, pred, tup) for a
+    fact still to explain, or (indent, None, text) for a finished line."""
+    lines, shown, index = [], set(), {}
+    stack = [(0, pred, tup)]
+    while stack:
+        indent, pred, tup = stack.pop()
+        pad = "  " * indent
+        if pred is None:
+            lines.append(pad + tup)
+            continue
+        label = format_atom(pred, tup)
+        if (pred, tup) in shown:
+            lines.append("%s%s   (derivation shown above)" % (pad, label))
+            continue
+        derivation = _derivation_of(engine, pred, tup, index)
+        if derivation is None:
+            lines.append("%s%s   (base fact)" % (pad, label))
+            continue
+        shown.add((pred, tup))
+        rule, premises = derivation
+        lines.append("%s%s   [via %s]" % (pad, label, rule))
+        children = []
+        for item in premises:
+            if item[0] == "aggregate":
+                children.append((indent, None, "  = %s" % item[1]))
+            elif item[0].negated:
+                children.append((indent, None,
+                                 "  not %s   (absent from its completed "
+                                 "stratum)" % format_atom(item[0].atom.pred,
+                                                          item[1])))
+            else:
+                children.append((indent + 1, item[0].atom.pred, item[1]))
+        stack.extend(reversed(children))   # so the first premise pops first
     return lines
 
 
@@ -1083,9 +1215,17 @@ def whynot(engine, pred, tup, lines=None):
     headless = 0
     for rule in rules:
         if _aggregate_of(rule.head):
+            idx, func, _var = _aggregate_of(rule.head)
+            values = _group_values(engine, rule, tup)
             lines.append("  via %s" % rule)
-            lines.append("    blocked: no body solutions produce this "
-                         "group (an empty group yields no fact)")
+            if not values:
+                lines.append("    blocked: no body solutions produce this "
+                             "group (an empty group yields no fact)")
+            else:
+                lines.append("    blocked: the group exists, but its %s is "
+                             "%s, not %s" % (func,
+                                             _format_value(_fold(func, values, rule)),
+                                             _format_value(tup[idx])))
             continue
         seed = _match(rule.head.args, tup, {})
         if seed is None:
@@ -1188,6 +1328,9 @@ def _run_magic_query(q, clauses, trace):
         except StratificationError:
             print("[magic] %d IDB facts derived (no full-evaluation baseline: "
                   "the original program is not stratifiable)" % magic_total)
+        except DatalogError as exc:
+            print("[magic] %d IDB facts derived (no full-evaluation baseline: "
+                  "%s)" % (magic_total, exc))
         print()
     _print_answers(atom, match_answers(atom, mengine.rels.get(answer_pred, ())),
                    suffix="   [magic]")
@@ -1195,7 +1338,6 @@ def _run_magic_query(q, clauses, trace):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(
-        prog="datalog.py",
         description="A small Datalog engine with semi-naive evaluation "
                     "and stratified negation.")
     ap.add_argument("file", help="Datalog program (.dl)")
@@ -1272,7 +1414,11 @@ def main(argv=None):
     if args.trace:
         _print_strata(program)
         print()
-    engine.run()
+    try:
+        engine.run()
+    except DatalogError as exc:   # e.g. sum over a non-number
+        print("error: %s" % exc, file=sys.stderr)
+        return 1
     if args.trace:
         _print_stats(engine)
         print()

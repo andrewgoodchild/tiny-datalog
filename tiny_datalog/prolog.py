@@ -6,9 +6,14 @@ of the Datalog boundary.
 Datalog is Horn-clause logic with function symbols confiscated; that ban
 is what makes bottom-up evaluation terminate.  This module puts the
 function symbols back — `s(N)`, `cons(H, T)` — and pays the price:
-top-down SLD resolution with proper unification, no termination
-guarantee, and a depth bound to keep the search finite (the interpreter
-tells you when it was hit, i.e. when the answer set may be incomplete).
+top-down SLD resolution with proper unification and no termination
+guarantee.  Two bounds cut the search off: a depth bound on each proof
+branch and a budget on the total number of resolution steps.  The depth
+bound alone is not enough — with two clauses per goal a depth of 100
+still allows about 2^100 branches — so the step budget is what keeps a
+query from running for longer than anyone will wait.  Either way the
+interpreter tells you when it was cut off, i.e. when the answer set may
+be incomplete.
 
 Differences from real Prolog, on purpose:
 
@@ -119,9 +124,10 @@ def _is_ground(atom, subst):
 # ---------------------------------------------------------------------------
 
 class PrologEngine:
-    """Depth-bounded SLD resolution over Horn clauses.  After a solve, the
-    `depth_hit` flag records whether the bound truncated the search (in
-    which case "no more solutions" is not a proof of absence)."""
+    """Bounded SLD resolution over Horn clauses.  After a solve, the
+    `truncated` flag records whether the depth bound or the step budget
+    cut the search off (in which case "no more solutions" is not a proof
+    of absence)."""
 
     def __init__(self, clauses):
         self.clauses = list(clauses)
@@ -132,16 +138,19 @@ class PrologEngine:
         for c in self.clauses:
             self.by_pred[(c.head.pred, len(c.head.args))].append(c)
         self.counter = 0
-        self.depth_hit = False
+        self.truncated = False
+        self.steps, self.max_steps = 0, 100_000
 
     def _rename(self, rule):
-        """Standardise a clause apart with fresh variable names."""
+        """Standardise a clause apart with fresh variable names.  The
+        `#` makes them names the parser can never produce, so a renamed
+        clause variable can never collide with one the user wrote."""
         self.counter += 1
         n = self.counter
 
         def rt(term):
             if isinstance(term, Var):
-                return Var("_R%d_%s" % (n, term.name))
+                return Var("%s#%d" % (term.name, n))
             if isinstance(term, Struct):
                 return Struct(term.functor, tuple(rt(a) for a in term.args))
             return term
@@ -160,7 +169,7 @@ class PrologEngine:
             yield subst
             return
         if depth <= 0:
-            self.depth_hit = True
+            self.truncated = True
             return
         goal, rest = goals[0], goals[1:]
         if goal.negated:
@@ -174,39 +183,49 @@ class PrologEngine:
                     "unbound variables — reorder the body so positive "
                     "literals bind them first" % (goal.atom,))
             # (2) Failure must be finite: if the sub-proof was cut off by
-            # the depth bound, "no proof found" means unproven, not
-            # disproven — so the negated goal must fail, not succeed.
-            outer_hit = self.depth_hit
-            self.depth_hit = False
+            # a bound, "no proof found" means unproven, not disproven —
+            # so the negated goal must fail, not succeed.  (If it *was*
+            # proved, the failure is genuine, whatever else was cut off.)
+            outer = self.truncated
+            self.truncated = False
             proved = False
             for _ in self.solve([Literal(goal.atom)], subst, depth - 1):
                 proved = True
                 break
-            truncated = self.depth_hit
-            self.depth_hit = outer_hit or truncated
+            truncated = self.truncated and not proved
+            self.truncated = outer or truncated
             if proved or truncated:
                 return
             yield from self.solve(rest, subst, depth - 1)
             return
         for clause in self.by_pred.get((goal.atom.pred,
                                         len(goal.atom.args)), ()):
+            if self.steps >= self.max_steps:
+                self.truncated = True
+                return
+            self.steps += 1
             renamed = self._rename(clause)
             s2 = _unify_atoms(goal.atom, renamed.head, subst)
             if s2 is not None:
                 yield from self.solve(list(renamed.body) + rest, s2,
                                       depth - 1)
 
-    def query(self, atom, depth=100, max_solutions=None):
+    def query(self, atom, depth=100, max_solutions=None, max_steps=100_000):
         """Solve a single goal; return (answers, incomplete) where answers
         is a list of {var_name: term} dicts for the query's variables and
         incomplete is True when the search was truncated — by the depth
-        bound or the solution cap — so "no more answers" is not a proof
-        of absence."""
-        self.depth_hit = False
+        bound, the step budget or the solution cap — so "no more answers"
+        is not a proof of absence."""
+        if max_solutions is not None and max_solutions < 1:
+            raise DatalogError("max_solutions must be at least 1 (got %s)"
+                               % max_solutions)
+        self.truncated = False
+        self.steps, self.max_steps = 0, max_steps
         qvars = []
 
         def collect(term):
-            if isinstance(term, Var) and term not in qvars:
+            if (isinstance(term, Var) and not term.anonymous
+                    and term not in qvars):
                 qvars.append(term)
             elif isinstance(term, Struct):
                 for a in term.args:
@@ -214,14 +233,14 @@ class PrologEngine:
 
         for a in atom.args:
             collect(a)
-        if max_solutions is not None and max_solutions <= 0:
-            return [], False
         answers, seen = [], set()
         capped = False
         try:
             for s in self.solve([Literal(atom)], depth=depth):
                 answer = {v.name: resolve(v, s) for v in qvars}
-                key = tuple(str(answer[v.name]) for v in qvars)
+                # dedupe on the terms themselves, not their printed
+                # form: two different terms can print identically
+                key = tuple(answer[v.name] for v in qvars)
                 if key in seen:
                     continue
                 seen.add(key)
@@ -233,7 +252,7 @@ class PrologEngine:
             raise DatalogError(
                 "the proof search exceeded Python's recursion capacity; "
                 "lower --depth (currently %d)" % depth)
-        return answers, self.depth_hit or capped
+        return answers, self.truncated or capped
 
 
 def load(text):
@@ -244,9 +263,15 @@ def load(text):
 # CLI
 # ---------------------------------------------------------------------------
 
+def _positive_int(text):
+    n = int(text)
+    if n < 1:
+        raise argparse.ArgumentTypeError("must be at least 1, not %d" % n)
+    return n
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(
-        prog="prolog.py",
         description="Top-down SLD resolution over Horn clauses with "
                     "function symbols — what Datalog deliberately isn't.")
     ap.add_argument("file", help="Horn-clause program (.pl)")
@@ -254,8 +279,12 @@ def main(argv=None):
                     metavar="GOAL", help="goal to prove (repeatable)")
     ap.add_argument("--depth", type=int, default=100,
                     help="resolution depth bound (default 100)")
-    ap.add_argument("--max-solutions", type=int, default=10,
+    ap.add_argument("--max-solutions", type=_positive_int, default=10,
                     help="stop after this many answers (default 10)")
+    ap.add_argument("--max-steps", type=_positive_int, default=100_000,
+                    help="resolution-step budget; the depth bound alone "
+                         "can still allow exponentially many branches "
+                         "(default 100000)")
     args = ap.parse_args(argv)
 
     try:
@@ -276,14 +305,18 @@ def main(argv=None):
         print("?- %s" % atom)
         try:
             answers, incomplete = engine.query(
-                atom, depth=args.depth, max_solutions=args.max_solutions)
+                atom, depth=args.depth, max_solutions=args.max_solutions,
+                max_steps=args.max_steps)
         except DatalogError as exc:
             print("error: %s" % exc, file=sys.stderr)
             return 1
         if not answers:
+            bound = ("step budget %d" % args.max_steps
+                     if engine.steps >= args.max_steps
+                     else "depth %d" % args.depth)
             print("   false." if not incomplete else
-                  "   false (search truncated at depth %d — unproven, "
-                  "not disproven)." % args.depth)
+                  "   false (search truncated at %s — unproven, "
+                  "not disproven)." % bound)
             continue
         for answer in answers:
             if answer:

@@ -753,8 +753,6 @@ class PrologTests(unittest.TestCase):
         answers, incomplete = self.query(engine, "nat(X)", max_solutions=5)
         self.assertEqual(len(answers), 5)
         self.assertTrue(incomplete)
-        answers, incomplete = self.query(engine, "nat(X)", max_solutions=0)
-        self.assertEqual(answers, [])
 
 
 class ClosedAndOpenWorldTests(unittest.TestCase):
@@ -2171,6 +2169,401 @@ class CLIErrorReportingTests(unittest.TestCase):
         r = self.cli("datalog.py", os.path.join("programs", "family.dl"))
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(r.stderr, "")
+
+
+
+class CoreReviewFixTests(unittest.TestCase):
+    """Regressions from the adversarial review — core engine: anonymous variables, aggregate explain/why-not, CLI errors, printing."""
+
+    def run_cli(self, text, *args):
+        """Run datalog.main on a program text; (exit code, stdout, stderr)."""
+        import contextlib, io
+        from tiny_datalog.datalog import main
+        fh = tempfile.NamedTemporaryFile("w", suffix=".dl", delete=False)
+        fh.write(text)
+        fh.close()
+        self.addCleanup(os.unlink, fh.name)
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            code = main(list(args) + [fh.name])
+        return code, out.getvalue(), err.getvalue()
+
+    def test_anonymous_variable_cannot_collide_with_user_variable(self):
+        e = run_program("q(a, b). r(c). p(X) :- q(X, _), r(_G1).")
+        self.assertEqual(e.rels["p"], {("a",)})
+        e = run_program("f(a, b). f(c, c).")
+        self.assertEqual(len(match_answers(parse_goal("f(_, _G1)"),
+                                           e.rels["f"])), 2)
+
+    def test_anonymous_variable_prints_as_underscore(self):
+        for text, msg in [
+                ("q(a). r(a, b). p(X) :- q(X), not r(X, _).",
+                 "variable _ of negated literal not r(X, _) is not bound"),
+                ("p(_).", "fact is not ground: p(_)."),
+                ("q(a). p(_) :- q(X).", "head variable _ is not bound")]:
+            with self.assertRaises(SafetyError) as cm:
+                Program(parse(text))
+            self.assertIn(msg, str(cm.exception))
+        self.assertEqual(str(parse_goal("f(A, _)")), "f(A, _)")
+        self.assertTrue(parse_goal("f(_)").args[0].anonymous)
+        self.assertFalse(parse_goal("f(_G1)").args[0].anonymous)
+
+    def test_explain_checks_the_aggregate_value_and_base_facts(self):
+        _, out, _ = self.run_cli("e(a, b). c(a, 99). "
+                                 "c(X, count(Y)) :- e(X, Y).", "-e", "c(a, X)")
+        self.assertIn("c(a, 99)   (base fact)", out)
+        self.assertIn("c(a, 1)   [via c(X, count(Y))", out)
+        _, out, _ = self.run_cli("e(a, b). big(a). c(X, count(Y)) :- e(X, Y). "
+                                 "c(X, 100) :- big(X).", "-e", "c(a, 100)")
+        self.assertIn("c(a, 100)   [via c(X, 100) :- big(X).]", out)
+
+    def test_whynot_reports_the_actual_aggregate_value(self):
+        _, out, _ = self.run_cli("e(a, b). c(X, count(Y)) :- e(X, Y).",
+                                 "-e", "c(a, 5)")
+        self.assertIn("the group exists, but its count is 1, not 5", out)
+        _, out, _ = self.run_cli("e(a, b). c(X, count(Y)) :- e(X, Y).",
+                                 "-e", "c(z, 5)")
+        self.assertIn("no body solutions produce this group", out)
+
+    def test_evaluation_errors_are_clean_in_every_mode(self):
+        prog = "p(a). s(sum(X)) :- p(X)."
+        for args in ([], ["-t"], ["--naive"], ["-q", "s(X)"],
+                     ["-e", "s(X)"], ["-M", "-q", "s(X)"]):
+            code, _, err = self.run_cli(prog, *args)
+            self.assertEqual(code, 1, args)
+            self.assertIn("error: cannot sum over", err)
+
+    def test_explain_is_iterative_and_indexed(self):
+        import time
+        text = chain(1500) + "reach(n1). reach(Y) :- reach(X), edge(X, Y)."
+        engine = run_program(text)
+        t0 = time.perf_counter()
+        lines = explain(engine, "reach", ("n1500",))   # no RecursionError
+        self.assertLess(time.perf_counter() - t0, 5.0)
+        self.assertEqual(len(lines), 2 * 1500 - 1)
+        self.assertEqual(lines[1499].strip(), "reach(n1)   (base fact)")
+
+    def test_end_of_input_is_named(self):
+        with self.assertRaisesRegex(ParseError, "expected dot, got end of input"):
+            parse("p(a)")
+        self.assertEqual(str(parse_goal("q(a) % hi")), "q(a)")
+        self.assertEqual(str(parse_goal("q(a). % hi")), "q(a)")
+
+    def test_not_is_reserved(self):
+        for text, msg in [("not(a).", "cannot name a predicate"),
+                          ("p(not).", "reserved for negation"),
+                          ("q(a). p(X) :- q(X), not(X).",
+                           "negation, not a predicate")]:
+            with self.assertRaisesRegex(ParseError, msg):
+                parse(text)
+        # a quoted "not" is an ordinary string, and prints back quoted
+        self.assertEqual(format_fact("p", ("not",)), 'p("not").')
+
+    def test_printed_facts_parse_back(self):
+        for value in ['say "hi"', "it's", "not", "X", 1e16, -2.5]:
+            text = format_fact("p", (value,))
+            self.assertEqual(parse(text)[0].head.args[0].value, value, text)
+        with self.assertRaisesRegex(ParseError, "1e400 is too large"):
+            parse("p(1e400).")
+        with self.assertRaisesRegex(DatalogError, "not a finite number"):
+            run_program("p(1e308). p(1.5e308). s(sum(X)) :- p(X).")
+
+    def test_query_rejects_weight_and_retraction(self):
+        for q in ("q(X) @ 5", "q(a)~"):
+            with self.assertRaisesRegex(ParseError, "plain atom"):
+                parse_goal(q)
+
+    def test_numbers_are_ascii_digits_only(self):
+        with self.assertRaisesRegex(ParseError, "unexpected character"):
+            parse("p(٣).")
+
+    def test_models_still_reports_well_founded_when_search_too_big(self):
+        code, out, _ = self.run_cli(chain(30) + "r(X) :- edge(X, Y).", "-m")
+        self.assertEqual(code, 0)
+        self.assertIn("Stable models: search skipped", out)
+        self.assertIn("Well-founded model", out)
+
+    def test_usage_names_the_invoked_program(self):
+        import contextlib, io
+        from tiny_datalog.datalog import main
+        out = io.StringIO()
+        old = sys.argv[0]
+        sys.argv[0] = "/usr/bin/tiny-datalog"
+        try:
+            with contextlib.redirect_stdout(out), self.assertRaises(SystemExit):
+                main(["-h"])
+        finally:
+            sys.argv[0] = old
+        self.assertIn("usage: tiny-datalog ", out.getvalue())
+
+
+
+class SemiringSemanticsReviewFixTests(unittest.TestCase):
+    """Regressions from the adversarial review — semiring and model semantics: retractions, weights, divergence messages."""
+
+    PATH = ("p(X, Y) :- e(X, Y).\n"
+            "p(X, Z) :- p(X, Y), e(Y, Z).\n")
+
+    def test_retraction_rejected_by_model_semantics(self):
+        # `q~.` used to be read as the fact q, making p false
+        clauses = parse("q~. p :- not q.")
+        for f in (stable_models, well_founded):
+            with self.assertRaisesRegex(SafetyError, "update, not a statement"):
+                f(clauses)
+
+    def test_retraction_rejected_by_semiring(self):
+        with self.assertRaisesRegex(SafetyError, "update, not a statement"):
+            run_semiring("e(a, b). e(b, c)~. p(X, Y) :- e(X, Y).", "count")
+
+    def test_count_ignores_weights_and_repeats(self):
+        # a fact counts once however written; so does a repeated rule
+        for text in ("e(a, b). e(a, b).",
+                     "e(a, b). e(a, b) @ 5.",
+                     "e(a, b). p(X, Y) :- e(X, Y)."):
+            eng = run_semiring(text + " p(X, Y) :- e(X, Y).", "count")
+            self.assertEqual(eng.value("p", ("a", "b")), 1, text)
+
+    def test_minplus_still_combines_parallel_edges(self):
+        eng = run_semiring("e(a, b) @ 3. e(a, b) @ 2. e(a, b) @ 3."
+                           " p(X, Y) :- e(X, Y).", "minplus")
+        self.assertEqual(eng.value("p", ("a", "b")), 2)
+
+    def test_viterbi_rejects_weights_outside_unit_interval(self):
+        for w in ("-0.5", "2"):
+            with self.assertRaisesRegex(DatalogError, r"\[0, 1\]"):
+                run_semiring("e(a, b) @ %s. p(X, Y) :- e(X, Y)." % w,
+                             "viterbi")
+
+    def test_negative_cycle_named_not_blamed_on_budget(self):
+        with self.assertRaises(DatalogError) as cm:
+            run_semiring("e(a, b) @ -1. e(b, a) @ -1.\n" + self.PATH,
+                         "minplus")
+        self.assertIn("negative-cost cycle", str(cm.exception))
+        self.assertNotIn("--max-rounds", str(cm.exception))
+
+    def test_count_cycle_divergence_names_the_reason(self):
+        with self.assertRaises(DatalogError) as cm:
+            run_semiring("e(a, b). e(b, a).\n" + self.PATH, "count")
+        self.assertIn("infinitely many", str(cm.exception))
+        self.assertNotIn("--max-rounds", str(cm.exception))
+
+    def test_small_budget_still_suggests_max_rounds(self):
+        chain = "".join("e(n%d, n%d). " % (i, i + 1) for i in range(10))
+        with self.assertRaisesRegex(DatalogError, "--max-rounds"):
+            run_semiring(chain + self.PATH, "bool", max_rounds=3)
+
+    def test_max_rounds_must_be_positive(self):
+        with self.assertRaisesRegex(DatalogError, "at least 1"):
+            run_semiring("e(a, b).", "bool", max_rounds=0)
+        r = subprocess.run(
+            [sys.executable, "semiring.py", "--max-rounds", "0",
+             "programs/routes.dl"], capture_output=True, text=True, cwd=HERE)
+        self.assertEqual(r.returncode, 2)
+        self.assertIn("must be at least 1", r.stderr)
+
+    def test_usage_names_the_real_command(self):
+        import contextlib, io
+        from tiny_datalog.semiring import main
+        out = io.StringIO()
+        old = sys.argv[0]
+        sys.argv[0] = "/usr/bin/tiny-datalog-semiring"
+        try:
+            with contextlib.redirect_stdout(out), self.assertRaises(SystemExit):
+                main(["-h"])
+        finally:
+            sys.argv[0] = old
+        self.assertIn("usage: tiny-datalog-semiring", out.getvalue())
+
+
+
+class SatelliteReviewFixTests(unittest.TestCase):
+    """Regressions from the adversarial review — incremental, prolog and tabling edge cases."""
+
+    GRAPH = ("e(a,b). e(b,c). p(X,Y) :- e(X,Y). "
+             "p(X,Z) :- p(X,Y), e(Y,Z).")
+
+    @staticmethod
+    def prove(text, goal, **kw):
+        return prolog.load(text).query(parse_goal(goal), **kw)
+
+    def test_prolog_renamed_variables_cannot_collide_with_user_ones(self):
+        # clause variables used to be renamed _R<n>_<name>, which a user
+        # can also write: the clash caused a spurious occurs-check failure
+        answers, incomplete = self.prove("p(f(X), X).", "p(_R1_X, Y)")
+        self.assertEqual(len(answers), 1)
+        self.assertFalse(incomplete)
+        self.assertEqual(str(answers[0]["_R1_X"]),
+                         "f(%s)" % answers[0]["Y"])
+
+    def test_prolog_answers_hide_anonymous_but_show_shared_variables(self):
+        answers, _ = self.prove("p(a, b).", "p(A, _)")
+        self.assertEqual([sorted(a) for a in answers], [["A"]])
+        # a renamed clause variable is not anonymous: printing it as `_`
+        # would hide that A's argument and Y are the same variable
+        answers, _ = self.prove("q(f(X), X).", "q(A, Y)")
+        self.assertNotEqual(str(answers[0]["Y"]), "_")
+        self.assertEqual(str(answers[0]["A"]), "f(%s)" % answers[0]["Y"])
+
+    def test_prolog_max_solutions_must_be_positive(self):
+        # 0 used to answer "false, and complete" without searching
+        with self.assertRaises(DatalogError):
+            self.prove("p(a).", "p(X)", max_solutions=0)
+        result = CLIErrorReportingTests.cli(
+            "prolog.py", os.path.join(HERE, "programs", "peano.pl"),
+            "-q", "nat(X)", "--max-solutions", "0")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("at least 1", result.stderr)
+
+    def test_prolog_answers_deduped_on_terms_not_their_printing(self):
+        # these two different terms print identically as f("A", "B")
+        answers, _ = self.prove("""p(f("A", "B")). p(f('A", "B')).""",
+                                "p(X)")
+        self.assertEqual(len(answers), 2)
+
+    def test_prolog_step_budget_stops_exponential_search(self):
+        # depth 100 with two clauses per goal is ~2^100 branches; the
+        # step budget ends it quickly and reports it as truncated
+        engine = prolog.load("p :- p. p :- p.")
+        answers, incomplete = engine.query(parse_goal("p"), max_steps=1000)
+        self.assertEqual(answers, [])
+        self.assertTrue(incomplete)
+        self.assertEqual(engine.steps, 1000)
+
+    def test_prolog_negation_of_proved_goal_is_complete_failure(self):
+        # loop is proved (by its second clause), so `not loop` fails for
+        # good — even though the search for other proofs of loop was cut
+        answers, incomplete = self.prove(
+            "loop :- loop. loop. r :- not loop.", "r")
+        self.assertEqual(answers, [])
+        self.assertFalse(incomplete)
+
+    def test_incremental_apply_is_all_or_nothing(self):
+        for strategy in ("dred", "bf"):
+            with self.subTest(strategy=strategy):
+                inc = IncrementalEngine(self.GRAPH)
+                before = {p: set(ts) for p, ts in inc.rels.items()}
+                with self.assertRaises(DatalogError):
+                    inc.apply("e(a,b)~. e(x,y,z).", strategy)
+                self.assertEqual(inc.rels, before)
+                self.assertIn(("e", ("a", "b")), inc.base)
+
+    def test_incremental_rejects_weights_and_unknown_strategies(self):
+        with self.assertRaises(DatalogError):
+            IncrementalEngine("e(a,b) @ 0.5. p(X,Y) :- e(X,Y).")
+        inc = IncrementalEngine(self.GRAPH)
+        with self.assertRaises(DatalogError):
+            inc.delete("e(a,b).", strategy="BF")
+        with self.assertRaises(DatalogError):
+            inc.apply("e(a,b)~.", strategy="BF")
+        self.assertIn(("a", "b"), inc.rels["e"])
+
+    def test_incremental_new_predicate_keeps_its_first_arity(self):
+        inc = IncrementalEngine(self.GRAPH)
+        inc.insert("q(a).")
+        with self.assertRaises(DatalogError):
+            inc.insert("q(a, b).")
+        self.assertEqual(inc.rels["q"], {("a",)})
+
+    def test_cli_usage_names_the_command_actually_run(self):
+        # no hard-coded prog=, so a console script shows its own name
+        import contextlib
+        import io
+        from tiny_datalog import incremental, tabling
+        for module in (incremental, prolog, tabling):
+            with self.subTest(module=module.__name__):
+                out, argv0 = io.StringIO(), sys.argv[0]
+                sys.argv[0] = "/usr/bin/tiny-datalog-xyz"
+                try:
+                    with contextlib.redirect_stdout(out), \
+                            self.assertRaises(SystemExit):
+                        module.main(["-h"])
+                finally:
+                    sys.argv[0] = argv0
+                self.assertTrue(out.getvalue().startswith(
+                    "usage: tiny-datalog-xyz"))
+
+
+
+class ClassifierReviewFixTests(unittest.TestCase):
+    """Regressions from the adversarial review — subsumption and containment edge cases, README example."""
+
+    def _cli(self, module, text, *extra):
+        with tempfile.NamedTemporaryFile("w", suffix=".dl",
+                                         delete=False) as fh:
+            fh.write(text)
+        self.addCleanup(os.remove, fh.name)
+        return subprocess.run(
+            [sys.executable, "-m", "tiny_datalog." + module, fh.name]
+            + list(extra), capture_output=True, text=True, cwd=HERE)
+
+    def test_minimise_refuses_aggregate_rules(self):
+        # Dropping pay(P, B) looks harmless under set semantics, but it
+        # changes a sum — and here would leave the rule unsafe besides.
+        rule = parse("total(P, sum(A)) :- pay(P, A), pay(P, B).")[0]
+        with self.assertRaisesRegex(DatalogError, "aggregation"):
+            containment.minimise(rule)
+        r = self._cli("containment", "pay(ann, 10). pay(ann, 20).\n"
+                      "total(P, sum(A)) :- pay(P, A), pay(P, B).\n")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("skipped: aggregation", r.stdout)
+        self.assertNotIn("minimises to", r.stdout)
+
+    def test_contains_refuses_aggregate_queries(self):
+        a = parse("q(X, sum(A)) :- p(X, A).")[0]
+        b = parse("q(Y, sum(B)) :- p(Y, B).")[0]
+        with self.assertRaisesRegex(DatalogError, "aggregation"):
+            containment.contains(a, b)
+        # refused even when the head arities differ
+        c = parse("q(X) :- p(X, A).")[0]
+        with self.assertRaisesRegex(DatalogError, "aggregation"):
+            containment.contains(c, a)
+
+    def test_fresh_names_cannot_collide_with_user_concepts(self):
+        # A user concept gen_1 used to merge with normalisation's first
+        # fresh name, proving the unsound a ⊑ q.
+        with self.assertRaisesRegex(DatalogError, "gen_"):
+            subsumption.load("isa(a, some(r, and(b, c))).\n"
+                             "define(q, some(r, gen_1)).")
+
+    def test_query_reports_unsatisfiable_like_full_classification(self):
+        text = ("disjoint(cat, dog). define(catdog, and(cat, dog)).\n"
+                "isa(x, catdog).\n")
+        for extra in ([], ["--fast"]):
+            r = self._cli("subsumption", text, "-q", "catdog", "-q", "x",
+                          "-q", "cat", *extra)
+            self.assertEqual(r.returncode, 0, r.stderr)
+            self.assertIn("catdog  ⊑  ⊥   (unsatisfiable)", r.stdout)
+            self.assertIn("x  ⊑  ⊥   (unsatisfiable)", r.stdout)
+            self.assertIn("cat  ⊑  (none)", r.stdout)
+
+    def test_readme_library_example_prints_derivations(self):
+        with open(os.path.join(HERE, "README.md")) as fh:
+            readme = fh.read()
+        snippet = re.search(r"```python\n(from tiny_datalog import "
+                            r"run_program, explain\n.*?)```",
+                            readme, re.S).group(1)
+        r = subprocess.run(
+            [sys.executable, "-c", snippet], capture_output=True, text=True,
+            cwd=os.path.join(HERE, "programs"),
+            env=dict(os.environ, PYTHONPATH=HERE))
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("exposed(", r.stdout)
+        self.assertIn("(base fact)", r.stdout)
+
+    def test_cli_usage_names_the_real_program(self):
+        # argparse takes the name from argv[0], so the installed console
+        # scripts (tiny-datalog-subsumption, ...) show their own names.
+        import contextlib
+        import io
+        from unittest import mock
+        for module in (subsumption, containment):
+            out = io.StringIO()
+            with mock.patch.object(sys, "argv", ["tiny-datalog-x"]), \
+                    contextlib.redirect_stdout(out), \
+                    self.assertRaises(SystemExit):
+                module.main(["-h"])
+            self.assertTrue(out.getvalue().startswith(
+                "usage: tiny-datalog-x"), out.getvalue())
 
 
 

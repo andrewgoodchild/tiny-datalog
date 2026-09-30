@@ -99,9 +99,14 @@ $ python3 prolog.py programs/peano.pl -q 'nat(X)' --max-solutions 5
    (5 solutions (more may exist: search truncated))
 ```
 
-`nat(X)` has infinitely many answers; only a **depth bound** keeps the
-search finite, and the interpreter is careful to say when the bound was
-hit — "no more solutions" then means *unproven*, not *false*. Termination
+`nat(X)` has infinitely many answers; a **depth bound** cuts each proof
+branch off, and the interpreter is careful to say when the bound was
+hit — "no more solutions" then means *unproven*, not *false*. A depth
+bound alone is finite but not practical: `p :- p. p :- p.` branches
+twice per step, so depth 100 allows about 2^100 branches. A second
+bound, a budget on the total number of resolution steps (`--max-steps`,
+default 100000), is what actually stops such a query in well under a
+second — and hitting it is reported the same way. Termination
 is not a property you can get back with cleverness: whether a Horn-clause
 program halts is undecidable in general.
 

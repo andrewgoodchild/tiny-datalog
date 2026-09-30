@@ -92,13 +92,20 @@ are finite:
 
 ```sh
 $ python3 semiring.py --semiring count programs/cyclic-routes.dl
-error: no fixpoint after 200 rounds over the count semiring — either this
-program genuinely diverges here (counting derivations in a cyclic graph is
-infinite) or the round budget is too small for this depth of derivation;
-raise it with --max-rounds
+error: no fixpoint over the count semiring: values still change after 200
+rounds although only 32 facts exist, so no round budget will do — a cycle
+among the derivations can be pumped forever, so there are infinitely many
+of them to count
 ```
 
 That is not a bug: a cyclic graph really does have infinitely many paths.
+And the evaluator can *tell*: round n accounts for every derivation of
+height at most n, and a derivation that never repeats a fact along a
+branch is shallower than the number of facts. Once the rounds outnumber
+the facts, anything still changing is a cycle being pumped. (Min-plus
+diverges the same way on a negative-cost cycle — each lap is cheaper —
+and says so; with too few rounds to tell, the error asks for a bigger
+`--max-rounds` instead.)
 Which semirings converge on which programs is the subject of the current
 "Datalog over semirings" theory (Green–Karvounarakis–Tannen's provenance
 semirings started it in 2007; the convergence story is Abo Khamis, Ngo,

@@ -41,7 +41,7 @@ import argparse
 import sys
 
 from tiny_datalog.datalog import (
-    Const, DatalogError, parse, read_program, validate, Var)
+    _aggregate_of, Const, DatalogError, parse, read_program, validate, Var)
 
 
 def _extend(mapping, source_args, target_args):
@@ -92,6 +92,11 @@ def _bodies(rule):
             raise DatalogError(
                 "containment by homomorphism is a conjunctive-query "
                 "result; negation needs different theory: %s" % rule)
+    if _aggregate_of(rule.head):
+        # sum/count see duplicates; Chandra–Merlin is about sets.
+        raise DatalogError(
+            "containment by homomorphism is a set-semantics result; "
+            "aggregation needs different theory: %s" % rule)
     return [lit.atom for lit in rule.body]
 
 
@@ -114,10 +119,11 @@ def contains(outer, inner):
     """True if `outer` ⊇ `inner`: on every database, every answer to
     inner is an answer to outer.  Decided by a homomorphism from outer's
     body into inner's (Chandra–Merlin)."""
+    source, target = _bodies(outer), _bodies(inner)
     seed = _head_seed(outer, inner)
     if seed is None:
         return False
-    return find_homomorphism(_bodies(outer), _bodies(inner), seed) is not None
+    return find_homomorphism(source, target, seed) is not None
 
 
 def equivalent(a, b):
@@ -164,7 +170,6 @@ def _parse_query_rule(text):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(
-        prog="containment.py",
         description="Conjunctive-query containment and minimisation by "
                     "homomorphism (Chandra–Merlin).")
     ap.add_argument("file", nargs="?",
@@ -199,6 +204,10 @@ def main(argv=None):
                 continue
             if any(lit.negated for lit in rule.body):
                 print("%s\n  (skipped: negation is outside the theory)"
+                      % rule)
+                continue
+            if _aggregate_of(rule.head):
+                print("%s\n  (skipped: aggregation is outside the theory)"
                       % rule)
                 continue
             atoms = minimise(rule)

@@ -19,7 +19,8 @@ both ways. **Minimisation** is finding the smallest body equivalent to
 the one you wrote.
 
 Quantifying over all databases sounds undecidable. For conjunctive
-queries: a single rule, no negation, no recursion; it isn't:
+queries: a single rule, no negation, no aggregation, no recursion; it
+isn't:
 
 > **Q2 ⊇ Q1 iff there is a homomorphism from Q2's body into Q1's body
 > that fixes the head variables.**
@@ -45,7 +46,8 @@ atomic fact. Two of its standard moves power this whole lesson:
   formulas, and those are exactly the formulas homomorphisms preserve:
   if Q holds in A and A maps homomorphically into B, Q holds in B. (Add
   negation and preservation fails — which is why this theory refuses
-  it.)
+  it. Aggregates it refuses too: `sum` and `count` see how *many*
+  matches there are, and a homomorphism only promises that one exists.)
 
 Chandra–Merlin is those two moves composed: Q2 holds on *every*
 database Q1 matches iff Q2 holds on the canonical one, and "holds on

@@ -37,7 +37,8 @@ expressions are the compound terms Datalog itself forbids):
 
 Expressions: atomic names, and(...) with two or more conjuncts, and
 some(role, expression).  The predicates subs, link, concept, isa1, isa2,
-isa_some, some_isa and the concept name bot (⊥) are reserved.
+isa_some, some_isa, the concept name bot (⊥) and concept names beginning
+gen_ are reserved.
 
 Normalisation introduces fresh names (gen_1, gen_2, ...) for nested
 complex expressions — one inclusion per fresh name, direction chosen by
@@ -131,9 +132,10 @@ class Ontology:
     def _concept_name(self, term):
         if not isinstance(term, Const) or not isinstance(term.value, str):
             raise DatalogError("expected an atomic concept name, got %s" % (term,))
-        if term.value in _RESERVED:
-            raise DatalogError(
-                "%r is reserved by the compilation" % term.value)
+        if term.value in _RESERVED or term.value.startswith("gen_"):
+            raise DatalogError("%r is reserved by the compilation%s" % (term.value,
+                "" if term.value in _RESERVED else  # gen_N would merge with a fresh name
+                " (gen_ names are the fresh concepts of normalisation)"))
         self.concepts.add(term.value)
         self.named.add(term.value)
         return term.value
@@ -404,7 +406,6 @@ def load(text):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(
-        prog="subsumption.py",
         description="Classify an EL ontology by compiling subsumption "
                     "to Datalog.")
     ap.add_argument("file", help="ontology file (isa/2, define/2 facts)")
@@ -440,7 +441,8 @@ def main(argv=None):
             if c not in supers:
                 print("error: unknown concept %r" % c, file=sys.stderr)
                 return 1
-            names = sorted(supers[c]) or ["(none)"]
+            names = (["⊥   (unsatisfiable)"] if c in ont.unsatisfiable()
+                     else sorted(supers[c]) or ["(none)"])
             print("%s  ⊑  %s" % (c, ", ".join(names)))
         return 0
 

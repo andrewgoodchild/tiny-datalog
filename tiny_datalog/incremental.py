@@ -58,6 +58,10 @@ class IncrementalEngine:
     def __init__(self, text):
         clauses = parse(text)
         for r in clauses:
+            if r.weight is not None:
+                raise DatalogError(
+                    "weights are not supported by the incremental "
+                    "engine: %s" % r)
             if any(lit.negated for lit in r.body) or _aggregate_of(r.head):
                 raise DatalogError(
                     "incremental maintenance supports positive, "
@@ -120,6 +124,14 @@ class IncrementalEngine:
             delta = new_delta
         return derived
 
+    def _deleter(self, strategy):
+        if strategy == "dred":
+            return self._delete_facts
+        if strategy == "bf":
+            return self._bf_delete_facts
+        raise DatalogError("unknown deletion strategy %r: use 'dred' or "
+                           "'bf'" % (strategy,))
+
     # -- the API ------------------------------------------------------------
 
     def insert(self, facts_text):
@@ -133,8 +145,7 @@ class IncrementalEngine:
     def delete(self, facts_text, strategy="dred"):
         """Remove base facts (a trailing `~` is allowed but optional
         here); repair derived relations with DRed or Backward/Forward."""
-        deleter = (self._bf_delete_facts if strategy == "bf"
-                   else self._delete_facts)
+        deleter = self._deleter(strategy)
         return deleter(self._facts_of(parse(facts_text)))
 
     def apply(self, script, strategy="dred"):
@@ -144,22 +155,27 @@ class IncrementalEngine:
 
             inc.apply("edge(n3, n4)~.  edge(n2, n9).")
         """
+        # Validate the whole script before touching anything, so a bad
+        # fact anywhere in it leaves the materialisation unchanged.
         clauses = parse(script)
+        deleter = self._deleter(strategy)
+        facts = self._facts_of(clauses)
+        deletes = [f for c, f in zip(clauses, facts) if c.retract]
+        inserts = [f for c, f in zip(clauses, facts) if not c.retract]
         stats = {}
-        deletes = [c for c in clauses if c.retract]
-        inserts = [c for c in clauses if not c.retract]
         if deletes:
-            deleter = (self._bf_delete_facts if strategy == "bf"
-                       else self._delete_facts)
-            stats.update(deleter(self._facts_of(deletes)))
+            stats.update(deleter(deletes))
         if inserts:
-            stats.update(self._insert_facts(self._facts_of(inserts)))
+            stats.update(self._insert_facts(inserts))
         return stats
 
     def _insert_facts(self, facts):
         delta = defaultdict(set)
         inserted = 0
         for pred, tup in facts:
+            # a brand-new predicate fixes its arity here, so a later
+            # insert cannot store the same predicate at another arity
+            self.program.arity.setdefault(pred, len(tup))
             self.base.add((pred, tup))
             if tup not in self.rels[pred]:
                 self.rels[pred].add(tup)
@@ -359,7 +375,6 @@ def _demo():
 
 def main(argv=None):
     ap = argparse.ArgumentParser(
-        prog="incremental.py",
         description="Materialise a program, then repair it under updates "
                     "instead of recomputing.  Update scripts mix inserts "
                     "(plain facts) and retractions (`fact~.`).")
