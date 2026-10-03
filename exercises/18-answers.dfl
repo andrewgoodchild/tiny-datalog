@@ -1,0 +1,31 @@
+% Lesson 18 — runnable answers to exercises 1 and 3.
+%
+%   python3 defeasible.py -q 'may_borrow(P)' exercises/18-answers.dfl
+%   python3 defeasible.py -q 'hawk(X)' exercises/18-answers.dfl
+%   python3 defeasible.py --propagating -q 'hawk(X)' exercises/18-answers.dfl
+
+% Exercise 1: the lending policy, plus guarantors.
+member(iris).  member(jon).  member(kim).  member(lena).  member(mo).
+staff(kim).    staff(lena).
+overdue(jon, book_a).
+overdue(lena, book_b).
+overdue(mo, book_c).
+suspended(kim).
+guaranteed(mo).            % mo has a guarantor; jon does not
+guaranteed(kim).           % ...and so does kim, who is suspended
+
+r1: member(P)                  => may_borrow(P).
+r2: overdue(P, B)              => ~may_borrow(P).
+r3: staff(P)                   => may_borrow(P).
+r4: suspended(P)               => ~may_borrow(P).
+r5: member(P), guaranteed(P)   => may_borrow(P).   % despite an overdue loan
+
+r2 > r1.   r3 > r2.   r5 > r2.                     % exceptions to overdue
+r4 > r1.   r4 > r3.   r4 > r5.                     % suspension beats all
+
+% Exercise 3: Nixon's diamond, and a rule downstream of it.
+quaker(nixon).  republican(nixon).
+n1: quaker(X)     => pacifist(X).
+n2: republican(X) => ~pacifist(X).
+n3: republican(X) => hawk(X).
+n4: pacifist(X)   => ~hawk(X).

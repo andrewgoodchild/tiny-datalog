@@ -73,6 +73,8 @@ def translate_rule(text):
                 out.append("p_" + name)
             else:
                 out.append("V_" + name)
+        elif punct == "~" and depth == 0:
+            out.append("~ ")                    # strong negation (defeasible)
         elif punct == "(" and text[pos:].lstrip()[:1] == ")":
             pos = text.index(")", pos) + 1      # Ok() is our zero-arity ok
         else:
@@ -172,3 +174,77 @@ class TinyDatalogEvaluator:
             raise _label(exc) from exc
         return {corpus_name(p): set(rows) for p, rows in engine.rels.items()
                 if corpus_name(p)}
+
+
+# -- defeasible theories ----------------------------------------------------
+#
+# The corpus reports four sections per literal; read as defeasible
+# logic's proof tags (the reading SPINdle's and the papers' cases use):
+#
+#     definitely       +Δ
+#     defeasibly       +∂
+#     not_defeasibly   −∂
+#     undecided        neither +∂ nor −∂
+#
+# Cases checked against DePYsible use the same words for DeLP's answers
+# (YES / NO / UNDECIDED), a different logic: arguments compared by
+# specificity.  run.py names the ones where that difference shows.
+
+_NAMESPACE = re.compile(r"(?<=\w):(?=\w)")      # SPINdle's b:flies
+
+
+def _literal(text):
+    """'~flies(X)' in corpus syntax -> '~p_flies(V_X)' in ours."""
+    text = _NAMESPACE.sub("__", text)
+    return translate_rule(text)[:-1].replace("~ ", "~")
+
+
+def theory_text(theory):
+    if getattr(theory, "conflicts", None):
+        raise ValueError("explicit conflict declarations are not "
+                         "defeasible logic's complement-only conflicts")
+    lines = []
+    for pred, rows in theory.facts.items():
+        neg = "~" if pred.startswith("~") else ""
+        name = "p_" + _NAMESPACE.sub("__", pred.lstrip("~"))
+        for row in rows:
+            args = "(%s)" % ", ".join(_constant(v) for v in row) if row else ""
+            lines.append("%s%s%s." % (neg, name, args))
+    for arrow, rules in (("->", theory.strict_rules),
+                         ("=>", theory.defeasible_rules),
+                         ("~>", theory.defeaters)):
+        for r in rules:
+            lines.append("L_%s: %s %s %s." % (
+                r.id, ", ".join(_literal(b) for b in r.body), arrow,
+                _literal(r.head)))
+    for a, b in theory.superiority:
+        lines.append("L_%s > L_%s." % (a, b))
+    return "\n".join(lines)
+
+
+def _corpus_literal(lit):
+    pred, args = lit
+    neg = "~" if pred.startswith("~") else ""
+    return neg + pred.lstrip("~")[2:].replace("__", ":"), args
+
+
+SECTIONS = {"definitely": "+Δ", "defeasibly": "+∂",
+            "not_defeasibly": "−∂", "undecided": "undecided"}
+
+
+class TinyDatalogDefeasible:
+    """Defeasible-theory evaluator for the corpus's runner."""
+
+    def evaluate(self, theory, policy):
+        from tiny_datalog.defeasible import Theory
+        try:
+            result = Theory.parse(theory_text(theory)).conclusions(
+                policy.value)
+        except DatalogError as exc:
+            raise _label(exc) from exc
+        out = {name: {} for name in SECTIONS}
+        for name, tag in SECTIONS.items():
+            for lit in result[tag]:
+                pred, args = _corpus_literal(lit)
+                out[name].setdefault(pred, set()).add(args)
+        return out

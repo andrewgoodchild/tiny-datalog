@@ -281,7 +281,8 @@ actually do.
    run the five checks. The interesting output is not the answer — it
    is which question you could not express.
 
-Next (optional): [the neighbours](18-neighbours.md) — SQL, F-logic,
-Haskell, category theory — and what
-the course's mathematics actually is, for readers who want the frame
-named.
+Next: [rules with exceptions](18-defeasible.md) — the same policy in a
+logic built for "unless", where an exception is a rule and a priority
+is a fact. Then (optional) [the neighbours](19-neighbours.md) — SQL,
+F-logic, Haskell, category theory — and what the course's mathematics
+actually is, for readers who want the frame named.

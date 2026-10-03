@@ -103,7 +103,7 @@ is **coinductive** — true by unfalsifiability rather than by finite
 proof — and the complement construction computes exactly that:
 deriving the failure inductively and taking success as its absence
 *is* the greatest fixpoint, obtained as the negation of a least one.
-(Lesson 18 gives that slogan its categorical name.)
+(Lesson 19 gives that slogan its categorical name.)
 
 Mutual recursion rides along free — `ping` and `pong` point at each
 other, and both subtype `stream`. And when subtyping genuinely fails,

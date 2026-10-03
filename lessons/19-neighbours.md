@@ -1,8 +1,8 @@
-# Lesson 18 — The neighbours
+# Lesson 19 — The neighbours
 
 > **Entirely optional.** Nothing later depends on this lesson, because
 > nothing comes later. The course compared Datalog to its neighbours
-> in passing for seventeen lessons; this one collects the comparisons
+> in passing for eighteen lessons; this one collects the comparisons
 > and finishes them — SQL, F-logic, functional programming, and the
 > road not taken, category theory.
 

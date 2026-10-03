@@ -14,7 +14,7 @@ authors = [{name = "Andrew Goodchild"}]
 dependencies = []
 keywords = ["datalog", "logic programming", "deductive database",
             "semi-naive evaluation", "magic sets", "provenance",
-            "stable models", "teaching"]
+            "stable models", "defeasible logic", "teaching"]
 # No "License ::" classifier: `license` above is an SPDX expression, and
 # setuptools refuses a build that declares the licence both ways.
 classifiers = [
@@ -51,6 +51,7 @@ tiny-datalog-tabling = "tiny_datalog.tabling:main"
 tiny-datalog-incremental = "tiny_datalog.incremental:main"
 tiny-datalog-subsumption = "tiny_datalog.subsumption:main"
 tiny-datalog-containment = "tiny_datalog.containment:main"
+tiny-datalog-defeasible = "tiny_datalog.defeasible:main"
 
 [tool.setuptools.packages.find]
 include = ["tiny_datalog*"]

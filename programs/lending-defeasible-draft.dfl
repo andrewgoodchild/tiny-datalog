@@ -1,0 +1,18 @@
+% Lesson 17's lending policy, written defeasibly — first draft.
+% Lesson 18 shows what this draft leaves undecided, and why.
+%
+%   python3 defeasible.py -q 'may_borrow(P)' programs/lending-defeasible-draft.dfl
+
+member(iris).  member(jon).  member(kim).  member(lena).
+staff(kim).    staff(lena).
+overdue(jon, book_a).
+overdue(lena, book_b).
+suspended(kim).
+
+r1: member(P)      => may_borrow(P).    % members may borrow,
+r2: overdue(P, B)  => ~may_borrow(P).   % unless they have an overdue loan;
+r3: staff(P)       => may_borrow(P).    % staff may borrow despite that,
+r4: suspended(P)   => ~may_borrow(P).   % but a suspension binds everybody.
+
+r3 > r2.
+r4 > r1.   r4 > r3.

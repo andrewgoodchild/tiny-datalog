@@ -33,7 +33,7 @@ Q2 can be satisfied there, it can be satisfied wherever Q1 is.
 
 ## The model theory underneath
 
-Name the frame, because Lesson 18 will claim this lesson runs on it.
+Name the frame, because Lesson 19 will claim this lesson runs on it.
 **Model theory** studies the relationship between sentences and the
 structures that satisfy them; its workhorse map is the
 **homomorphism**, a function between structures that preserves every

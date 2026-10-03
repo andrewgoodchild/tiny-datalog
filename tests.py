@@ -25,6 +25,7 @@ from tiny_datalog.incremental import IncrementalEngine
 from tiny_datalog import prolog
 from tiny_datalog import subsumption
 from tiny_datalog import containment
+from tiny_datalog import defeasible
 from tiny_datalog.tabling import TabledEngine
 from tiny_datalog.datalog import (
     match_answers, format_fact, _sort_key, explain)
@@ -1386,7 +1387,7 @@ class RepositoryClaimTests(unittest.TestCase):
             self.assertEqual(dups, [], "duplicated paragraph(s) in %s"
                              % os.path.basename(f))
 
-    SATELLITES = ["magic.py", "semantics.py", "semiring.py",
+    SATELLITES = ["magic.py", "semantics.py", "semiring.py", "defeasible.py",
                   "incremental.py", "prolog.py", "tabling.py",
                   "subsumption.py", "containment.py"]
 
@@ -2061,7 +2062,8 @@ class CLIErrorReportingTests(unittest.TestCase):
     a non-zero exit code, never a traceback."""
 
     SCRIPTS = ["datalog.py", "semiring.py", "tabling.py", "incremental.py",
-               "containment.py", "prolog.py", "subsumption.py"]
+               "containment.py", "prolog.py", "subsumption.py",
+               "defeasible.py"]
 
     @staticmethod
     def cli(script, *args):
@@ -2186,6 +2188,163 @@ class CLIErrorReportingTests(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(r.stderr, "")
 
+
+
+class DefeasibleTests(unittest.TestCase):
+    """Defeasible logic (lesson 18): the proof conditions of Antoniou,
+    Billington, Governatori & Maher (2001), ambiguity propagation after
+    Maher (2012), and the course's own example theories."""
+
+    @staticmethod
+    def tags(text, lit=("p", ()), policy="blocking"):
+        t = defeasible.Theory.parse(text).conclusions(policy)
+        return {tag for tag in ("+Δ", "−Δ", "+∂", "−∂") if lit in t[tag]}
+
+    @staticmethod
+    def conclusions(name, policy="blocking"):
+        return defeasible.Theory.parse(load(name)).conclusions(policy)
+
+    def test_the_papers_six_outcome_classes(self):
+        # TOCL 2001, section 3: one theory per possible outcome for p
+        self.assertEqual(self.tags("p -> p."), set())                  # A
+        self.assertEqual(self.tags("=> p.  p -> p."), {"+∂"})          # B
+        self.assertEqual(self.tags("-> p."), {"+Δ", "+∂"})             # C
+        self.assertEqual(self.tags("=> p."), {"−Δ", "+∂"})             # D
+        self.assertEqual(self.tags("p => p."), {"−Δ"})                 # E
+        self.assertEqual(self.tags("p => r."), {"−Δ", "−∂"})           # F
+
+    def test_birds_superiority_and_the_defeater(self):
+        t = self.conclusions("birds.dfl")
+        self.assertIn(("flies", ("tweety",)), t["+∂"])
+        self.assertIn(("~flies", ("opus",)), t["+∂"])
+        # the defeater blocks flies(freddie) and proves nothing itself
+        self.assertIn(("flies", ("freddie",)), t["−∂"])
+        self.assertIn(("~flies", ("freddie",)), t["−∂"])
+
+    def test_a_missing_priority_shows_as_a_conflict(self):
+        draft = self.conclusions("lending-defeasible-draft.dfl")
+        fixed = self.conclusions("lending-defeasible.dfl")
+        jon, njon = ("may_borrow", ("jon",)), ("~may_borrow", ("jon",))
+        self.assertTrue({jon, njon} <= draft["−∂"])     # −∂ both ways
+        self.assertIn(njon, fixed["+∂"])                # r2 > r1 settles it
+        for t in (draft, fixed):
+            self.assertEqual(
+                sorted(a[0] for p, a in t["+∂"] if p == "may_borrow"),
+                ["iris", "lena"])
+            self.assertIn(("~may_borrow", ("kim",)), t["+∂"])
+
+    def test_team_defeat(self):
+        team = ("a. b. c. d.  t1: a => p.  t2: b => p.  s1: c => ~p.  "
+                "s2: d => ~p.  t1 > s1.  t2 > s2.")
+        # each attacker is beaten, by a different member of the team
+        self.assertEqual(self.tags(team), {"−Δ", "+∂"})
+        self.assertIn("−∂", self.tags(team.replace("t2 > s2.", "")))
+
+    def test_ambiguity_blocking_and_propagating(self):
+        # Maher 2012's example: blocking contains the ambiguity about p;
+        # propagation lets it reach q through r4
+        blocking = self.conclusions("ambiguity.dfl")
+        propagating = self.conclusions("ambiguity.dfl", "propagating")
+        self.assertIn(("q", ()), blocking["+∂"])
+        self.assertIn(("q", ()), propagating["−∂"])
+        for t in (blocking, propagating):
+            self.assertTrue({("p", ()), ("~p", ()), ("~q", ())} <= t["−∂"])
+
+    def test_loops_stay_undecided(self):
+        t = self.conclusions("loops.dfl")
+        self.assertEqual(t["undecided"],
+                         {("a", ()), ("b", ()), ("p", ()), ("q", ())})
+        self.assertEqual(t["−∂"], {("~p", ())})
+        # with variables, a loop nothing starts is never instantiated
+        t = defeasible.Theory.parse("a(X) => b(X). b(X) => a(X).").conclusions()
+        self.assertEqual(set().union(*t.values()), set())
+
+    def test_a_missing_premise_refutes(self):
+        t = defeasible.Theory.parse("p. r1: p, q => r.").conclusions()
+        self.assertIn(("r", ()), t["−∂"])
+        self.assertIn(("q", ()), t["−∂"])
+
+    def test_exercise_answers(self):
+        with open(os.path.join(HERE, "exercises", "18-answers.dfl")) as fh:
+            text = fh.read()
+        theory = defeasible.Theory.parse(text)
+        t = theory.conclusions()
+        self.assertEqual(
+            sorted(a[0] for p, a in t["+∂"] if p == "may_borrow"),
+            ["iris", "lena", "mo"])
+        self.assertIn(("hawk", ("nixon",)), t["+∂"])
+        self.assertIn(("hawk", ("nixon",)),
+                      theory.conclusions("propagating")["−∂"])
+
+    def test_malformed_theories_are_refused(self):
+        for text, says in (
+                ("r1: => p. r2: => ~p. r1 > r2. r2 > r1.", "cyclic"),
+                ("r1: => p. r1 > r9.", "unknown rule r9"),
+                ("p(a). ~p(a, b).", "arities"),
+                ("r1: p(a).", "must be a rule"),
+                ("a => b => c.", "one arrow"),
+                ("=> p", "end of input"),
+                ("r1: => p. r1: => q.", "used twice"),
+                ("p(X) => q(Y).", "head variable Y")):
+            with self.subTest(text=text):
+                with self.assertRaises(DatalogError) as cm:
+                    defeasible.Theory.parse(text).conclusions()
+                self.assertIn(says, str(cm.exception))
+        with self.assertRaises(DatalogError):
+            defeasible.Theory.parse("=> p.").conclusions("sideways")
+
+    def random_theory(self, rng):
+        atoms = ["p", "q", "r", "s", "t"]
+        lit = lambda: ("~" if rng.random() < 0.4 else "") + rng.choice(atoms)
+        lines = [lit() + "." for _ in range(rng.randint(0, 2))]
+        labels = []
+        for i in range(rng.randint(1, 7)):
+            body = ", ".join(lit() for _ in range(rng.randint(0, 2)))
+            arrow = rng.choice(["->", "=>", "=>", "~>"])
+            labels.append("r%d" % i)
+            lines.append("r%d: %s %s %s." % (i, body, arrow, lit()))
+        for _ in range(rng.randint(0, 3)):     # acyclic: higher beats lower
+            a, b = sorted(rng.sample(range(len(labels)), 2)) if len(
+                labels) > 1 else (0, 0)
+            if a != b:
+                lines.append("r%d > r%d." % (b, a))
+        return "\n".join(lines)
+
+    def test_proof_theory_invariants_on_random_theories(self):
+        # the relations TOCL 2001 proves between the four tags, and
+        # consistency: q and ~q both +∂ only when both are +Δ
+        rng = random.Random(18)
+        for _ in range(400):
+            text = self.random_theory(rng)
+            for policy in ("blocking", "propagating"):
+                with self.subTest(theory=text, policy=policy):
+                    t = defeasible.Theory.parse(text).conclusions(policy)
+                    self.assertLessEqual(t["+Δ"], t["+∂"])
+                    self.assertLessEqual(t["−∂"], t["−Δ"])
+                    self.assertFalse(t["+Δ"] & t["−Δ"])
+                    self.assertFalse(t["+∂"] & t["−∂"])
+                    for q in t["+∂"]:
+                        nq = defeasible.complement(q)
+                        if nq in t["+∂"]:
+                            self.assertTrue({q, nq} <= t["+Δ"])
+
+    def test_strict_theories_are_datalog(self):
+        # with strict rules only, +Δ is the least model the core engine
+        # computes for the same rules read as Datalog
+        rng = random.Random(1994)
+        for _ in range(200):
+            edges = {(rng.choice("abcd"), rng.choice("abcd"))
+                     for _ in range(rng.randint(1, 6))}
+            facts = " ".join("e(%s, %s)." % e for e in sorted(edges))
+            rules = ("p(X, Y) :- e(X, Y).  p(X, Z) :- p(X, Y), e(Y, Z).  "
+                     "q(X) :- p(X, X).")
+            dfl = (facts + " e(X, Y) -> p(X, Y).  p(X, Y), e(Y, Z) -> "
+                   "p(X, Z).  p(X, X) -> q(X).")
+            want = run_program(facts + rules).rels
+            got = defeasible.Theory.parse(dfl).conclusions()["+Δ"]
+            for pred in ("p", "q"):
+                self.assertEqual({a for p, a in got if p == pred},
+                                 set(want.get(pred, ())), dfl)
 
 
 class CoreReviewFixTests(unittest.TestCase):

@@ -6,7 +6,7 @@ beyond Python 3.9+.
 ```sh
 git clone https://github.com/andrewgoodchild/tiny-datalog
 cd tiny-datalog
-python3 tests.py                     # 235 tests, should all pass
+python3 tests.py                     # 246 tests, should all pass
 python3 datalog.py programs/reachability.dl
 ```
 
@@ -61,6 +61,7 @@ input facts). The other modes:
 | `python3 prolog.py prog.pl -q 'goal(X)'` | top-down Horn clauses *with* function symbols |
 | `python3 subsumption.py ontology.dl` | classify a KL-ONE-style ontology (compiled to Datalog) |
 | `python3 containment.py prog.dl` | minimise conjunctive queries; `--contains` tests containment |
+| `python3 defeasible.py theory.dfl` | defeasible logic: strict `->`, defeasible `=>`, defeaters `~>`, priorities `r1 > r2` |
 
 ## Syntax reference
 
@@ -123,6 +124,8 @@ and the lesson that builds the machinery:
 | Can it say "for all"? | `python3 datalog.py -q 'sub(rich, stream)' programs/record-subtyping.dl` | [6](06-for-all.md) |
 | Why did you *not* conclude that? | `python3 datalog.py --explain 'may_borrow(kim)' programs/lending.dl` | [17](17-writing-rules.md) |
 | How do I write rules someone else can sign off? | `python3 datalog.py --explain 'may_borrow(iris)' programs/lending.dl` | [17](17-writing-rules.md) |
+| What holds when rules have exceptions, and exceptions to those? | `python3 defeasible.py programs/birds.dfl` | [18](18-defeasible.md) |
+| Which conflicts did the policy forget to rank? | `python3 defeasible.py -q 'may_borrow(P)' programs/lending-defeasible-draft.dfl` | [18](18-defeasible.md) |
 
 Provenance, in full:
 
@@ -176,7 +179,8 @@ a given purpose.
 15. [Tabling: top-down without the cliff](15-tabling.md)
 16. [Containment: the same search, one level up](16-containment.md)
 17. [Writing rules that survive review](17-writing-rules.md)
-18. [The neighbours: SQL, F-logic, Haskell, category theory](18-neighbours.md)
+18. [Rules with exceptions: defeasible logic](18-defeasible.md)
+19. [The neighbours: SQL, F-logic, Haskell, category theory](19-neighbours.md)
 
 Three groupings worth knowing about, because each is a single idea told
 across several lessons: **3, 5 and 12** share one thesis (finish a

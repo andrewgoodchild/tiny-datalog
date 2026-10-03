@@ -129,7 +129,7 @@ every pair of them checkable against each other by the conformance
 suite in `tests.py`. The remaining lessons step outside evaluation —
 [16](16-containment.md) asks what a query means on *every* database,
 [17](17-writing-rules.md) is about authoring rules rather than
-running them, and [18](18-neighbours.md) compares the neighbours and
+running them, and [19](19-neighbours.md) compares the neighbours and
 names the mathematics.
 
 Next: [containment](16-containment.md). The last lesson asks a

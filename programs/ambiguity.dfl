@@ -1,0 +1,11 @@
+% Ambiguity blocking versus propagating (Maher 2012, Section 2).
+% Nothing settles p against ~p; the question is whether that doubt
+% reaches q, through the rule that depends on ~p.
+%
+%   python3 defeasible.py programs/ambiguity.dfl
+%   python3 defeasible.py --propagating programs/ambiguity.dfl
+
+r1:      => p.
+r2:      => ~p.
+r3:      => q.
+r4: ~p   => ~q.

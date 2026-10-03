@@ -1,0 +1,12 @@
+% Defeasible logic's founding example, and the defeater.
+%
+%   python3 defeasible.py programs/birds.dfl
+
+bird(tweety).   penguin(opus).   bird(freddie).   injured(freddie).
+
+r1: penguin(X) -> bird(X).      % strict: no exceptions
+r2: bird(X)    => flies(X).     % defeasible: birds usually fly
+r3: penguin(X) => ~flies(X).    % penguins usually don't
+r4: injured(X) ~> ~flies(X).    % a defeater: casts doubt, proves nothing
+
+r3 > r2.

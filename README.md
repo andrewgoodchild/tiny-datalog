@@ -93,7 +93,7 @@ Nothing to install:
 
 ```sh
 git clone https://github.com/andrewgoodchild/tiny-datalog && cd tiny-datalog
-python3 tests.py        # 235 tests, ~12s
+python3 tests.py        # 246 tests, ~12s
 ```
 
 ## Why the language choice decides what you can ask later
@@ -202,8 +202,10 @@ Answers are also checked against engines this repository did not write.
 [`conformance/`](https://github.com/andrewgoodchild/tiny-datalog/tree/main/conformance)
 runs the [datalog-conformance](https://pypi.org/project/datalog-conformance/)
 corpus, harvested from Soufflé, Nemo and Crepe, through all four
-strategies: 89 cases pass. The 25 it skips need arithmetic or 10⁵-fact
-joins, and both are omissions this course makes on purpose.
+strategies, and its defeasible theories, from SPINdle and the papers,
+through `defeasible.py`: 195 cases pass. Every skip is named with its
+reason: arithmetic and 10⁵-fact joins, which this course omits on
+purpose, or cases written for a different logic.
 
 ## Learning Datalog
 
@@ -213,7 +215,8 @@ the current research threads. The field's own recent lecture notes
 observe that the literature advises people building Datalog engines
 better than people trying to *use* one; this course does both halves
 on purpose — sixteen lessons where the engine is the explanation, then
-a lesson on authoring rules that survive review. And it is built to be
+a lesson on authoring rules that survive review, and one on a logic
+built for rules with exceptions. And it is built to be
 inherited: `git clone`, no dependencies, no hosted anything, and every
 quoted transcript re-verified by CI — the exercises cannot rot. (For where each
 technique ships — CodeQL, RDFox, Feldera, SNOMED and the rest —
@@ -294,7 +297,7 @@ for service, cve in sorted(engine.rels["exposed"]):
 
 The command-line interface installs too, as `tiny-datalog` (and
 `tiny-datalog-semiring`, `-tabling`, `-incremental`, `-subsumption`,
-`-containment`, `-prolog` for the satellites):
+`-containment`, `-defeasible`, `-prolog` for the satellites):
 
 ```sh
 tiny-datalog -q 'exposed(S, C)' supply-chain.dl
@@ -318,17 +321,18 @@ tiny_datalog/   the engine and its satellites — the code you read:
   tabling.py    tabled top-down evaluation (iterative QSQR)
   subsumption.py  KL-ONE-style EL classifier, compiled to Datalog
   containment.py  query containment and minimisation by homomorphism
+  defeasible.py   defeasible logic: exceptions, priorities, defeaters
 *.py            three-line launchers, so `python3 datalog.py ...` works
                 straight from a checkout with nothing installed
 programs/       teaching programs, numbered by the lesson that uses
                 them (00-* are the README's examples)
-lessons/        getting started, glossary, and lessons 0–18
+lessons/        getting started, glossary, and lessons 0–19
 exercises/      worked answers, verified by the test suite
 cases/          golden test cases — add one without writing Python
 conformance/    the external datalog-conformance corpus (Soufflé, Nemo,
-                Crepe), run against all four evaluation strategies
+                Crepe, SPINdle), run against every evaluation strategy
 benchmarks/     scaled input generators (chain/tree/clique/grid)
-tests.py        235 tests: every shipped program and exercise answer is
+tests.py        246 tests: every shipped program and exercise answer is
                 executed, a conformance suite runs every query through
                 every applicable strategy, and a seeded fuzzer checks
                 the same property on random programs
@@ -342,13 +346,13 @@ used.
 ### How big is it, honestly
 
 The evaluator is about 850 lines (`tiny_datalog/datalog.py`, up to the
-command-line interface), the CLI, `--explain` and why-not another 600, and the eight satellite modules about
-2,400. Call it 3.9k lines of toolkit and 2.6k of tests, roughly a
+command-line interface), the CLI, `--explain` and why-not another 600, and the nine satellite modules about
+2,900. Call it 4.3k lines of toolkit and 2.7k of tests, roughly a
 quarter of it commentary.
 
 "Tiny" is a claim about the evaluator, and about each satellite module
-singly: none of the eight exceeds 500 lines, which a test asserts. It is not a claim about
-the repository, which is nine modules because it teaches nine things.
+singly: none of the nine exceeds 500 lines, which a test asserts. It is not a claim about
+the repository, which is ten modules because it teaches ten things.
 
 There is no dead code to golf away (checked); shrinking further means
 deleting either a technique or an explanation.

@@ -171,7 +171,7 @@ phone(P, _).`, Lesson 3's spare-variable habit), and remember that
 That is the whole design position; the comparative tour — SQL's one
 marker carrying three meanings and the three-valued logic that bills
 for it, database theory's self-identical labelled nulls, Hoare's
-billion-dollar reference — waits for [Lesson 18](18-neighbours.md),
+billion-dollar reference — waits for [Lesson 19](19-neighbours.md),
 where the neighbours get their due. The sentence to carry out of *this*
 lesson: SQL's NULL-as-unknown smuggles one open-world cell into a
 closed-world table, and every nullable column is quietly asking the

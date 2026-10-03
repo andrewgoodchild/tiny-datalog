@@ -10,7 +10,8 @@ Everything else in the package is a satellite built on top of it:
 models), `semiring` (provenance-weighted evaluation), `incremental`
 (maintenance under updates), `tabling` (top-down with memoing),
 `subsumption` (KL-ONE style classification), `containment` (query
-containment), and `prolog` (a Prolog reader for the same syntax).
+containment), `defeasible` (rules with exceptions and priorities), and
+`prolog` (a Prolog reader for the same syntax).
 Import those by name: `from tiny_datalog import semiring`.
 """
 

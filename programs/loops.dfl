@@ -1,0 +1,12 @@
+% Two loops defeasible logic will not settle.
+%
+%   python3 defeasible.py programs/loops.dfl
+
+% a positive loop: b holds if a does, a if b does, and nothing starts it
+a => b.
+b => a.
+
+% a conflict loop: p supports q, and q attacks p
+r1:     => p.
+r2: p   => q.
+r3: q   => ~p.

@@ -16,19 +16,30 @@ runner compares our semi-naive answers with the source engine's. Then
 the same program goes through naive evaluation, magic sets and (for
 positive programs) tabling, and each must agree. One external program
 thus tests four engines against each other as well as against the
-outside world. CI runs it on every push.
+outside world.
+
+Every defeasible theory goes through `tiny_datalog/defeasible.py`
+([lesson 18](../lessons/18-defeasible.md)) under each policy the case
+names. Its conclusions must also satisfy the relations the proof
+theory guarantees: +Δ within +∂, −∂ within −Δ, and no literal both
+proved and refuted. CI runs it all on every push: 195 cases pass,
+89 core and 106 defeasible.
 
 ## What it does not run, and why
 
 | Cases | Reason |
 |---|---|
-| 22 from LUBM and hmmer | 10⁵ facts. Joins here are nested loops on purpose ([README](../README.md#what-this-is-not-and-what-is-missing-on-purpose)), so these run for hours, not seconds. |
-| 3 using `+` or `-` | Arithmetic is the course's deliberate omission ([lesson 14](../lessons/14-arithmetic.md)). |
-| all defeasible theories | A different logic, not Datalog with extra syntax. |
+| 44 from LUBM and hmmer, core and lifted | 10⁵ facts. Joins here are nested loops on purpose ([README](../README.md#what-this-is-not-and-what-is-missing-on-purpose)), so these run for hours, not seconds. |
+| 4 using `+` or `-` | Arithmetic is the course's deliberate omission ([lesson 14](../lessons/14-arithmetic.md)). |
+| 34 strict theories lifted from programs with `not` | Defeasible logic has strong negation (`~`) only, no negation as failure. |
+| 7 with declared conflicts | SPINdle lets unrelated literals conflict. In defeasible logic only `p` and `~p` do. |
+| 6 checked against DePYsible | DePYsible implements DeLP, which ranks arguments by *specificity*. Defeasible logic infers no priority; you state each one. |
+| 2 from Antoniou's ambiguity example | The corpus labels an ambiguous literal `undecided`. The 2001 proof theory proves it −∂, checked clause by clause. |
+| 3 on rational and lexicographic closure | A different family of nonmonotonic logics. |
 
-Each skip is a capability the course chose not to have, never a bug.
-`run.py` names them in `SKIP`, and anything else that fails, fails the
-run.
+Each skip is a capability the course chose not to have, or a case
+written for a different logic, never a bug. `run.py` names each one
+with its reason, and anything else that fails, fails the run.
 
 ## Translation
 

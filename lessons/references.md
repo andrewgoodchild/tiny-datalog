@@ -128,7 +128,36 @@ be defended.
 - A. Halevy, *Answering Queries Using Views: A Survey*, VLDB
   Journal 2001.
 
-## Lesson 18 — the neighbours
+## Lesson 18 — rules with exceptions
+
+- D. Nute, *Defeasible Logic*, in D. Gabbay, C. Hogger and J. Robinson
+  (eds), Handbook of Logic in Artificial Intelligence and Logic
+  Programming, Vol. 3, pp. 353–395, Oxford University Press, 1994.
+- G. Antoniou, D. Billington, G. Governatori and M. J. Maher,
+  *Representation Results for Defeasible Logic*, ACM TOCL 2(2):255–287,
+  2001 (arXiv cs/0003082) — the proof conditions `defeasible.py`
+  transcribes, and the six outcome classes its tests check.
+- M. J. Maher and G. Governatori, *A Semantic Decomposition of
+  Defeasible Logics*, AAAI 1999 — the Kunen-semantics
+  characterisation, and well-founded defeasible logic.
+- G. Antoniou, D. Billington, G. Governatori and M. J. Maher,
+  *Embedding Defeasible Logic into Logic Programming*, TPLP 6(6), 2006
+  (arXiv cs/0511055).
+- M. J. Maher, *Propositional Defeasible Logic has Linear Complexity*,
+  TPLP 1(6):691–711, 2001 (arXiv cs/0405090).
+- M. J. Maher, *Relative Expressiveness of Defeasible Logics*, TPLP
+  12(4–5):793–810, 2012 (arXiv 1210.1785) — the ambiguity-propagating
+  conditions and the example in `programs/ambiguity.dfl`.
+- H.-P. Lam and G. Governatori, *The Making of SPINdle*, RuleML 2009,
+  LNCS 5858, pp. 315–322 — the reasoner whose syntax the lesson uses.
+- M. J. Maher, A. Rock, G. Antoniou, D. Billington and T. Miller,
+  *Efficient Defeasible Reasoning Systems*, Int. J. on AI Tools
+  10(4):483–501, 2001 — Delores and Deimos.
+- A. J. García and G. R. Simari, *Defeasible Logic Programming: An
+  Argumentative Approach*, TPLP 4(1–2):95–138, 2004 — DeLP, the
+  argumentation-based neighbour.
+
+## Lesson 19 — the neighbours
 
 - M. Kifer and G. Lausen, *F-Logic: A Higher-Order Language for
   Reasoning about Objects, Inheritance, and Scheme*, SIGMOD 1989;

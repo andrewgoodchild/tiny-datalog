@@ -34,6 +34,12 @@ well-founded model: iterate the (antimonotone) Gelfond–Lifschitz
 operator twice, which is monotone, and read the undefined atoms off the
 gap between the result and its image. *(Lesson 5)*
 
+**Ambiguity blocking / propagating.** Two readings of an unresolved
+conflict in defeasible logic. *Blocking* (the default) lets an attacker
+count only once its body is proved, so the doubt stays where it arose.
+*Propagating* lets a merely supported attacker count, so the doubt
+spreads to whatever depends on it. *(Lesson 18)*
+
 **Answer Set Programming (ASP).** The branch of logic programming
 where a program is written so that its **stable models** *are* the
 solutions to a combinatorial problem. `clingo` is the standard
@@ -162,7 +168,16 @@ non-recursive queries are all decidable, and each becomes
 
 **Default reasoning.** "P holds unless something says otherwise", the
 Tweety pattern: `flies(X) :- bird(X), not abnormal(X).` Requires CWA
-and is therefore **non-monotone**. *(Lessons 3, 4)*
+and is therefore **non-monotone**. **Defeasible logic** makes it
+first-class. *(Lessons 3, 4, 18)*
+
+**Defeasible logic.** Nute's logic of rules with exceptions: strict
+rules (`->`), defeasible rules (`=>`) that hold unless defeated,
+**defeaters** (`~>`), and a **superiority relation** saying which rule
+wins a conflict. Conclusions carry **proof tags**. *(Lesson 18)*
+
+**Defeater.** A rule that can only attack. `injured(X) ~> ~flies(X)`
+blocks `flies` without proving `~flies`. *(Lesson 18)*
 
 **Delta.** The set of facts newly derived in the previous round. The
 central object of semi-naive evaluation and of incremental
@@ -193,7 +208,7 @@ class hierarchies as first-class logical syntax, whose rule fragment
 compiles to Datalog over a fixed vocabulary (`attr`/`isa`/`sub` plus
 bridge rules). The closed-world counterpart to description logics in
 the ontology wars; its encoding survives as entity–attribute–value.
-*(Lesson 18)*
+*(Lesson 19)*
 
 **Fact.** A rule with an empty body; a ground atom asserted outright.
 *(Lesson 1)*
@@ -212,7 +227,7 @@ semiring's answer factors through them. *(Lesson 8)*
 
 **Functor.** A structure-preserving map between categories. In CQL a
 database instance *is* a functor from the schema to sets, so violating
-a constraint means failing to be an instance at all. *(Lesson 18)*
+a constraint means failing to be an instance at all. *(Lesson 19)*
 
 **Gelfond–Lifschitz reduct.** Given a candidate model S, delete every
 rule whose negated atoms are in S and strip the remaining negations.
@@ -268,12 +283,18 @@ literals under one growing substitution. *(Lesson 1)*
 **Kan extension.** Category theory's universal way of extending a
 functor along another; CQL's data-migration operators Σ and Π are the
 left and right Kan extensions, and the chase computes the left one.
-*(Lesson 18)*
+*(Lesson 19)*
 
 **Knaster–Tarski theorem.** A monotone function on a complete lattice
 has a least fixpoint. Applied to the immediate consequence operator on
 the (finite) powerset lattice of facts, it is the two-line reason every
 Datalog program terminates with a unique meaning. *(Lesson 2)*
+
+**Kunen semantics.** A three-valued semantics of logic programs with
+negation, built from finite proofs of truth and of failure. Unlike the
+**well-founded semantics** it does not refute unfounded loops. Standard
+defeasible logic is exactly Kunen's semantics of a program that encodes
+the theory (Maher & Governatori 1999). *(Lesson 18)*
 
 **Labelled null.** Database theory's honest unknown: an invented
 witness ("someone, unspecified") that is *self-identical* across
@@ -335,6 +356,11 @@ condition; `define` states necessary **and sufficient** ones. Only
 defined concepts can be *discovered* to sit beneath something nobody
 stated. *(Lesson 12)*
 
+**Proof tag.** In defeasible logic, +Δ q (definitely q), −Δ q
+(demonstrably not definitely), +∂ q (defeasibly q), −∂ q (demonstrably
+not defeasibly). A literal with neither +∂ nor −∂ is *undecided*.
+*(Lesson 18)*
+
 **Provenance.** The record of *why* a fact holds. **Why-provenance**
 gives minimal sets of base facts (**witnesses**); **provenance
 polynomials** (ℕ[X]) additionally keep multiplicity and are the free
@@ -394,6 +420,10 @@ nothing depends on its own negation (or aggregation), then evaluating
 stratum by stratum. Syntactic, decidable, and the condition this engine
 enforces. *(Lessons 3, 13)*
 
+**Strong negation.** `~p` as a claim of its own, not the absence of
+`p`. In defeasible logic a conflict is exactly a pair `p`, `~p`.
+Contrast **negation as failure**. *(Lesson 18)*
+
 **Strongly connected component (SCC).** A maximal set of mutually
 reachable nodes in the dependency graph. Every cycle lives inside one,
 so stratifiability reduces to "no strict edge inside an SCC".
@@ -406,6 +436,10 @@ matching a rule body. *(Lesson 1)*
 instance of D, in every world consistent with the definitions. A
 statement about definitions, not data. *(Lesson 12)*
 
+**Superiority relation.** An acyclic order on rules, written `r1 > r2`:
+when r1 and r2 support complementary conclusions, r1 wins. Defeasible
+logic infers no priorities; every one is stated. *(Lesson 18)*
+
 **Tabling.** Top-down evaluation that memoises each subgoal's answers
 in a **table**, so recursive calls read the table instead of
 descending. Gives Prolog-style goal direction with Datalog-style
@@ -413,6 +447,10 @@ termination. *(Lesson 15)*
 
 **TBox.** The terminological part of a knowledge base: the definitions
 themselves. Contrast **ABox**. *(Lesson 12)*
+
+**Team defeat.** In defeasible logic, the rules for q win as a team:
+each attacker of q must be beaten by *some* applicable rule for q, not
+necessarily the one that supports q. *(Lesson 18)*
 
 **Term.** A constant, a variable, or (outside Datalog) a compound
 term. *(Lesson 1)*

@@ -182,7 +182,8 @@ much larger territory than the one science fiction warned us about.
 | 2020s | probabilistic / neurosymbolic | Lesson 9 |
 | throughout | closed vs open worlds — what absence means | Lesson 4 |
 | the practice | authoring rules others must review | Lesson 17 |
-| the neighbours | SQL, F-logic, Haskell, and the road not taken | Lesson 18 |
+| 1994 → today | defeasible logic: exceptions and priorities as rules | Lesson 18 · `defeasible.py` |
+| the neighbours | SQL, F-logic, Haskell, and the road not taken | Lesson 19 |
 
 The repository is small on purpose, every algorithm named above is
 implemented in readable standard-library Python, and every example in
@@ -250,7 +251,7 @@ And a second index, for the reader arriving stuck rather than curious
 | treating a catalogue as if it were an authority | [4](04-closed-and-open-worlds.md) |
 
 For everything else, there is [the glossary](glossary.md), and for the
-mathematically curious there is [Lesson 18](18-neighbours.md) —
+mathematically curious there is [Lesson 19](19-neighbours.md) —
 what the course's mathematics actually is, and why the categorical
 recasting of it was a road deliberately not taken.
 
