@@ -1,0 +1,58 @@
+name: release
+
+# Publishing a GitHub release uploads that tag to PyPI.  There is no
+# token anywhere: PyPI trusts this workflow, in this repo, under the
+# `pypi` environment (trusted publishing), and nothing else.
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      # PyPI never accepts a version twice, so a mismatch caught after
+      # upload cannot be fixed by re-uploading -- catch it here.  The
+      # version lives in two files; the tag must agree with both.
+      - name: tag matches the package version
+        run: |
+          python - <<'EOF'
+          import os, re, tomllib
+          tag = os.environ["GITHUB_REF_NAME"].removeprefix("v")
+          with open("pyproject.toml", "rb") as fh:
+              project = tomllib.load(fh)["project"]["version"]
+          init = re.search(r'__version__ = "([^"]+)"',
+                           open("tiny_datalog/__init__.py").read()).group(1)
+          assert tag == project == init, (
+              "tag %s, pyproject.toml %s, __init__.py %s" % (tag, project, init))
+          print("releasing", tag)
+          EOF
+
+      - run: python tests.py
+      - run: python -m pip install --upgrade build
+      - run: python -m build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/tiny-datalog
+    permissions:
+      id-token: write   # the OIDC token PyPI checks; no other permission
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
