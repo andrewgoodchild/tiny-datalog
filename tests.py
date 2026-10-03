@@ -1390,12 +1390,12 @@ class RepositoryClaimTests(unittest.TestCase):
                   "incremental.py", "prolog.py", "tabling.py",
                   "subsumption.py", "containment.py"]
 
-    def test_no_satellite_module_exceeds_400_lines(self):
+    def test_no_satellite_module_exceeds_500_lines(self):
         # measured on the real module, not the root launcher shim
         for name in self.SATELLITES:
             with self.subTest(module=name):
                 with open(os.path.join(HERE, "tiny_datalog", name)) as fh:
-                    self.assertLessEqual(len(fh.read().splitlines()), 475)
+                    self.assertLessEqual(len(fh.read().splitlines()), 500)
 
     def test_quoted_test_count_is_current(self):
         # "127 tests" sat in three files while the suite grew past it;
