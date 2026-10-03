@@ -198,6 +198,13 @@ tabled evaluation all agree, and that incremental maintenance matches
 recomputation under random updates. 400 programs per run;
 `TINY_DATALOG_FUZZ=3000 python3 tests.py DifferentialFuzzTests` soaks.
 
+Answers are also checked against engines this repository did not write.
+[`conformance/`](https://github.com/andrewgoodchild/tiny-datalog/tree/main/conformance)
+runs the [datalog-conformance](https://pypi.org/project/datalog-conformance/)
+corpus, harvested from Soufflé, Nemo and Crepe, through all four
+strategies: 89 cases pass. The 25 it skips need arithmetic or 10⁵-fact
+joins, and both are omissions this course makes on purpose.
+
 ## Learning Datalog
 
 `lessons/` is a complete course, no prior exposure assumed, every
@@ -318,6 +325,8 @@ programs/       teaching programs, numbered by the lesson that uses
 lessons/        getting started, glossary, and lessons 0–18
 exercises/      worked answers, verified by the test suite
 cases/          golden test cases — add one without writing Python
+conformance/    the external datalog-conformance corpus (Soufflé, Nemo,
+                Crepe), run against all four evaluation strategies
 benchmarks/     scaled input generators (chain/tree/clique/grid)
 tests.py        235 tests: every shipped program and exercise answer is
                 executed, a conformance suite runs every query through

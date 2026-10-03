@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.9", "3.13"]
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -62,3 +62,17 @@ jobs:
       - name: console script runs
         working-directory: /tmp
         run: tiny-datalog --help > /dev/null && echo "console script ok"
+
+  # Answers checked against engines this repo did not write: the
+  # datalog-conformance corpus (Souffle, Nemo, Crepe), through all four
+  # evaluation strategies.  Pinned so a new corpus release is a
+  # deliberate bump, not a surprise red build.  See conformance/README.md.
+  conformance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install datalog-conformance==0.1.0
+      - run: python conformance/run.py

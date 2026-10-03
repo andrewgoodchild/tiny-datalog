@@ -12,9 +12,36 @@ license-files = ["LICENSE"]
 requires-python = ">=3.9"
 authors = [{name = "Andrew Goodchild"}]
 dependencies = []
+keywords = ["datalog", "logic programming", "deductive database",
+            "semi-naive evaluation", "magic sets", "provenance",
+            "stable models", "teaching"]
+# No "License ::" classifier: `license` above is an SPDX expression, and
+# setuptools refuses a build that declares the licence both ways.
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Education",
+    "Intended Audience :: Science/Research",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Database",
+    "Topic :: Education",
+    "Topic :: Software Development :: Interpreters",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
 
 [project.urls]
 Homepage = "https://github.com/andrewgoodchild/tiny-datalog"
+Source = "https://github.com/andrewgoodchild/tiny-datalog"
+Issues = "https://github.com/andrewgoodchild/tiny-datalog/issues"
+Changelog = "https://github.com/andrewgoodchild/tiny-datalog/releases"
+Lessons = "https://github.com/andrewgoodchild/tiny-datalog/tree/main/lessons"
 
 [project.scripts]
 tiny-datalog = "tiny_datalog.datalog:main"
