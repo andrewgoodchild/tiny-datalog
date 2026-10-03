@@ -29,7 +29,7 @@ from tiny_datalog.datalog import (
     format_atom, format_fact,
 )
 
-__version__ = "0.1.1"
+__version__ = "0.1.2"
 
 __all__ = [
     "Var", "Const", "Struct", "Atom", "Literal", "Rule",
