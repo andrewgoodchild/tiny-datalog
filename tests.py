@@ -1432,6 +1432,22 @@ class RepositoryClaimTests(unittest.TestCase):
         self.assertRegex(r.stdout, r"in \d+\.\d+s")
         self.assertIn("from-scratch rebuild", r.stdout)
 
+    def test_readme_links_work_on_pypi(self):
+        # the README is also the PyPI project page, where a relative
+        # link has no repository to resolve against; and an absolute
+        # link into this repo must still name a file that exists
+        with open(os.path.join(HERE, "README.md")) as fh:
+            targets = re.findall(r"\]\(([^)]+)\)", fh.read())
+        repo = "https://github.com/andrewgoodchild/tiny-datalog/blob/main/"
+        for target in targets:
+            with self.subTest(link=target):
+                self.assertRegex(target, r"^(https?://|#)",
+                                 "relative link breaks on PyPI")
+                if target.startswith(repo):
+                    path = target[len(repo):].split("#")[0]
+                    self.assertTrue(os.path.exists(os.path.join(HERE, path)),
+                                    "links to a missing file")
+
 
 class ExerciseTests(unittest.TestCase):
     """Every runnable exercise answer, executed — so exercises/ cannot

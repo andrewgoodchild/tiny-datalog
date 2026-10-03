@@ -1,6 +1,7 @@
 # tiny-datalog
 
 [![tests](https://github.com/andrewgoodchild/tiny-datalog/actions/workflows/ci.yml/badge.svg)](https://github.com/andrewgoodchild/tiny-datalog/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/tiny-datalog)](https://pypi.org/project/tiny-datalog/)
 
 **A logic engine small enough to read in an afternoon, and a course
 that builds it up from nothing.**
@@ -92,7 +93,7 @@ Nothing to install:
 
 ```sh
 git clone https://github.com/andrewgoodchild/tiny-datalog && cd tiny-datalog
-python3 tests.py        # 234 tests, ~12s
+python3 tests.py        # 235 tests, ~12s
 ```
 
 ## Why the language choice decides what you can ask later
@@ -114,7 +115,7 @@ particular decision came out the way it did, and somebody else asks
 whether the rules are even coherent before trusting any answer at all.
 
 (The sign-off case has its own demonstration:
-[lesson 17](lessons/17-writing-rules.md) writes a lending policy badly
+[lesson 17](https://github.com/andrewgoodchild/tiny-datalog/blob/main/lessons/17-writing-rules.md) writes a lending policy badly
 twice, and `--explain` names which of two rules wrongly let a
 suspended staff member borrow — three lines, no debugger.)
 
@@ -132,7 +133,7 @@ cannot answer them. Datalog can, because it gave things up:
 (Containment and equivalence become undecidable once recursion is
 involved — Shmueli, 1993, which is why `containment.py` handles
 conjunctive queries and refuses the rest.
-[Lesson 16](lessons/16-containment.md) covers the boundary.)
+[Lesson 16](https://github.com/andrewgoodchild/tiny-datalog/blob/main/lessons/16-containment.md) covers the boundary.)
 
 Being declarative, recursive and terminating is not a feature list. It
 is the trade that makes rules analysable, and three things follow from
@@ -162,7 +163,7 @@ the better tool, and that covers most problems.
 The worked example above is one row of a table. The full version — 20
 questions, each with the command that answers it and the lesson that
 builds the machinery — is in
-[getting started](lessons/getting-started.md), beside the reading
+[getting started](https://github.com/andrewgoodchild/tiny-datalog/blob/main/lessons/getting-started.md), beside the reading
 paths.
 
 ## Claims you can check
@@ -189,7 +190,7 @@ python3 benchmarks/generate.py chain 150 > chain150.dl
 The last two are the same rewriting on the same program. Magic sets
 pays in proportion to how much the query's bindings prune; when demand
 is the whole relation the guards are pure overhead.
-[Lesson 7](lessons/07-magic-sets.md) works through why.
+[Lesson 7](https://github.com/andrewgoodchild/tiny-datalog/blob/main/lessons/07-magic-sets.md) works through why.
 
 Correctness is checked by a seeded differential fuzzer that generates
 stratified programs and demands semi-naive, naive, magic-sets and
@@ -209,29 +210,29 @@ a lesson on authoring rules that survive review. And it is built to be
 inherited: `git clone`, no dependencies, no hosted anything, and every
 quoted transcript re-verified by CI — the exercises cannot rot. (For where each
 technique ships — CodeQL, RDFox, Feldera, SNOMED and the rest —
-[lesson 0](lessons/00-what-is-datalog.md) ends with the deployments.)
-[lessons/getting-started.md](lessons/getting-started.md) has the titles
+[lesson 0](https://github.com/andrewgoodchild/tiny-datalog/blob/main/lessons/00-what-is-datalog.md) ends with the deployments.)
+[lessons/getting-started.md](https://github.com/andrewgoodchild/tiny-datalog/blob/main/lessons/getting-started.md) has the titles
 and the reading order, and
-[lessons/glossary.md](lessons/glossary.md) defines every technical term
+[lessons/glossary.md](https://github.com/andrewgoodchild/tiny-datalog/blob/main/lessons/glossary.md) defines every technical term
 the course uses, and
-[lessons/references.md](lessons/references.md) collects every work the
+[lessons/references.md](https://github.com/andrewgoodchild/tiny-datalog/blob/main/lessons/references.md) collects every work the
 lessons cite.
 
 Three of them teach things that are hard to find taught well anywhere
 else, and they are the reason the course exists rather than just the
 engine:
 
-- **[Lesson 8](lessons/08-semirings.md)** proves that why-provenance
+- **[Lesson 8](https://github.com/andrewgoodchild/tiny-datalog/blob/main/lessons/08-semirings.md)** proves that why-provenance
   cannot be specialised into derivation counts, with a program that
   prints the disproof: two facts with identical provenance and different
   counts. That settles "materialise provenance once, specialise later,"
   which is a real design-review question with a real answer.
-- **[Lesson 16](lessons/16-containment.md)** shows that the containment
+- **[Lesson 16](https://github.com/andrewgoodchild/tiny-datalog/blob/main/lessons/16-containment.md)** shows that the containment
   test you need for query minimisation is the search already sitting in
   `datalog.py`: `_match` maps a rule body into a database,
   `find_homomorphism` maps a rule body into another rule body. Same
   backtracking, one level up.
-- **[Lesson 4](lessons/04-closed-and-open-worlds.md)** contrasts the
+- **[Lesson 4](https://github.com/andrewgoodchild/tiny-datalog/blob/main/lessons/04-closed-and-open-worlds.md)** contrasts the
   two reasoners in this repository, which disagree about what absence
   means, and leaves you with a habit: when you see `not`, ask whose
   authority says this is absent.
@@ -253,7 +254,7 @@ quietly:
 - **Arithmetic and comparisons.** A built-in isn't a relation you can
   enumerate, so it must be *evaluated* the moment its operands bind —
   which entangles correctness with join order and forces terms to
-  become trees. [Lesson 14](lessons/14-arithmetic.md) is the whole
+  become trees. [Lesson 14](https://github.com/andrewgoodchild/tiny-datalog/blob/main/lessons/14-arithmetic.md) is the whole
   story, including what to do instead.
 - **Indexes and join planning.** Every join is a nested loop so the
   algorithms stay one-screen readable. It is also why the magic-sets
@@ -265,7 +266,7 @@ quietly:
 - **A REPL (interactive prompt) and packaging.** `git clone` and run.
 
 Aggregation used to be on this list;
-[lesson 13](lessons/13-aggregation.md) is what promoting an omission
+[lesson 13](https://github.com/andrewgoodchild/tiny-datalog/blob/main/lessons/13-aggregation.md) is what promoting an omission
 into a feature looks like.
 
 ## Using it in your own project
@@ -318,7 +319,7 @@ lessons/        getting started, glossary, and lessons 0–18
 exercises/      worked answers, verified by the test suite
 cases/          golden test cases — add one without writing Python
 benchmarks/     scaled input generators (chain/tree/clique/grid)
-tests.py        234 tests: every shipped program and exercise answer is
+tests.py        235 tests: every shipped program and exercise answer is
                 executed, a conformance suite runs every query through
                 every applicable strategy, and a seeded fuzzer checks
                 the same property on random programs
