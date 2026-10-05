@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tiny-datalog"
-version = "0.2.0"
+version = "0.3.0"
 description = "A Datalog engine small enough to read in an afternoon"
 readme = "README.md"
 license = "MIT"
