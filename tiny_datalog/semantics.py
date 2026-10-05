@@ -29,15 +29,9 @@ same answers by conflict-driven search instead.
 
 from __future__ import annotations
 
-from collections import defaultdict
-
-from tiny_datalog.datalog import (
-    Const, DatalogError, Program, _aggregate_of, _match, _sort_key, validate)
-
-
-def _instantiate_atom(atom, subst):
-    return (atom.pred, tuple(a.value if isinstance(a, Const) else subst[a.name]
-                             for a in atom.args))
+from tiny_datalog.core import (
+    DatalogError, Rule, aggregate_of, sort_key, validate)
+from tiny_datalog.datalog import Engine, Program
 
 
 def ground_program(clauses):
@@ -61,7 +55,7 @@ def ground_program(clauses):
             # `q~.` is an update, not a fact; let the base engine's
             # Program reject it with its own explanation
             Program([r])
-        if r.body and _aggregate_of(r.head):
+        if r.body and aggregate_of(r.head):
             raise DatalogError(
                 "stable-model and well-founded semantics for aggregates "
                 "are beyond this module (and still debated in the "
@@ -71,47 +65,28 @@ def ground_program(clauses):
     rules = [r for r in clauses if r.body]
 
     # Least model ignoring negation = the envelope of possibly-true atoms.
-    rels = defaultdict(set)
-    for pred, args in facts:
-        rels[pred].add(args)
+    # Strip every negated literal (treat it as satisfied) and let the
+    # ordinary engine compute that least model: a positive program
+    # always stratifies, and safety still holds, because a negated
+    # literal never binds a variable the positives didn't.
+    positive = [Rule(r.head, tuple(l for l in r.body if not l.negated))
+                for r in rules]
+    engine = Engine(Program([r for r in clauses if not r.body] + positive))
+    engine.run()
 
-    def substitutions(rule):
-        # Join the positive body literals against the envelope; negated
-        # literals are skipped (treated as satisfied) at this stage.
-        substs = [{}]
-        for lit in rule.body:
-            if lit.negated:
-                continue
-            new = []
-            for s in substs:
-                for tup in rels.get(lit.atom.pred, ()):
-                    m = _match(lit.atom.args, tup, s)
-                    if m is not None:
-                        new.append(m)
-            substs = new
-        return substs
-
-    changed = True
-    while changed:
-        changed = False
-        for rule in rules:
-            for s in substitutions(rule):
-                pred, args = _instantiate_atom(rule.head, s)
-                if args not in rels[pred]:
-                    rels[pred].add(args)
-                    changed = True
+    def ground(atom, s):
+        return (atom.pred, engine.instantiate(atom, s))
 
     # Instantiate every rule over the envelope: each grounding whose
-    # positive body lies inside the envelope becomes one ground rule.
+    # positive body lies inside the envelope becomes one ground rule,
+    # negated literals and all.
     ground_rules = []
     seen = set()
-    for rule in rules:
-        for s in substitutions(rule):
-            gr = (_instantiate_atom(rule.head, s),
-                  tuple(_instantiate_atom(l.atom, s)
-                        for l in rule.body if not l.negated),
-                  tuple(_instantiate_atom(l.atom, s)
-                        for l in rule.body if l.negated))
+    for rule, pos_rule in zip(rules, positive):
+        for s in engine.substitutions(pos_rule):
+            gr = (ground(rule.head, s),
+                  tuple(ground(l.atom, s) for l in rule.body if not l.negated),
+                  tuple(ground(l.atom, s) for l in rule.body if l.negated))
             if gr not in seen:
                 seen.add(gr)
                 ground_rules.append(gr)
@@ -149,7 +124,7 @@ def stable_models(clauses, limit_atoms=16, grounding=None):
     candidate atoms; small programs only, and says so.  Pass a
     precomputed `grounding` (from ground_program) to avoid regrounding."""
     facts, ground_rules, candidates = grounding or ground_program(clauses)
-    atoms = sorted(candidates, key=lambda a: (a[0], _sort_key(a[1])))
+    atoms = sorted(candidates, key=lambda a: (a[0], sort_key(a[1])))
     if len(atoms) > limit_atoms:
         raise DatalogError(
             "stable-model search is limited to %d candidate atoms; this "

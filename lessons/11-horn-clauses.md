@@ -142,7 +142,7 @@ for nine lessons.
 
 ## Under the hood: unification for real
 
-**`prolog.py` upgrades `_match` to real unification** — both sides may
+**`prolog.py` upgrades `match` (in `core.py`) to real unification** — both sides may
 contain variables, so bindings need chasing (`_walk`) and the occurs
 check. SLD resolution is a recursive generator: `yield` is
 "solution found", falling out of the loop is backtracking. Compare its

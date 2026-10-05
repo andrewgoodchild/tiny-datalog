@@ -16,7 +16,7 @@ body** that fixes the head variables.  Containment, a statement about
 infinitely many databases, becomes a finite search for a variable
 mapping.
 
-The engine already contains most of this.  `datalog._match` maps a rule
+The core already contains most of this.  `core.match` maps a rule
 body into the *database* — a set of ground atoms.  A homomorphism here
 maps a rule body into *another rule body*, whose variables act like
 fresh constants ("freezing" the query into a canonical database).  Same
@@ -40,8 +40,9 @@ from __future__ import annotations
 import argparse
 import sys
 
-from tiny_datalog.datalog import (
-    _aggregate_of, Const, DatalogError, parse, read_program, validate, Var)
+from tiny_datalog.core import (
+    aggregate_of, cli, Const, DatalogError, parse, read_program, validate,
+    Var)
 
 
 def _extend(mapping, source_args, target_args):
@@ -64,7 +65,7 @@ def find_homomorphism(source, target, seed=None):
     source atom lands on some target atom, or None.
 
     Backtracking search: try every target atom for the first source
-    atom, recurse.  This is exactly `_match`'s job with a target of
+    atom, recurse.  This is exactly `match`'s job with a target of
     non-ground atoms instead of tuples."""
     mapping = dict(seed or {})
 
@@ -92,7 +93,7 @@ def _bodies(rule):
             raise DatalogError(
                 "containment by homomorphism is a conjunctive-query "
                 "result; negation needs different theory: %s" % rule)
-    if _aggregate_of(rule.head):
+    if aggregate_of(rule.head):
         # sum/count see duplicates; Chandra–Merlin is about sets.
         raise DatalogError(
             "containment by homomorphism is a set-semantics result; "
@@ -101,18 +102,13 @@ def _bodies(rule):
 
 
 def _head_seed(outer, inner):
-    """Head variables correspond positionally and must be preserved."""
+    """Head variables correspond positionally and must be preserved: the
+    homomorphism has to send outer's head onto inner's, which is one
+    more `_extend` (a variable binds or must agree; a constant must
+    match itself)."""
     if len(outer.head.args) != len(inner.head.args):
         return None
-    seed = {}
-    for a, b in zip(outer.head.args, inner.head.args):
-        if isinstance(a, Var):
-            if a.name in seed and seed[a.name] != b:
-                return None
-            seed[a.name] = b
-        elif a != b:
-            return None
-    return seed
+    return _extend({}, outer.head.args, inner.head.args)
 
 
 def contains(outer, inner):
@@ -124,10 +120,6 @@ def contains(outer, inner):
     if seed is None:
         return False
     return find_homomorphism(source, target, seed) is not None
-
-
-def equivalent(a, b):
-    return contains(a, b) and contains(b, a)
 
 
 def minimise(rule):
@@ -168,6 +160,7 @@ def _parse_query_rule(text):
 # CLI
 # ---------------------------------------------------------------------------
 
+@cli
 def main(argv=None):
     ap = argparse.ArgumentParser(
         description="Conjunctive-query containment and minimisation by "
@@ -178,49 +171,45 @@ def main(argv=None):
                     help="test whether OUTER contains INNER")
     args = ap.parse_args(argv)
 
-    try:
-        if args.contains:
-            outer = _parse_query_rule(args.contains[0])
-            inner = _parse_query_rule(args.contains[1])
-            fwd, bwd = contains(outer, inner), contains(inner, outer)
-            print("outer: %s" % outer)
-            print("inner: %s" % inner)
-            if fwd and bwd:
-                print("=> equivalent (each contains the other)")
-            elif fwd:
-                print("=> outer contains inner, on every database")
-            elif bwd:
-                print("=> inner contains outer, on every database")
-            else:
-                print("=> neither contains the other")
-            return 0
+    if args.contains:
+        outer = _parse_query_rule(args.contains[0])
+        inner = _parse_query_rule(args.contains[1])
+        fwd, bwd = contains(outer, inner), contains(inner, outer)
+        print("outer: %s" % outer)
+        print("inner: %s" % inner)
+        if fwd and bwd:
+            print("=> equivalent (each contains the other)")
+        elif fwd:
+            print("=> outer contains inner, on every database")
+        elif bwd:
+            print("=> inner contains outer, on every database")
+        else:
+            print("=> neither contains the other")
+        return 0
 
-        if not args.file:
-            ap.error("give a program to minimise, or use --contains")
-        clauses = parse(read_program(args.file))
-        validate(clauses)
-        for rule in clauses:
-            if not rule.body:
-                continue
-            if any(lit.negated for lit in rule.body):
-                print("%s\n  (skipped: negation is outside the theory)"
-                      % rule)
-                continue
-            if _aggregate_of(rule.head):
-                print("%s\n  (skipped: aggregation is outside the theory)"
-                      % rule)
-                continue
-            atoms = minimise(rule)
-            before = len(rule.body)
-            if len(atoms) == before:
-                print("%s\n  already minimal (%d atom%s)"
-                      % (rule, before, "" if before == 1 else "s"))
-            else:
-                print("%s\n  minimises to %s   (%d atoms -> %d)"
-                      % (rule, _fmt(rule.head, atoms), before, len(atoms)))
-    except DatalogError as exc:
-        print("error: %s" % exc, file=sys.stderr)
-        return 1
+    if not args.file:
+        ap.error("give a program to minimise, or use --contains")
+    clauses = parse(read_program(args.file))
+    validate(clauses)
+    for rule in clauses:
+        if not rule.body:
+            continue
+        if any(lit.negated for lit in rule.body):
+            print("%s\n  (skipped: negation is outside the theory)"
+                  % rule)
+            continue
+        if aggregate_of(rule.head):
+            print("%s\n  (skipped: aggregation is outside the theory)"
+                  % rule)
+            continue
+        atoms = minimise(rule)
+        before = len(rule.body)
+        if len(atoms) == before:
+            print("%s\n  already minimal (%d atom%s)"
+                  % (rule, before, "" if before == 1 else "s"))
+        else:
+            print("%s\n  minimises to %s   (%d atoms -> %d)"
+                  % (rule, _fmt(rule.head, atoms), before, len(atoms)))
     return 0
 
 

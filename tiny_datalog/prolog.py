@@ -22,8 +22,8 @@ Differences from real Prolog, on purpose:
 * no cut, no arithmetic, no I/O — just SLD resolution over Horn clauses;
 * `not` is negation as failure via a depth-bounded sub-proof.
 
-Same syntax and parser as datalog.py, which *parses* compound terms but
-rejects them at validation — run datalog.py on programs/peano.pl to see
+Same syntax and parser as datalog.py (both in core.py), which *parses*
+compound terms but rejects them at validation — run datalog.py on programs/peano.pl to see
 the boundary stated as an error message.
 
 CLI
@@ -39,9 +39,9 @@ import sys
 
 from collections import defaultdict
 
-from tiny_datalog.datalog import (
-    Atom, Const, DatalogError, Literal, parse, parse_goal, ParseError,
-    read_program, Rule, Struct, Var)
+from tiny_datalog.core import (
+    Atom, cli, Const, DatalogError, Literal, parse, parse_goal, read_program,
+    Rule, Struct, Var)
 
 
 # ---------------------------------------------------------------------------
@@ -90,8 +90,7 @@ def unify(a, b, subst):
 
 
 def _unify_atoms(goal, head, subst):
-    if goal.pred != head.pred or len(goal.args) != len(head.args):
-        return None
+    # predicate and arity already agree: solve() looks clauses up by both
     for x, y in zip(goal.args, head.args):
         subst = unify(x, y, subst)
         if subst is None:
@@ -270,6 +269,7 @@ def _positive_int(text):
     return n
 
 
+@cli
 def main(argv=None):
     ap = argparse.ArgumentParser(
         description="Top-down SLD resolution over Horn clauses with "
@@ -287,29 +287,17 @@ def main(argv=None):
                          "(default 100000)")
     args = ap.parse_args(argv)
 
-    try:
-        engine = load(read_program(args.file))
-    except DatalogError as exc:
-        print("error: %s" % exc, file=sys.stderr)
-        return 1
+    engine = load(read_program(args.file))
     if not args.query:
         print("loaded %d clauses; pass -q 'goal(...)' to prove something"
               % len(engine.clauses))
         return 0
     for q in args.query:
-        try:
-            atom = parse_goal(q)
-        except ParseError as exc:
-            print("error: %s" % exc, file=sys.stderr)
-            return 1
+        atom = parse_goal(q)
         print("?- %s" % atom)
-        try:
-            answers, incomplete = engine.query(
-                atom, depth=args.depth, max_solutions=args.max_solutions,
-                max_steps=args.max_steps)
-        except DatalogError as exc:
-            print("error: %s" % exc, file=sys.stderr)
-            return 1
+        answers, incomplete = engine.query(
+            atom, depth=args.depth, max_solutions=args.max_solutions,
+            max_steps=args.max_steps)
         if not answers:
             bound = ("step budget %d" % args.max_steps
                      if engine.steps >= args.max_steps

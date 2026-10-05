@@ -27,6 +27,7 @@ from tiny_datalog import subsumption
 from tiny_datalog import containment
 from tiny_datalog import defeasible
 from tiny_datalog.tabling import TabledEngine
+from tiny_datalog.engines import ENGINES
 from tiny_datalog.datalog import (
     match_answers, format_fact, _sort_key, explain)
 
@@ -1021,18 +1022,11 @@ class ConformanceTests(unittest.TestCase):
             clauses = parse(text)
             reference = set(match_answers(
                 atom, run_program(text).rels.get(atom.pred, ())))
-            with self.subTest(case=name, engine="naive"):
-                eng = Engine(Program(parse(text)), naive=True)
-                eng.run()
-                self.assertEqual(
-                    set(match_answers(atom, eng.rels.get(atom.pred, ()))),
-                    reference)
-            with self.subTest(case=name, engine="magic"):
-                _e, answers = magic_query(clauses, atom)
-                self.assertEqual(answers, reference)
-            with self.subTest(case=name, engine="tabled"):
-                self.assertEqual(
-                    TabledEngine(parse(text)).query(atom), reference)
+            for engine, strategy in ENGINES.items():
+                with self.subTest(case=name, engine=engine):
+                    self.assertTrue(strategy.handles(clauses))
+                    self.assertEqual(strategy(clauses).answers(atom),
+                                     reference)
 
 
 class ContainmentTests(unittest.TestCase):
@@ -1191,27 +1185,30 @@ class DifferentialFuzzTests(unittest.TestCase):
         return query_atom("%s(%s)" % (name, ", ".join(args)))
 
     def test_all_strategies_agree_on_random_programs(self):
+        # each program is asked one random query (constants exercise
+        # magic's and tabling's bound arguments) plus an all-variable
+        # query per derived predicate, so every derived relation must
+        # come out whole and identical from every engine
         rng = random.Random(20260823)
         for i in range(self.iterations(400)):
             negation = rng.random() < 0.6
             text, idb = self._program(rng, negation)
-            atom = self._query(rng, idb)
-            with self.subTest(iteration=i, program=text, query=str(atom)):
-                reference = run_program(text)
-                ref_answers = set(match_answers(
-                    atom, reference.rels.get(atom.pred, ())))
-
-                naive = Engine(Program(parse(text)), naive=True)
-                naive.run()
-                self.assertEqual(
-                    {p: set(ts) for p, ts in naive.rels.items() if ts},
-                    {p: set(ts) for p, ts in reference.rels.items() if ts})
-
-                _m, magic_answers = magic_query(parse(text), atom)
-                self.assertEqual(magic_answers, ref_answers)
-
-                self.assertEqual(
-                    TabledEngine(parse(text)).query(atom), ref_answers)
+            clauses = parse(text)
+            atoms = [self._query(rng, idb)] + [
+                Atom(name, tuple(Var("X%d" % j) for j in range(arity)))
+                for name, arity in idb]
+            reference = run_program(text)
+            for engine, strategy in ENGINES.items():
+                if not strategy.handles(clauses):
+                    continue
+                with self.subTest(iteration=i, program=text, engine=engine):
+                    run = strategy(clauses)
+                    for atom in atoms:
+                        self.assertEqual(
+                            run.answers(atom),
+                            set(match_answers(
+                                atom, reference.rels.get(atom.pred, ()))),
+                            "query %s" % atom)
 
     def test_incremental_matches_recompute_under_random_updates(self):
         rng = random.Random(20260824)
@@ -1413,8 +1410,12 @@ class RepositoryClaimTests(unittest.TestCase):
             self.assertEqual(dups, [], "duplicated paragraph(s) in %s"
                              % os.path.basename(f))
 
-    SATELLITES = ["magic.py", "semantics.py", "semiring.py", "defeasible.py",
-                  "incremental.py", "prolog.py", "tabling.py",
+    # the three pluggable engines beyond the base one, their registry,
+    # and the extensions; core.py and datalog.py are the two larger
+    # files the README sizes separately
+    SATELLITES = ["engines.py", "magic.py", "tabling.py",
+                  "semantics.py", "semiring.py", "defeasible.py",
+                  "incremental.py", "prolog.py",
                   "subsumption.py", "containment.py"]
 
     def test_no_satellite_module_exceeds_500_lines(self):
@@ -2442,6 +2443,554 @@ class LibraryAPITests(unittest.TestCase):
                 with self.assertRaises(DatalogError) as cm:
                     run_program(self.RULES, facts=facts)
                 self.assertIn(says, str(cm.exception))
+
+
+class EngineRegistryTests(unittest.TestCase):
+    """The three tiers: core.py (the language), the pluggable engines of
+    engines.py, and the extensions.  Pins the registry's interface, the
+    --engine flag, and the re-exports that keep pre-split imports from
+    tiny_datalog.datalog working."""
+
+    def test_registry_lists_the_four_engines_and_the_cli_offers_them(self):
+        from tiny_datalog import datalog
+        self.assertEqual(list(ENGINES),
+                         ["seminaive", "naive", "magic", "tabling"])
+        self.assertEqual(datalog.ENGINE_NAMES, list(ENGINES))
+
+    def test_every_engine_answers_sets_of_ground_tuples(self):
+        clauses = parse(load("family.dl"))
+        for name, strategy in ENGINES.items():
+            with self.subTest(engine=name):
+                self.assertTrue(strategy.handles(clauses))
+                run = strategy(clauses)
+                self.assertEqual(run.answers(query_atom("ancestor(abe, X)")),
+                                 {("abe", "ann"), ("abe", "bob"),
+                                  ("abe", "carl"), ("abe", "dana")})
+                self.assertEqual(run.answers(query_atom("ancestor(abe, ann)")),
+                                 {("abe", "ann")})
+                with self.assertRaises(SafetyError):   # wrong arity
+                    run.answers(query_atom("ancestor(abe)"))
+
+    def test_tabling_does_not_handle_aggregates(self):
+        clauses = parse("p(a, 1). p(b, 2). t(sum(X)) :- p(K, X).")
+        handled = [n for n, e in ENGINES.items() if e.handles(clauses)]
+        self.assertEqual(handled, ["seminaive", "naive", "magic"])
+        for name in handled:
+            with self.subTest(engine=name):
+                self.assertEqual(
+                    ENGINES[name](clauses).answers(query_atom("t(X)")),
+                    {(3,)})
+        with self.assertRaises(DatalogError):
+            ENGINES["tabling"](clauses)
+
+    def test_every_engine_refuses_an_unstratified_program(self):
+        clauses = parse("p(a). q(X) :- p(X), not q(X).")
+        for name, strategy in ENGINES.items():
+            with self.subTest(engine=name):
+                with self.assertRaises(StratificationError):
+                    strategy(clauses)
+
+    def test_core_imports_no_engine_or_extension(self):
+        with open(os.path.join(HERE, "tiny_datalog", "core.py")) as fh:
+            self.assertNotIn("from tiny_datalog", fh.read())
+
+    def test_datalog_reexports_everything_core_defines(self):
+        import ast
+        from tiny_datalog import core, datalog
+        with open(core.__file__) as fh:
+            tree = ast.parse(fh.read())
+        names = set()
+        for node in tree.body:
+            if isinstance(node, (ast.FunctionDef, ast.ClassDef)):
+                names.add(node.name)
+            elif isinstance(node, ast.Assign):
+                names |= {t.id for t in node.targets
+                          if isinstance(t, ast.Name)}
+        self.assertGreater(len(names), 40)
+        for name in sorted(names):
+            with self.subTest(name=name):
+                self.assertIs(getattr(datalog, name), getattr(core, name))
+
+    def test_old_private_names_still_point_at_the_public_ones(self):
+        from tiny_datalog import core
+        for old, new in (("_match", "match"), ("_aggregate_of", "aggregate_of"),
+                         ("_sort_key", "sort_key"),
+                         ("_parse_query_atom", "parse_query_atom")):
+            self.assertIs(getattr(core, old), getattr(core, new))
+        for old, new in (("_rule_substitutions", "substitutions"),
+                         ("_eval_rule", "eval_rule"),
+                         ("_instantiate", "instantiate")):
+            self.assertIs(getattr(Engine, old), getattr(Engine, new))
+
+    @staticmethod
+    def cli(*args):
+        return subprocess.run(
+            [sys.executable, os.path.join(HERE, "datalog.py")] + list(args),
+            capture_output=True, text=True, cwd=HERE)
+
+    def test_engine_flag_prints_the_same_answers_from_every_engine(self):
+        outputs = {}
+        for name in ENGINES:
+            r = self.cli("--engine", name, "-q", "path(n5, X)",
+                         "-q", "path(n1, n3)", "programs/reachability.dl")
+            self.assertEqual(r.returncode, 0, r.stderr)
+            # the first line may carry the engine's tag, e.g. "[magic]"
+            outputs[name] = re.sub(r"   \[\w+\]$", "", r.stdout,
+                                   flags=re.M)
+        self.assertIn("path(n5, n6).", outputs["seminaive"])
+        for name, out in outputs.items():
+            with self.subTest(engine=name):
+                self.assertEqual(out, outputs["seminaive"])
+
+    def test_old_flags_are_shorthands_for_engine(self):
+        for flag, name in (("--naive", "naive"), ("--magic", "magic")):
+            with self.subTest(flag=flag):
+                old = self.cli(flag, "-q", "ancestor(abe, X)",
+                               "programs/family.dl")
+                new = self.cli("--engine", name, "-q", "ancestor(abe, X)",
+                               "programs/family.dl")
+                self.assertEqual(old.returncode, 0, old.stderr)
+                self.assertEqual(old.stdout, new.stdout)
+
+    def test_engine_flag_refusals(self):
+        for args, says in (
+                (["--naive", "--engine", "magic", "-q", "edge(X, Y)"],
+                 "--naive contradicts --engine magic"),
+                (["--engine", "tabling"],
+                 "--engine tabling requires at least one -q"),
+                (["--engine", "magic", "-q", "path(n5, X)",
+                  "-e", "path(n5, n6)"], "--explain needs a bottom-up engine")):
+            with self.subTest(args=args):
+                r = self.cli(*(args + ["programs/reachability.dl"]))
+                self.assertEqual(r.returncode, 1)
+                self.assertIn(says, r.stderr)
+
+    def test_tabling_trace_reports_its_tables(self):
+        r = self.cli("--engine", "tabling", "--trace", "-q",
+                     "ancestor(abe, X)", "programs/family.dl")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("?- ancestor(abe, X)   [tabled]", r.stdout)
+        self.assertRegex(r.stdout, r"\[tabling\] \d+ subgoal tables")
+
+
+class CoverageGapTests(unittest.TestCase):
+    """Behaviours the rest of the suite never reached: a coverage run
+    found these branches unexecuted, so each test here pins down what
+    the branch actually does — the message, the exit code, the answer."""
+
+    def cli(self, module, text, *args, suffix=".dl"):
+        """Run tiny_datalog.<module>.main on a program text; (exit code,
+        stdout, stderr)."""
+        import contextlib, importlib, io
+        main = importlib.import_module("tiny_datalog." + module).main
+        fh = tempfile.NamedTemporaryFile("w", suffix=suffix, delete=False)
+        fh.write(text)
+        fh.close()
+        self.addCleanup(os.unlink, fh.name)
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            code = main(list(args) + [fh.name])
+        return code, out.getvalue(), err.getvalue()
+
+    # -- datalog.py ---------------------------------------------------------
+
+    def test_sum_overflowing_a_float_is_a_clean_error(self):
+        # an int too big for a float, plus a float: Python raises
+        # OverflowError, which must surface as a DatalogError
+        text = "v(1%s). v(0.5). t(sum(X)) :- v(X)." % ("0" * 400)
+        with self.assertRaises(DatalogError) as cm:
+            run_program(text)
+        self.assertIn("sum overflowed", str(cm.exception))
+
+    def test_naive_trace_counts_tuples_derived_per_round(self):
+        code, out, _ = self.cli("datalog", chain(4) +
+                                "p(X, Y) :- edge(X, Y)."
+                                "p(X, Z) :- p(X, Y), edge(Y, Z).",
+                                "--naive", "--trace")
+        self.assertEqual(code, 0)
+        self.assertIn("Naive evaluation:", out)
+        # naive re-derives everything each round: 3, then 5, then all 6
+        self.assertIn("round 1: +3 p   (3 tuples derived)", out)
+        self.assertIn("round 2: +2 p   (5 tuples derived)", out)
+
+    def test_explain_shows_a_repeated_fact_once(self):
+        code, out, _ = self.cli("datalog", "r(a). t(X) :- r(X). "
+                                "u(X) :- t(X). s(X) :- t(X), u(X).",
+                                "-e", "s(a)")
+        self.assertEqual(code, 0)
+        self.assertEqual(out.count("t(a)   [via t(X) :- r(X).]"), 1)
+        self.assertIn("t(a)   (derivation shown above)", out)
+
+    def test_explain_skips_rules_whose_head_cannot_match(self):
+        text = "r(a). t(X) :- r(X). p(b) :- r(b). p(X) :- t(X), r(X)."
+        e = run_program(text)
+        # p(a) is derived by the second rule; the first, p(b), is passed by
+        self.assertIn("p(a)   [via p(X) :- t(X), r(X).]",
+                      explain(e, "p", ("a",)))
+        code, out, _ = self.cli("datalog", text, "-e", "p(c)")
+        self.assertEqual(code, 0)
+        self.assertIn("blocked at: t(c) -- no matching fact", out)
+        self.assertIn("(1 rule for p cannot match this head and was "
+                      "skipped)", out)
+
+    def test_whynot_on_a_fact_that_holds_says_so(self):
+        # the CLI only asks why-not for absent facts; called directly on
+        # a present one, whynot must not invent a blocker
+        e = run_program("r(a). p(X) :- r(X).")
+        from tiny_datalog.datalog import whynot
+        self.assertIn("    (this rule does derive it -- the fact should "
+                      "exist; please report)", whynot(e, "p", ("a",)))
+
+    def test_explain_with_variables_and_no_matches(self):
+        code, out, _ = self.cli("datalog", "r(a). n(X) :- r(X), r(b).",
+                                "-e", "n(Y)")
+        self.assertEqual(code, 0)
+        self.assertEqual(out, "?- explain n(Y)\n   (no matching facts)\n")
+
+    def test_magic_trace_without_a_full_baseline(self):
+        # the query never touches the troublesome rule, so magic sets
+        # answers it; full evaluation, the baseline, cannot run at all
+        for trouble, why in [
+                ("move(a, b). win(X) :- move(X, Y), not win(Y).",
+                 "the original program is not stratifiable"),
+                ("name(foo). bad(sum(X)) :- name(X).",
+                 "cannot sum over mixed or non-numeric values")]:
+            with self.subTest(why=why):
+                code, out, _ = self.cli("datalog",
+                                        "e(a). p(X) :- e(X). " + trouble,
+                                        "-M", "-t", "-q", "p(a)")
+                self.assertEqual(code, 0)
+                self.assertIn("[magic] 1 IDB facts derived (no "
+                              "full-evaluation baseline: " + why, out)
+                self.assertIn("   p(a).", out)
+
+    def test_magic_query_on_an_unstratifiable_predicate_is_rejected(self):
+        code, out, err = self.cli("datalog", "move(a, b). move(b, a). "
+                                  "win(X) :- move(X, Y), not win(Y).",
+                                  "-M", "-q", "win(a)")
+        self.assertEqual(code, 2)
+        self.assertTrue(err.startswith("REJECTED: program is not "
+                                       "stratifiable"), err)
+
+    def test_models_reports_an_unsafe_program(self):
+        code, _, err = self.cli("datalog", "q(a). p(X) :- not q(X).", "-m")
+        self.assertEqual(code, 1)
+        self.assertIn("error: unsafe rule: head variable X", err)
+
+    # -- magic.py -----------------------------------------------------------
+
+    def test_magic_sets_through_an_aggregate_subgoal(self):
+        # an aggregate predicate in a body is computed in full, then joined
+        text = ("item(a). item(b). cost(a, 1). cost(a, 2). cost(b, 5)."
+                "total(X, sum(C)) :- cost(X, C)."
+                "report(X, S) :- item(X), total(X, S).")
+        _, answers = magic_query(parse(text), query_atom("report(a, S)"))
+        self.assertEqual(answers, {("a", 3)})
+
+    def test_magic_sets_include_a_shared_dependency_once(self):
+        # connected/1 sits under negation, so it and reach/2 are copied in
+        # full; both connected rules lead to reach, which is copied once
+        text = ("e(a, b). e(b, c). node(a). node(b). node(c). node(d)."
+                "reach(X, Y) :- e(X, Y)."
+                "reach(X, Y) :- e(X, Z), reach(Z, Y)."
+                "connected(X) :- reach(X, Y)."
+                "connected(Y) :- reach(X, Y)."
+                "isolated(X) :- node(X), not connected(X).")
+        from tiny_datalog.magic import magic_transform
+        clauses = parse(text)
+        transformed, _ = magic_transform(clauses, query_atom("isolated(X)"))
+        for rule in clauses[-5:-1]:
+            self.assertEqual(transformed.count(rule), 1, str(rule))
+        _, answers = magic_query(clauses, query_atom("isolated(X)"))
+        self.assertEqual(answers, {("d",)})
+
+    # -- containment.py -----------------------------------------------------
+
+    def rule(self, text):
+        return parse(text)[0]
+
+    def test_containment_needs_heads_and_constants_to_line_up(self):
+        r = self.rule
+        cases = [
+            # a constant in the body must map to the same constant
+            ("q(X) :- e(X, a).", "q(X) :- e(X, b).", False),
+            # different head arities: never comparable
+            ("q(X) :- e(X, Y).", "q(X, Y) :- e(X, Y).", False),
+            # q(X, X) answers only the diagonal, so cannot contain q(X, Y)
+            ("q(X, X) :- e(X, X).", "q(X, Y) :- e(X, Y).", False),
+            ("q(X, Y) :- e(X, Y).", "q(X, X) :- e(X, X).", True),
+            # a constant head answers one value, not every X
+            ("q(a) :- e(a, Y).", "q(X) :- e(X, Y).", False),
+            ("q(X) :- e(X, Y).", "q(a) :- e(a, Y).", True),
+        ]
+        for outer, inner, expected in cases:
+            with self.subTest(outer=outer, inner=inner):
+                self.assertEqual(containment.contains(r(outer), r(inner)),
+                                 expected)
+
+    def contains_cli(self, outer, inner):
+        import contextlib, io
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            code = containment.main(["--contains", outer, inner])
+        return code, out.getvalue(), err.getvalue()
+
+    def test_contains_cli_gives_all_four_verdicts(self):
+        one, two = "q(X) :- e(X, Y).", "q(X) :- e(X, Y), e(Y, Z)."
+        for outer, inner, verdict in [
+                (one, "q(X) :- e(X, Y), e(X, Z).",
+                 "=> equivalent (each contains the other)"),
+                (one, two, "=> outer contains inner, on every database"),
+                (two, one, "=> inner contains outer, on every database"),
+                (one, "q(X) :- f(X, Y).", "=> neither contains the other")]:
+            with self.subTest(verdict=verdict):
+                code, out, _ = self.contains_cli(outer, inner)
+                self.assertEqual(code, 0)
+                self.assertEqual(out.splitlines(),
+                                 ["outer: " + outer, "inner: " + inner,
+                                  verdict])
+
+    def test_contains_cli_wants_rules(self):
+        code, _, err = self.contains_cli("q(X) :- e(X, Y).", "p(a).")
+        self.assertEqual(code, 1)
+        self.assertEqual(err, "error: expected a single rule: 'p(a).'\n")
+
+    def test_containment_cli_with_nothing_to_do_is_a_usage_error(self):
+        r = subprocess.run([sys.executable,
+                            os.path.join(HERE, "containment.py")],
+                           capture_output=True, text=True, cwd=HERE)
+        self.assertEqual(r.returncode, 2)
+        self.assertIn("give a program to minimise, or use --contains",
+                      r.stderr)
+
+    def test_minimise_cli_skips_rules_with_negation(self):
+        code, out, _ = self.cli("containment",
+                                "e(a, b). q(X) :- e(X, Y), not e(Y, X).")
+        self.assertEqual(code, 0)
+        self.assertEqual(out, "q(X) :- e(X, Y), not e(Y, X).\n"
+                              "  (skipped: negation is outside the theory)\n")
+
+    # -- defeasible.py ------------------------------------------------------
+
+    def test_defeasible_rejects_missing_or_malformed_literals(self):
+        for text, says in [("p(a) => .", "line 1: expected a literal"),
+                           ("p(a) => X.", "expected a literal, got 'X'"),
+                           ("~ .", "expected a literal, got 'nothing'")]:
+            with self.subTest(text=text):
+                with self.assertRaises(ParseError) as cm:
+                    defeasible.load(text)
+                self.assertIn(says, str(cm.exception))
+
+    def test_defeasible_anonymous_variables_do_not_join(self):
+        # were the two `_` one variable, r(X) would need p(X, V), q(V, X)
+        # with the same V — which no pair of facts here offers
+        theory = defeasible.load("p(a, 1). p(b, 2). q(2, a). q(1, b)."
+                                 "r1: p(X, _), q(_, X) => r(X).")
+        plus = theory.conclusions()["+∂"]
+        self.assertEqual({lit for lit in plus if lit[0] == "r"},
+                         {("r", ("a",)), ("r", ("b",))})
+
+    def test_defeasible_query_with_no_mention(self):
+        code, out, _ = self.cli("defeasible", "bird(tweety).\n"
+                                "bird(X) => flies(X).\n", "-q", "swims(X)",
+                                suffix=".dfl")
+        self.assertEqual(code, 0)
+        self.assertEqual(out, "?- swims(X)\n"
+                              "   (no rule or fact mentions it)\n")
+
+    # -- incremental.py -----------------------------------------------------
+
+    def test_dred_keeps_a_base_fact_that_a_rule_also_derives(self):
+        inc = IncrementalEngine("e(a). p(a). p(X) :- e(X).")
+        stats = inc.delete("e(a).")
+        self.assertEqual(stats, {"deleted": 1, "over_deleted": 2,
+                                 "rederived": 1, "net_removed": 1})
+        self.assertEqual(inc.rels["p"], {("a",)})     # stated, so it stays
+
+    def test_backward_forward_refuses_to_delete_a_derived_fact(self):
+        inc = IncrementalEngine("e(a). p(X) :- e(X).")
+        with self.assertRaises(DatalogError) as cm:
+            inc.delete("p(a).", strategy="bf")
+        self.assertIn("can only delete base facts; p(a). is not one",
+                      str(cm.exception))
+
+    def test_backward_forward_reuses_a_proof_it_already_found(self):
+        # deleting e(a) affects p, q and r; p(a) survives through f(a),
+        # and q(a) and r(a) then lean on that recorded proof of p(a)
+        inc = IncrementalEngine("e(a). f(a). p(X) :- e(X). p(X) :- f(X)."
+                                "q(X) :- p(X). r(X) :- p(X), q(X).")
+        stats = inc.delete("e(a).", strategy="bf")
+        self.assertEqual(stats, {"deleted": 1, "affected": 4, "confirmed": 3,
+                                 "removed": 1, "backward_checks": 4})
+        self.assertNotIn("e", inc.rels)
+        for pred in "pqr":
+            self.assertEqual(inc.rels[pred], {("a",)})
+
+    def test_incremental_demo_without_the_course_programs(self):
+        # an installed package has no programs/ directory to read
+        from unittest import mock
+        from tiny_datalog import incremental
+        with mock.patch.object(incremental, "_DEMO_FILE",
+                               os.path.join(HERE, "no-such-dir", "x.dl")):
+            with self.assertRaises(SystemExit) as cm:
+                incremental.main([])
+        self.assertIn("needs programs/dred-graph.dl", str(cm.exception.code))
+
+    def test_incremental_cli_prints_derived_facts(self):
+        code, out, _ = self.cli("incremental", "e(a). e(b). p(X) :- e(X).",
+                                "-p", "-u", "e(a)~.")
+        self.assertEqual(code, 0)
+        self.assertIn("'net_removed': 2", out)
+        self.assertTrue(out.endswith("\np(b).\n"), out)
+
+    # -- prolog.py ----------------------------------------------------------
+
+    def test_prolog_unification_corner_cases(self):
+        e = prolog.load("eq(Y, Y). f(g(a)). p(a). p(a).")
+        # X against itself (through Y): one answer, X left unbound
+        answers, _ = e.query(parse_goal("eq(X, X)"))
+        self.assertEqual(len(answers), 1)
+        self.assertIsInstance(answers[0]["X"], Var)
+        # different functors never unify
+        self.assertEqual(e.query(parse_goal("f(h(X))")), ([], False))
+        # a fact stated twice is still one answer
+        answers, _ = e.query(parse_goal("p(X)"))
+        self.assertEqual([str(a["X"]) for a in answers], ["a"])
+
+    def test_prolog_negation_checks_groundness_inside_terms(self):
+        e = prolog.load("q(a). q(b). p(f(b))."
+                        "ok(X) :- q(X), not p(f(X)). bad :- not p(f(Z)).")
+        answers, _ = e.query(parse_goal("ok(X)"))
+        self.assertEqual([str(a["X"]) for a in answers], ["a"])
+        with self.assertRaises(DatalogError) as cm:
+            e.query(parse_goal("bad"))
+        self.assertIn("needs a ground goal", str(cm.exception))
+
+    def test_prolog_deep_search_reports_recursion_limit(self):
+        e = prolog.load("loop(X) :- loop(X).")
+        with self.assertRaises(DatalogError) as cm:
+            e.query(parse_goal("loop(a)"), depth=100000, max_steps=10**7)
+        self.assertIn("exceeded Python's recursion capacity; lower --depth "
+                      "(currently 100000)", str(cm.exception))
+
+    def test_prolog_cli_answers_and_failures(self):
+        text = "p(a). loop(X) :- loop(X)."
+        code, out, _ = self.cli("prolog", text, suffix=".pl")
+        self.assertEqual((code, out), (0, "loaded 2 clauses; pass -q "
+                                          "'goal(...)' to prove something\n"))
+        code, out, _ = self.cli("prolog", text, "-q", "p(a)", "-q", "p(b)",
+                                "-q", "loop(a)", "--depth", "5", suffix=".pl")
+        self.assertEqual(code, 0)
+        self.assertEqual(out.splitlines(), [
+            "?- p(a)", "   true.", "   (1 solution)",
+            "?- p(b)", "   false.",
+            "?- loop(a)", "   false (search truncated at depth 5 — "
+                          "unproven, not disproven)."])
+        code, out, _ = self.cli("prolog", text, "-q", "loop(a)",
+                                "--max-steps", "3", suffix=".pl")
+        self.assertIn("truncated at step budget 3", out)
+
+    def test_prolog_cli_query_errors(self):
+        text = "q(b). r :- not q(X)."
+        code, _, err = self.cli("prolog", text, "-q", "p(", suffix=".pl")
+        self.assertEqual((code, err), (1, "error: line 1: expected a term, "
+                                          "got '.'\n"))
+        code, _, err = self.cli("prolog", text, "-q", "r", suffix=".pl")
+        self.assertEqual(code, 1)
+        self.assertIn("error: negation as failure needs a ground goal", err)
+
+    # -- semiring.py --------------------------------------------------------
+
+    WEIGHTED = ("e(a, b) @ 0.5. e(b, c)."
+                "p(X, Y) :- e(X, Y). p(X, Z) :- p(X, Y), e(Y, Z).")
+
+    def test_semiring_cli_prints_every_relation(self):
+        code, out, _ = self.cli("semiring", self.WEIGHTED, "-s", "bool")
+        self.assertEqual(code, 0)
+        self.assertEqual(out.splitlines()[1:], [
+            "% p/2 — 3 facts", "p(a, b) = true", "p(a, c) = true",
+            "p(b, c) = true", ""])
+
+    def test_viterbi_reads_an_unweighted_fact_as_certain(self):
+        e = run_semiring(self.WEIGHTED, "viterbi")
+        self.assertEqual(e.rels["e"][("b", "c")], 1.0)
+        self.assertEqual(e.rels["p"][("a", "c")], 0.5)
+
+    def test_semiring_cli_round_budget(self):
+        code, out, _ = self.cli("semiring", self.WEIGHTED, "--max-rounds", "3")
+        self.assertEqual(code, 0)
+        self.assertIn("fixpoint after 3 rounds", out)
+        code, _, err = self.cli("semiring", self.WEIGHTED, "--max-rounds", "2")
+        self.assertEqual(code, 1)
+        self.assertIn("error: no fixpoint after 2 rounds", err)
+
+    def test_semiring_cli_refusals(self):
+        code, _, err = self.cli("semiring", self.WEIGHTED, "-q", "p(X)")
+        self.assertEqual(code, 1)
+        self.assertIn("query p(X) has arity 1 but p is used with arity 2", err)
+        import contextlib, io
+        from tiny_datalog.semiring import main
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err), \
+                self.assertRaises(SystemExit) as cm:
+            main(["--max-rounds", "0", "x.dl"])
+        self.assertEqual(cm.exception.code, 2)
+        self.assertIn("must be at least 1, not 0", err.getvalue())
+
+    # -- subsumption.py -----------------------------------------------------
+
+    def test_ontology_statement_errors(self):
+        for text, says in [
+                ("define(and(a, b), c).", "define/2 needs an atomic concept"),
+                ("isa(a, 3).", "expected an atomic concept name, got 3"),
+                ("isa(a, some(3, b)).", "expected an atomic role name, got 3"),
+                ("isa(a, or(b, c)).", "not an EL concept expression: or(b"),
+                ("isa(or(a, b), c).", "not an EL concept expression: or(a")]:
+            with self.subTest(text=text):
+                with self.assertRaises(DatalogError) as cm:
+                    subsumption.load(text)
+                self.assertIn(says, str(cm.exception))
+
+    ONTOLOGY = ("isa(x, a). isa(x, b). isa(and(a, b), some(r, c))."
+                "define(d, some(r, c)). primitive(lonely)."
+                "disjoint(a, z). isa(w, a). isa(w, z)."
+                "isa(m, n). isa(n, m). isa(and(n), k).")
+
+    def test_ontology_inclusions_between_two_expressions(self):
+        ont = subsumption.load(self.ONTOLOGY)
+        supers = ont.classify()
+        self.assertEqual(supers["x"], {"a", "b", "d"})  # a ⊓ b ⊑ ∃r.c ≡ d
+        self.assertEqual(supers["m"], {"n", "k"})       # one-conjunct and()
+        self.assertEqual(supers["lonely"], set())
+        self.assertEqual(ont.unsatisfiable(), {"w"})
+
+    def test_subsumption_cli_prints_classification(self):
+        code, out, _ = self.cli("subsumption", self.ONTOLOGY)
+        self.assertEqual(code, 0)
+        for line in ["  lonely         (top of hierarchy)",
+                     "  w              ⊑  ⊥   (unsatisfiable)",
+                     "  x              ⊑  a, b, d*",
+                     "  m              ≡  n"]:
+            self.assertIn(line + "\n", out)
+
+    def test_subsumption_cli_emit_and_unknown_concept(self):
+        code, out, _ = self.cli("subsumption", "isa(a, b).", "--emit")
+        self.assertEqual(code, 0)
+        self.assertTrue(out.startswith("concept(a).\nconcept(b).\n"
+                                       "isa1(a, b).\n"), out)
+        self.assertEqual(run_program(out).rels["subs"],
+                         {("a", "a"), ("b", "b"), ("a", "b")})
+        code, _, err = self.cli("subsumption", "isa(a, b).", "-q", "nope")
+        self.assertEqual((code, err), (1, "error: unknown concept 'nope'\n"))
+
+    # -- tabling.py ---------------------------------------------------------
+
+    def test_tabling_cli_query_error(self):
+        code, out, err = self.cli("tabling", "e(a, b). p(X) :- e(X, Y).",
+                                  "-q", "p(X, Y)")
+        self.assertEqual((code, out), (1, ""))
+        self.assertEqual(err, "error: query p(X, Y) has arity 2 but p is "
+                              "used with arity 1\n")
 
 
 class CoreReviewFixTests(unittest.TestCase):

@@ -49,20 +49,28 @@ import sys
 import time
 from collections import defaultdict
 
-from tiny_datalog.datalog import (
-    DatalogError, Engine, format_fact, parse, Program, read_program, validate,
-    _aggregate_of, _match, _sort_key)
+from tiny_datalog.core import (
+    cli, DatalogError, format_fact, match, parse, read_program, sort_key,
+    validate, aggregate_of)
+from tiny_datalog.datalog import Engine, Program
+
+
+def _refuse_weight(clause):
+    """`@ weight` annotations belong to the semiring evaluator; here they
+    would be silently dropped, so refuse them instead — at load time
+    and on every update."""
+    if clause.weight is not None:
+        raise DatalogError(
+            "weights are not supported by the incremental engine: %s"
+            % clause)
 
 
 class IncrementalEngine:
     def __init__(self, text):
         clauses = parse(text)
         for r in clauses:
-            if r.weight is not None:
-                raise DatalogError(
-                    "weights are not supported by the incremental "
-                    "engine: %s" % r)
-            if any(lit.negated for lit in r.body) or _aggregate_of(r.head):
+            _refuse_weight(r)
+            if any(lit.negated for lit in r.body) or aggregate_of(r.head):
                 raise DatalogError(
                     "incremental maintenance supports positive, "
                     "aggregate-free programs only (negation and "
@@ -87,10 +95,7 @@ class IncrementalEngine:
         for c in clauses:
             if c.body:
                 raise DatalogError("expected facts only, got a rule: %s" % c)
-            if c.weight is not None:
-                raise DatalogError(
-                    "weights are not supported by the incremental "
-                    "engine: %s" % c)
+            _refuse_weight(c)
         validate(clauses, self.program.arity)
         return [(c.head.pred, tuple(a.value for a in c.head.args))
                 for c in clauses]
@@ -105,7 +110,7 @@ class IncrementalEngine:
             for i, lit in enumerate(rule.body):
                 if not delta.get(lit.atom.pred):
                     continue
-                for tup in self.engine._eval_rule(rule, delta_occ=i,
+                for tup in self.engine.eval_rule(rule, delta_occ=i,
                                                   delta=delta):
                     yield rule.head.pred, tup
 
@@ -123,6 +128,40 @@ class IncrementalEngine:
                 derived |= {(pred, t) for t in tups}
             delta = new_delta
         return derived
+
+    def _affected(self, facts):
+        """The shared first step of both deletion strategies.  Retire the
+        deleted base facts, then over-approximate everything that has
+        *any* derivation through them: delta-joins against the intact,
+        pre-deletion database, run to a fixpoint.  Returns that set.
+        Every fact that may die is in it; so, typically, are many that
+        will survive by another route.  What separates DRed from B/F is
+        only what each does with this set."""
+        for f in facts:
+            if f not in self.base:
+                raise DatalogError(
+                    "can only delete base facts; %s is not one"
+                    % format_fact(*f))
+        self.base -= set(facts)
+        frontier, affected = defaultdict(set), set()
+        for pred, tup in facts:
+            if tup in self.rels.get(pred, ()):
+                frontier[pred].add(tup)
+                affected.add((pred, tup))
+        while frontier:
+            nxt = defaultdict(set)
+            for pred, tup in self._delta_fires(frontier):
+                if tup in self.rels[pred] and (pred, tup) not in affected:
+                    affected.add((pred, tup))
+                    nxt[pred].add(tup)
+            frontier = nxt
+        return affected
+
+    def _drop_empty(self):
+        """Keep the "same as recomputing fresh" invariant exact: a fresh
+        engine has no entry for a predicate with no facts at all."""
+        for pred in [p for p, ts in self.rels.items() if not ts]:
+            del self.rels[pred]
 
     def _deleter(self, strategy):
         if strategy == "dred":
@@ -185,30 +224,12 @@ class IncrementalEngine:
         return {"inserted": inserted, "derived": len(derived)}
 
     def _delete_facts(self, facts):
-        for f in facts:
-            if f not in self.base:
-                raise DatalogError(
-                    "can only delete base facts; %s is not one"
-                    % format_fact(*f))
-
+        """DRed: tear the whole affected set down, then rebuild what
+        still has support."""
         # Phase 1: over-delete.  A fact is a candidate if any derivation
-        # of it passes through a deleted fact — computed with delta-joins
-        # against the *pre-deletion* database.
-        frontier = defaultdict(set)
-        candidates = set()
-        for pred, tup in facts:
-            self.base.discard((pred, tup))
-            if tup in self.rels[pred]:
-                frontier[pred].add(tup)
-                candidates.add((pred, tup))
-        while frontier:
-            nxt = defaultdict(set)
-            for pred, tup in self._delta_fires(frontier):
-                if tup in self.rels[pred] and (pred, tup) not in candidates:
-                    candidates.add((pred, tup))
-                    nxt[pred].add(tup)
-            frontier = nxt
-
+        # of it passes through a deleted fact — and every candidate goes,
+        # whether or not it has another derivation.
+        candidates = self._affected(facts)
         for pred, tup in candidates:
             self.rels[pred].discard(tup)
 
@@ -226,7 +247,7 @@ class IncrementalEngine:
         for rule in self.rules:
             if rule.head.pred not in cand_preds:
                 continue
-            for tup in self.engine._eval_rule(rule):
+            for tup in self.engine.eval_rule(rule):
                 f = (rule.head.pred, tup)
                 if f in candidates and tup not in self.rels[rule.head.pred]:
                     self.rels[rule.head.pred].add(tup)
@@ -235,39 +256,20 @@ class IncrementalEngine:
 
         rederived = sum(1 for pred, tup in candidates
                         if tup in self.rels[pred])
-        # keep the "same as recomputing fresh" invariant exact: a fresh
-        # engine has no entry for a predicate with no facts at all
-        for pred in [p for p, ts in self.rels.items() if not ts]:
-            del self.rels[pred]
+        self._drop_empty()
         return {"deleted": len(facts),
                 "over_deleted": len(candidates),
                 "rederived": rederived,
                 "net_removed": len(candidates) - rederived}
 
     def _bf_delete_facts(self, facts):
-        """Backward/Forward: forward-propagate the affected set against
-        the intact database, then decide each affected fact by backward
-        proof search before removing anything.  `blocked` carries the
-        current proof path, so support is well-founded by construction —
-        a fact cannot survive by deriving itself around a cycle."""
-        for f in facts:
-            if f not in self.base:
-                raise DatalogError("can only delete base facts; %s is "
-                                   "not one" % format_fact(*f))
-        self.base -= set(facts)
-        frontier, affected = defaultdict(set), set()
-        for pred, tup in facts:
-            if tup in self.rels.get(pred, ()):
-                frontier[pred].add(tup)
-                affected.add((pred, tup))
-        while frontier:
-            nxt = defaultdict(set)
-            for pred, tup in self._delta_fires(frontier):
-                if tup in self.rels[pred] and (pred, tup) not in affected:
-                    affected.add((pred, tup))
-                    nxt[pred].add(tup)
-            frontier = nxt
-
+        """Backward/Forward: forward-propagate the same affected set as
+        DRed against the intact database, but tear nothing down — decide
+        each affected fact by backward proof search before removing
+        anything.  `blocked` carries the current proof path, so support
+        is well-founded by construction — a fact cannot survive by
+        deriving itself around a cycle."""
+        affected = self._affected(facts)
         by_head = defaultdict(list)
         for r in self.rules:
             by_head[r.head.pred].append(r)
@@ -289,7 +291,7 @@ class IncrementalEngine:
             checks[0] += 1
             pred, tup = f
             for rule in by_head[pred]:
-                subst = _match(rule.head.args, tup, {})
+                subst = match(rule.head.args, tup, {})
                 if subst is not None and solve(rule.body, 0, subst, blocked):
                     proven[f] = True
                     return True
@@ -299,15 +301,15 @@ class IncrementalEngine:
             if i == len(body):
                 return True
             atom = body[i].atom
-            for tup in sorted(self.rels.get(atom.pred, ()), key=_sort_key):
-                ext = _match(atom.args, tup, subst)
+            for tup in sorted(self.rels.get(atom.pred, ()), key=sort_key):
+                ext = match(atom.args, tup, subst)
                 if (ext is not None and usable((atom.pred, tup), blocked)
                         and solve(body, i + 1, ext, blocked)):
                     return True
             return False
 
         removed = 0
-        order = sorted(affected, key=lambda f: (f[0], _sort_key(f[1])))
+        order = sorted(affected, key=lambda f: (f[0], sort_key(f[1])))
         for f in order:
             alive = (f in self.base or proven.get(f) is True
                      or (f not in proven and prove(f, {f})))
@@ -316,8 +318,7 @@ class IncrementalEngine:
             proven[f] = False
             self.rels[f[0]].discard(f[1])
             removed += 1
-        for pred in [p for p, ts in self.rels.items() if not ts]:
-            del self.rels[pred]
+        self._drop_empty()
         return {"deleted": len(facts), "affected": len(affected),
                 "confirmed": len(affected) - removed, "removed": removed,
                 "backward_checks": checks[0]}
@@ -373,6 +374,7 @@ def _demo():
     print("Repaired state verified equal to a from-scratch recomputation.")
 
 
+@cli
 def main(argv=None):
     ap = argparse.ArgumentParser(
         description="Materialise a program, then repair it under updates "
@@ -394,28 +396,23 @@ def main(argv=None):
 
     if not args.file:
         return _demo()
-    try:
-        inc = IncrementalEngine(read_program(args.file))
-        print("materialised: %d facts" % inc.total_facts())
-        for script in args.update:
-            t0 = time.perf_counter()
-            stats = inc.apply(script, args.strategy)
-            elapsed = time.perf_counter() - t0
-            print("%s\n  -> %r in %.3fs" % (script.strip(), stats, elapsed))
-        if args.update:
-            t0 = time.perf_counter()
-            fresh = Engine(Program(parse(read_program(args.file))))
-            fresh.run()
-            print("  (a from-scratch rebuild of this program: %.3fs)"
-                  % (time.perf_counter() - t0))
-    except DatalogError as exc:
-        print("error: %s" % exc, file=sys.stderr)
-        return 1
+    inc = IncrementalEngine(read_program(args.file))
+    print("materialised: %d facts" % inc.total_facts())
+    for script in args.update:
+        t0 = time.perf_counter()
+        stats = inc.apply(script, args.strategy)
+        elapsed = time.perf_counter() - t0
+        print("%s\n  -> %r in %.3fs" % (script.strip(), stats, elapsed))
+    if args.update:
+        t0 = time.perf_counter()
+        fresh = Engine(Program(parse(read_program(args.file))))
+        fresh.run()
+        print("  (a from-scratch rebuild of this program: %.3fs)"
+              % (time.perf_counter() - t0))
     if args.show:
-        from tiny_datalog.datalog import _sort_key, format_fact
         print()
         for pred in sorted(inc.program.idb):
-            for tup in sorted(inc.rels.get(pred, ()), key=_sort_key):
+            for tup in sorted(inc.rels.get(pred, ()), key=sort_key):
                 print(format_fact(pred, tup))
     return 0
 

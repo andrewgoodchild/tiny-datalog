@@ -330,7 +330,7 @@ is special.
 which makes a positive Datalog program, and runs the core engine on
 it. The least model is an *envelope*: no tag can ever be about a
 literal outside it. Each rule is then instantiated over the envelope
-by the core join, `_rule_substitutions`, the same move `semantics.py`
+by the core join, `Engine.substitutions`, the same move `semantics.py`
 makes before computing stable models.
 
 **Concluding.** `_conclude` transcribes the conditions above one to

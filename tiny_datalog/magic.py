@@ -36,9 +36,10 @@ from __future__ import annotations
 
 from collections import defaultdict
 
-from tiny_datalog.datalog import (
-    Atom, Const, Engine, Literal, Program, Rule, Var, _aggregate_of,
-    check_query_atom, match_answers, validate)
+from tiny_datalog.core import (
+    Atom, Const, Literal, Rule, Var, aggregate_of, check_query_atom,
+    match_answers, validate)
+from tiny_datalog.datalog import Engine, Program
 
 
 def _adorned_name(pred, adorn):
@@ -60,7 +61,7 @@ def magic_transform(clauses, query):
     # needs its whole group, so demand restriction would change answers.
     # Like negated subgoals, they are computed in full.
     agg_preds = {c.head.pred for c in clauses
-                 if c.body and _aggregate_of(c.head)}
+                 if c.body and aggregate_of(c.head)}
     if query.pred not in idb or query.pred in agg_preds:
         return list(clauses), query.pred  # evaluate in full
 

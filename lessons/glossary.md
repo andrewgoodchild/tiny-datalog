@@ -253,8 +253,8 @@ once function symbols appear, which is exactly why Datalog
 terminates. *(Lesson 11)*
 
 **Homomorphism.** A map from one structure's variables to another's
-terms that sends every atom onto an atom. Finding one is what `_match`
-does against a database, and what containment does against another
+terms that sends every atom onto an atom. Finding one is what `match`
+(in `core.py`) does against a database, and what containment does against another
 query body. *(Lesson 16)*
 
 **Horn clause.** A formula with at most one positive literal, i.e.
@@ -277,7 +277,7 @@ input changes, rather than recomputing. Insertions resume semi-naive;
 deletions need **DRed**. *(Lesson 10)*
 
 **Join.** Combining two relations on shared variables. In this engine
-a rule body *is* a join, performed by folding `_match` over its
+a rule body *is* a join, performed by folding `match` over its
 literals under one growing substitution. *(Lesson 1)*
 
 **Kan extension.** Category theory's universal way of extending a

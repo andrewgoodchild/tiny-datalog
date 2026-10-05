@@ -6,16 +6,29 @@ beyond Python 3.9+.
 ```sh
 git clone https://github.com/andrewgoodchild/tiny-datalog
 cd tiny-datalog
-python3 tests.py                     # 254 tests, should all pass
+python3 tests.py                     # 303 tests, should all pass
 python3 datalog.py programs/reachability.dl
 ```
 
 ### Where the code lives
 
-The engine and its satellites live in `tiny_datalog/`; the `.py` files
-at the repo root are three-line launchers so that every command in
-these lessons runs straight from a checkout. When a lesson says to read
-`semiring.py`, it means `tiny_datalog/semiring.py`.
+Everything lives in `tiny_datalog/`, in three tiers:
+
+- **the core**, `core.py`: the language itself — the AST, the parser,
+  the safety check, stratification, matching and formatting. Every
+  other module imports it, and it imports none of them.
+- **the engines**: four interchangeable ways to evaluate a stratified
+  program, which must all give the same answers — semi-naive and naive
+  (`datalog.py`, the base engine, which also holds `--explain` and the
+  command line), magic sets (`magic.py`) and tabling (`tabling.py`).
+  `engines.py` lists them and states the interface they share.
+- **the extensions**: modules that ask a program a different question —
+  `semantics.py`, `semiring.py`, `incremental.py`, `prolog.py`,
+  `subsumption.py`, `containment.py`, `defeasible.py`.
+
+The `.py` files at the repo root are three-line launchers so that every
+command in these lessons runs straight from a checkout. When a lesson
+says to read `semiring.py`, it means `tiny_datalog/semiring.py`.
 
 If you want the engine in a project of your own rather than a course to
 read, install it instead — the lessons are not needed:
@@ -54,6 +67,7 @@ input facts). The other modes:
 | `python3 datalog.py --models prog.dl` | stable models + well-founded model (small programs) |
 | `python3 datalog.py --naive --trace prog.dl` | naive evaluation with per-round derivation counts |
 | `python3 datalog.py --explain 'path(a, d)' prog.dl` | print a derivation tree — *why* is this fact true? |
+| `python3 datalog.py --engine tabling -q '...' prog.dl` | answer with any of the four engines: `seminaive` (the default), `naive`, `magic`, `tabling` |
 | `python3 tabling.py prog.dl -q 'goal(X)' -t` | tabled top-down evaluation (handles left recursion) |
 | `python3 incremental.py prog.dl -u 'f(a)~. f(b).'` | apply retractions/insertions to a live materialisation (`--strategy bf` checks before deleting) |
 | `python3 semiring.py --semiring minplus prog.dl` | evaluate over a semiring (costs, counts, provenance, probabilities) |
@@ -92,11 +106,19 @@ engine = run_program(open("family.dl").read(),
 
 query = parse("ancestor(bob, X).")[0].head
 _, answers = magic_query(parse(open("family.dl").read()), query)
+
+# any engine, by name, behind one interface: answers() is a set of tuples
+from tiny_datalog.engines import ENGINES
+tabled = ENGINES["tabling"](parse(open("family.dl").read()))
+print(tabled.answers(query))
 ```
 
-`tiny_datalog` re-exports the engine's public names — the AST classes,
-`parse`, `validate`, `stratify`, `Program`, `Engine`, `run_program`,
-`explain`, `whynot` and the error types. The satellites keep their own
+`tiny_datalog` re-exports the public names of the core and the base
+engine — the AST classes, `parse`, `validate`, `stratify`, `Program`,
+`Engine`, `run_program`, `explain`, `whynot` and the error types — so
+`from tiny_datalog import Engine, parse` works whichever of the two
+files a name lives in, as does the older `from tiny_datalog.datalog
+import parse`. The other engines and the extensions keep their own
 modules: `from tiny_datalog import semiring, tabling, incremental`.
 
 ## Where to go next

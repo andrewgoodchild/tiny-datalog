@@ -57,10 +57,10 @@ import sys
 from collections import defaultdict
 from itertools import combinations
 
-from tiny_datalog.datalog import (
-    Atom, DatalogError, Engine, Literal, ParseError, Program, Rule,
-    SafetyError, Var, format_atom, match_answers, parse_goal, read_program,
-    _sort_key)
+from tiny_datalog.core import (
+    Atom, cli, DatalogError, Literal, ParseError, Rule, SafetyError, Var,
+    format_atom, match_answers, parse_goal, read_program, sort_key)
+from tiny_datalog.datalog import Engine, Program
 
 STRICT, DEFEASIBLE, DEFEATER = "->", "=>", "~>"
 
@@ -203,10 +203,10 @@ class Theory:
                     if _variables(part) != needed:
                         continue
                     sub = Rule(head, tuple(Literal(b, False) for b in part))
-                    for subst in engine._rule_substitutions(sub):
+                    for subst in engine.substitutions(sub):
                         g = (label, kind,
-                             (head.pred, engine._instantiate(head, subst)),
-                             tuple((b.pred, engine._instantiate(b, subst))
+                             (head.pred, engine.instantiate(head, subst)),
+                             tuple((b.pred, engine.instantiate(b, subst))
                                    for b in body))
                         if g not in seen:
                             seen.add(g)
@@ -412,6 +412,7 @@ TAG_NAMES = [("+Δ", "definitely"), ("+∂", "defeasibly"),
              ("−∂", "not defeasibly"), ("undecided", "undecided")]
 
 
+@cli
 def main(argv=None):
     ap = argparse.ArgumentParser(
         description="Defeasible logic: strict rules (->), defeasible rules "
@@ -424,18 +425,14 @@ def main(argv=None):
     ap.add_argument("--propagating", action="store_true",
                     help="ambiguity propagating instead of blocking")
     args = ap.parse_args(argv)
-    try:
-        theory = load(read_program(args.file))
-        result = theory.conclusions(
-            "propagating" if args.propagating else "blocking")
-        queries = [_atom(_tokens(q.rstrip(". ")), 1) for q in args.query]
-    except DatalogError as exc:
-        print("error: %s" % exc, file=sys.stderr)
-        return 1
+    theory = load(read_program(args.file))
+    result = theory.conclusions(
+        "propagating" if args.propagating else "blocking")
+    queries = [_atom(_tokens(q.rstrip(". ")), 1) for q in args.query]
 
     def ordered(lits):
         return sorted(lits, key=lambda l: (l[0].lstrip("~"), l[0],
-                                           _sort_key(l[1])))
+                                           sort_key(l[1])))
 
     if queries:
         for q in queries:

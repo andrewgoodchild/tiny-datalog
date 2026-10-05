@@ -3,8 +3,9 @@
 [![tests](https://github.com/andrewgoodchild/tiny-datalog/actions/workflows/ci.yml/badge.svg)](https://github.com/andrewgoodchild/tiny-datalog/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/tiny-datalog)](https://pypi.org/project/tiny-datalog/)
 
-**A logic engine small enough to read in an afternoon, and a course
-that builds it up from nothing.**
+**A Datalog engine whose core you can read in an afternoon, a course
+that builds it up from nothing, and a module for every technique the
+course teaches.**
 
 ## What is Datalog?
 
@@ -93,7 +94,7 @@ Nothing to install:
 
 ```sh
 git clone https://github.com/andrewgoodchild/tiny-datalog && cd tiny-datalog
-python3 tests.py        # 254 tests, ~12s
+python3 tests.py        # 303 tests, ~12s
 ```
 
 ## Why the language choice decides what you can ask later
@@ -160,7 +161,7 @@ the better tool, and that covers most problems.
 
 ## What else you can ask it
 
-The worked example above is one row of a table. The full version — 20
+The worked example above is one row of a table. The full version — 23
 questions, each with the command that answers it and the lesson that
 builds the machinery — is in
 [getting started](https://github.com/andrewgoodchild/tiny-datalog/blob/main/lessons/getting-started.md), beside the reading
@@ -239,7 +240,7 @@ engine:
   which is a real design-review question with a real answer.
 - **[Lesson 16](https://github.com/andrewgoodchild/tiny-datalog/blob/main/lessons/16-containment.md)** shows that the containment
   test you need for query minimisation is the search already sitting in
-  `datalog.py`: `_match` maps a rule body into a database,
+  the core: `match` maps a rule body into a database,
   `find_homomorphism` maps a rule body into another rule body. Same
   backtracking, one level up.
 - **[Lesson 4](https://github.com/andrewgoodchild/tiny-datalog/blob/main/lessons/04-closed-and-open-worlds.md)** contrasts the
@@ -318,7 +319,8 @@ engine.query("exposed(S, C)")       # [{'S': 'app', 'C': 'cve_2026_0001'}]
 
 The command-line interface installs too, as `tiny-datalog` (and
 `tiny-datalog-semiring`, `-tabling`, `-incremental`, `-subsumption`,
-`-containment`, `-defeasible`, `-prolog` for the satellites):
+`-containment`, `-defeasible`, `-prolog` for the other engines and the
+extensions):
 
 ```sh
 tiny-datalog -q 'exposed(S, C)' supply-chain.dl
@@ -330,16 +332,22 @@ installed package; clone the repository for that.
 ## Layout
 
 ```
-tiny_datalog/   the engine and its satellites — the code you read:
-  datalog.py    the core: AST, parser, safety checks, stratification,
-                the semi-naive evaluator, and the CLI
+tiny_datalog/   the code you read, in three tiers:
+  core.py       the common core — the language every module shares:
+                AST, parser, safety checks, stratification, matching,
+                formatting, query helpers
+ engines — four strategies, one answer (engines.py lists them):
+  datalog.py    the base engine: semi-naive and naive bottom-up
+                evaluation, aggregation, --explain / why-not, the CLI
   magic.py      the magic-sets rewriting (a program-to-program pass)
+  tabling.py    tabled top-down evaluation (iterative QSQR)
+  engines.py    the registry and the interface the four share
+ extensions — other questions asked of the same programs:
   semantics.py  grounding, stable models, the well-founded model
   semiring.py   semiring-valued evaluation (costs, counts, provenance,
                 probabilities)
   incremental.py  insertions + DRed deletions over a live materialisation
   prolog.py     top-down SLD resolution with function symbols
-  tabling.py    tabled top-down evaluation (iterative QSQR)
   subsumption.py  KL-ONE-style EL classifier, compiled to Datalog
   containment.py  query containment and minimisation by homomorphism
   defeasible.py   defeasible logic: exceptions, priorities, defeaters
@@ -352,10 +360,11 @@ exercises/      worked answers, verified by the test suite
 cases/          golden test cases — add one without writing Python
 conformance/    the external datalog-conformance corpus (Soufflé, Nemo,
                 Crepe, SPINdle), run against every evaluation strategy
-benchmarks/     scaled input generators (chain/tree/clique/grid)
-tests.py        254 tests: every shipped program and exercise answer is
+benchmarks/     scaled input generators (chain/tree/clique/grid, an EL
+                ontology, and the N-queens puzzle)
+tests.py        303 tests: every shipped program and exercise answer is
                 executed, a conformance suite runs every query through
-                every applicable strategy, and a seeded fuzzer checks
+                every engine that handles it, and a seeded fuzzer checks
                 the same property on random programs
 ```
 
@@ -366,14 +375,37 @@ used.
 
 ### How big is it, honestly
 
-The evaluator is about 850 lines (`tiny_datalog/datalog.py`, up to the
-command-line interface), the CLI, `--explain` and why-not another 600, and the nine satellite modules about
-2,900. Call it 4.3k lines of toolkit and 2.7k of tests, roughly a
-quarter of it commentary.
+This project started as an attempt at a tiny implementation of
+Datalog, small enough to read in an afternoon. It grew with the
+course. Each lesson that taught a new technique — magic sets, stable models,
+semirings, incremental maintenance, tabling, subsumption, containment,
+defeasible logic — brought a module to run it, and the repository is
+now several thousand lines. The core idea stayed small, and the code
+is laid out so you can still read just that: the common core and the
+base engine, below, are the original tiny Datalog. Everything else is
+an engine or extension you can take one lesson at a time.
 
-"Tiny" is a claim about the evaluator, and about each satellite module
-singly: none of the nine exceeds 500 lines, which a test asserts. It is not a claim about
-the repository, which is ten modules because it teaches ten things.
+Measured in lines, comments, docstrings and blank lines included:
+
+| Tier | Lines |
+|---|---|
+| the common core (`core.py`: the language, evaluating nothing) | 785 |
+| the base engine's evaluator (`datalog.py` up to its CLI section: the module docstring, the import list that re-exports the core, `Program`, `Engine`, aggregation folding, `run_program`) | 395 |
+| `--explain`, why-not, printing and the CLI (the rest of `datalog.py`) | 535 |
+| the other pluggable engines: magic sets (`magic.py`) and tabling (`tabling.py`), plus the `engines.py` registry (naive evaluation is a flag on the base engine) | 549 |
+| the seven extensions | 2,425 |
+
+So the smallest complete Datalog system here — parse, check, stratify,
+evaluate semi-naively — is the core plus the evaluator, about 1,200
+lines. All of it is 4.7k lines of toolkit (every module but the
+re-export list in `__init__.py`), roughly a quarter of it commentary,
+and 3.4k of tests.
+
+"Tiny" is a claim about that core and evaluator, and about each module
+built on them singly: none of the ten (`magic.py`, `tabling.py`,
+`engines.py` and the seven extensions) exceeds 500 lines, which a test asserts. It is not a
+claim about the repository, which is a dozen modules because it
+teaches a dozen things.
 
 There is no dead code to golf away (checked); shrinking further means
 deleting either a technique or an explanation.

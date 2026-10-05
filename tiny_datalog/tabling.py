@@ -52,10 +52,10 @@ import argparse
 import sys
 from collections import defaultdict
 
-from tiny_datalog.datalog import (
-    check_query_atom, Const, DatalogError, StratificationError, format_fact,
-    parse, parse_goal, read_program, stratify, validate, _aggregate_of,
-    _match, _sort_key)
+from tiny_datalog.core import (
+    check_query_atom, cli, Const, DatalogError, StratificationError,
+    format_fact, match, parse, parse_goal, read_program, sort_key, stratify,
+    validate, aggregate_of)
 
 
 class TabledEngine:
@@ -71,7 +71,7 @@ class TabledEngine:
         for c in clauses:
             if c.retract:
                 raise DatalogError("retraction is incremental.py's job: %s" % c)
-            if c.body and _aggregate_of(c.head):
+            if c.body and aggregate_of(c.head):
                 raise DatalogError(
                     "tabled aggregation is not implemented here — use "
                     "datalog.py: %s" % c)
@@ -140,7 +140,7 @@ class TabledEngine:
                 yield from self._prove(rest, subst)
             return
         for ans in list(table):         # a negation below may add to it
-            s = _match(lit.atom.args, ans, subst)
+            s = match(lit.atom.args, ans, subst)
             if s is not None:
                 yield from self._prove(rest, s)
 
@@ -149,22 +149,13 @@ class TabledEngine:
         head unification plus a tabled body proof."""
         pred, pattern = key
         for head, body in self.by_pred.get((pred, len(pattern)), ()):
-            # unify the head with the call pattern (bound args only)
-            seed = {}
-            ok = True
-            for a, v in zip(head.args, pattern):
-                if v is None:
-                    continue
-                if isinstance(a, Const):
-                    if a.value != v:
-                        ok = False
-                        break
-                elif a.name in seed and seed[a.name] != v:
-                    ok = False
-                    break
-                else:
-                    seed[a.name] = v
-            if not ok:
+            # unify the head with the call pattern: one-way matching,
+            # exactly as in a join, over the bound positions only (a
+            # free position, None, constrains nothing)
+            bound = [(a, v) for a, v in zip(head.args, pattern)
+                     if v is not None]
+            seed = match([a for a, _v in bound], [v for _a, v in bound], {})
+            if seed is None:
                 continue
             for s in self._prove(body, seed):
                 yield tuple(a.value if isinstance(a, Const) else s[a.name]
@@ -183,7 +174,7 @@ class TabledEngine:
         self.rounds = 0
         self._fixpoint()
         return {t for t in self.tables[root]
-                if _match(atom.args, t, {}) is not None}
+                if match(atom.args, t, {}) is not None}
 
     def _fixpoint(self, below=None):
         """Re-solve tables until none grows and no new subgoal appears.
@@ -217,6 +208,7 @@ class TabledEngine:
 # CLI
 # ---------------------------------------------------------------------------
 
+@cli
 def main(argv=None):
     ap = argparse.ArgumentParser(
         description="Tabled top-down (QSQR) evaluation of stratified "
@@ -229,20 +221,12 @@ def main(argv=None):
                          "magic predicates from datalog.py --magic!)")
     args = ap.parse_args(argv)
 
-    try:
-        engine = TabledEngine(parse(read_program(args.file)))
-    except DatalogError as exc:
-        print("error: %s" % exc, file=sys.stderr)
-        return 1
+    engine = TabledEngine(parse(read_program(args.file)))
     for q in args.query:
-        try:
-            atom = parse_goal(q)
-            answers = engine.query(atom)
-        except DatalogError as exc:
-            print("error: %s" % exc, file=sys.stderr)
-            return 1
+        atom = parse_goal(q)
+        answers = engine.query(atom)
         print("?- %s   [tabled]" % atom)
-        for tup in sorted(answers, key=_sort_key):
+        for tup in sorted(answers, key=sort_key):
             print("   " + format_fact(atom.pred, tup))
         print("   (%d answer%s; %d subgoal table%s, %d rounds)"
               % (len(answers), "" if len(answers) == 1 else "s",

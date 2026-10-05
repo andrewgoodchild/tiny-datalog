@@ -274,9 +274,9 @@ points to heap object) feed each other until the analysis stabilizes.
 
 **The database is a dict of sets of tuples.** No storage engine, no
 indexes: `rels["path"] == {("a","b"), ("a","c")}`. Matching an atom
-against a tuple (`_match`) is one-way unification: variables take values
-or must agree with earlier bindings. A rule body is evaluated by folding
-`_match` over its literals under one growing substitution, which is
+against a tuple (`match`, in `core.py`) is one-way unification:
+variables take values or must agree with earlier bindings. A rule body
+is evaluated by folding `match` over its literals under one growing substitution, which is
 exactly a relational join, done as nested loops.
 
 **Semi-naive is about twenty lines** (`Engine._eval_stratum`). Here it
@@ -310,7 +310,7 @@ is, so you do not have to open another window:
             for i in occs:
                 if not delta.get(rule.body[i].atom.pred):
                     continue
-                for tup in self._eval_rule(rule, delta_occ=i, delta=delta):
+                for tup in self.eval_rule(rule, delta_occ=i, delta=delta):
                     if tup not in self.rels[head]:
                         new_delta[head].add(tup)
         delta = new_delta

@@ -64,9 +64,10 @@ import time
 
 from collections import defaultdict
 
-from tiny_datalog.datalog import (
-    Atom, Const, DatalogError, Engine, Literal, parse, Program, read_program,
-    Rule, Struct, Var)
+from tiny_datalog.core import (
+    Atom, cli, Const, DatalogError, Literal, parse, read_program, Rule,
+    Struct, Var)
+from tiny_datalog.datalog import Engine, Program
 
 _RESERVED = {"subs", "link", "concept", "isa1", "isa2", "isa_some",
              "some_isa", "bot"}
@@ -199,10 +200,9 @@ class Ontology:
             raise DatalogError("not an EL concept expression: %s" % (expr,))
 
     def _sub_expr_atom(self, expr, b):
-        """expr ⊑ b, b atomic."""
-        if isinstance(expr, Const):
-            self.isa1.append((self._concept_name(expr), b))
-        elif isinstance(expr, Struct) and expr.functor == "and":
+        """expr ⊑ b, b atomic, expr compound (callers send an atomic
+        expr to _sub_atom_expr instead)."""
+        if isinstance(expr, Struct) and expr.functor == "and":
             atoms = [self._above(c) for c in self._conjuncts(expr)]
             # binarise a1 ⊓ a2 ⊓ a3 ⊑ b through fresh intermediates
             while len(atoms) > 2:
@@ -404,6 +404,7 @@ def load(text):
 # CLI
 # ---------------------------------------------------------------------------
 
+@cli
 def main(argv=None):
     ap = argparse.ArgumentParser(
         description="Classify an EL ontology by compiling subsumption "
@@ -420,21 +421,17 @@ def main(argv=None):
                          "tests hold the two equal)")
     args = ap.parse_args(argv)
 
-    try:
-        ont = load(read_program(args.file))
-        if args.emit:
-            sys.stdout.write(ont.emit())
-            return 0
-        t0 = time.perf_counter()
-        supers = ont.classify(fast=args.fast)
-        elapsed = time.perf_counter() - t0
-        print("(classified in %.3fs via %s)" % (
-            elapsed, "native saturation" if args.fast
-            else "the compiled Datalog program"))
-        direct = ont.direct_subsumers()
-    except DatalogError as exc:
-        print("error: %s" % exc, file=sys.stderr)
-        return 1
+    ont = load(read_program(args.file))
+    if args.emit:
+        sys.stdout.write(ont.emit())
+        return 0
+    t0 = time.perf_counter()
+    supers = ont.classify(fast=args.fast)
+    elapsed = time.perf_counter() - t0
+    print("(classified in %.3fs via %s)" % (
+        elapsed, "native saturation" if args.fast
+        else "the compiled Datalog program"))
+    direct = ont.direct_subsumers()
 
     if args.query:
         for c in args.query:

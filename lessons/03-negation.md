@@ -134,7 +134,8 @@ Lesson 5 separates the two cases.
 
 ## Under the hood: stratification is a graph problem
 
-**Stratification is a graph problem.** Build predicate dependency edges,
+**Stratification is a graph problem** (`stratify` in `core.py`, which
+every engine calls before it evaluates anything). Build predicate dependency edges,
 find strongly connected components (Tarjan's algorithm, iterative so
 Python's recursion limit never bites), and reject any negative edge
 inside a component — that *is* "negation in a recursive cycle", and the

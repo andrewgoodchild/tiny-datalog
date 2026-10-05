@@ -110,7 +110,9 @@ next lesson).
 ## Under the hood: terms, tokens, safety
 
 Each lesson ends by reading the piece of the implementation it used.
-This one used the parser and the safety check.
+This one used the parser and the safety check. Both live in
+`tiny_datalog/core.py`, the language that every engine and extension
+shares; the evaluator that ran the program is `tiny_datalog/datalog.py`.
 
 **Terms are frozen dataclasses.** `Var`, `Const`, `Struct`, `Atom`,
 `Literal`, `Rule` are all immutable and hashable. That one decision does
@@ -128,12 +130,6 @@ every variable under `not` must be bound by a positive body literal.
 This is what keeps every relation finite. The same function enforces the
 function-symbol ban: the Datalog boundary from Lesson 11 is four lines
 of `isinstance(a, Struct)`.
-
-**Safety is range restriction** (`validate`): every head variable and
-every variable under `not` must be bound by a positive body literal.
-This is what keeps every relation finite. The same function enforces
-the function-symbol ban: the Datalog boundary of Lesson 11 is four
-lines of `isinstance(a, Struct)`.
 
 ## Exercises
 

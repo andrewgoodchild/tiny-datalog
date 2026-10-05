@@ -5,9 +5,9 @@
 
 Each core case is checked twice over: once through datalog-conformance's own runner,
 which compares our semi-naive answers with what Souffle / Nemo / Crepe
-produced, and then the same program through naive evaluation, magic
-sets, and tabling, each of which must give
-the same answer.  An external corpus that agrees with one engine is a
+produced, and then the same program through every other engine in
+tiny_datalog.engines.ENGINES that handles it (naive evaluation, magic
+sets, tabling), each of which must give the same answer.  An external corpus that agrees with one engine is a
 conformance test; one that must also agree across four is a
 differential test as well.
 
@@ -32,9 +32,8 @@ from datalog_conformance.runner import YamlTestRunner  # noqa: E402
 from adapter import (  # noqa: E402
     TinyDatalogDefeasible, TinyDatalogEvaluator, theory_text)
 from tiny_datalog.defeasible import Theory  # noqa: E402
-from tiny_datalog.datalog import Atom, Engine, Var, match_answers  # noqa: E402
-from tiny_datalog.magic import magic_query  # noqa: E402
-from tiny_datalog.tabling import TabledEngine  # noqa: E402
+from tiny_datalog.core import Atom, Var  # noqa: E402
+from tiny_datalog.engines import ENGINES  # noqa: E402
 
 ARITHMETIC = ("arithmetic is the course's deliberate omission "
               "(lessons/14-arithmetic.md)")
@@ -108,29 +107,23 @@ def all_variable_query(pred, arity):
 
 
 def cross_check(evaluator, case):
-    """Naive, magic and tabled evaluation must match semi-naive."""
+    """Every engine that handles the program must match semi-naive."""
     program = evaluator.program(case.program)
-    reference = Engine(program)
-    reference.run()
-    naive = Engine(evaluator.program(case.program), naive=True)
-    naive.run()
     clauses = program.facts + program.rules
+    reference = ENGINES["seminaive"](clauses)
+    others = {name: engine(clauses) for name, engine in ENGINES.items()
+              if name != "seminaive" and engine.handles(clauses)}
     problems = []
     for pred in case.expect:
         ours = "p_" + pred
         arity = program.arity.get(ours)
         if arity is None:
             continue
-        want = reference.rels.get(ours, set())
-        if naive.rels.get(ours, set()) != want:
-            problems.append("naive disagrees on %s" % pred)
         query = all_variable_query(ours, arity)
-        _engine, magic = magic_query(clauses, query)
-        if set(magic) != set(match_answers(query, want)):
-            problems.append("magic sets disagree on %s" % pred)
-        tabled = TabledEngine(clauses).query(query)
-        if set(tabled) != set(match_answers(query, want)):
-            problems.append("tabling disagrees on %s" % pred)
+        want = reference.answers(query)
+        for name, engine in others.items():
+            if engine.answers(query) != want:
+                problems.append("%s disagrees on %s" % (name, pred))
     return problems
 
 

@@ -41,9 +41,10 @@ from __future__ import annotations
 import argparse
 import sys
 
-from tiny_datalog.datalog import (
-    Const, DatalogError, Program, format_atom, parse, read_program,
-    validate, _aggregate_of, _match, _sort_key)
+from tiny_datalog.core import (
+    cli, Const, DatalogError, format_atom, match, parse, parse_query_atom,
+    read_program, sort_key, validate, aggregate_of)
+from tiny_datalog.datalog import Program
 
 
 # ---------------------------------------------------------------------------
@@ -205,7 +206,7 @@ def _eval_rule(rule, rels, sr):
         new = []
         for s, v in pairs:
             for tup, val in rel.items():
-                m = _match(args, tup, s)
+                m = match(args, tup, s)
                 if m is not None:
                     new.append((m, sr.times(v, val)))
         pairs = new
@@ -239,7 +240,7 @@ class SemiringEngine:
                 # `q~.` is an update, not a fact; let the base engine's
                 # Program reject it with its own explanation
                 Program([r])
-            if _aggregate_of(r.head):
+            if aggregate_of(r.head):
                 raise DatalogError(
                     "semiring evaluation does not compose with head "
                     "aggregation (a semiring already IS the aggregation "
@@ -331,6 +332,7 @@ def _positive_int(text):
     return n
 
 
+@cli
 def main(argv=None):
     ap = argparse.ArgumentParser(
         description="Evaluate a positive Datalog program over a semiring.")
@@ -345,27 +347,18 @@ def main(argv=None):
                     help="Kleene round budget before giving up (default 200)")
     args = ap.parse_args(argv)
 
-    try:
-        engine = run_semiring(read_program(args.file),
-                              args.semiring, args.max_rounds)
-    except DatalogError as exc:
-        print("error: %s" % exc, file=sys.stderr)
-        return 1
+    engine = run_semiring(read_program(args.file),
+                          args.semiring, args.max_rounds)
 
     sr = engine.sr
     print("Semiring: %s   (fixpoint after %d rounds)" % (sr.name, engine.rounds))
     if args.query:
-        from tiny_datalog.datalog import _parse_query_atom
         for q in args.query:
-            try:
-                atom = _parse_query_atom(q, engine.arity)
-            except DatalogError as exc:
-                print("error: %s" % exc, file=sys.stderr)
-                return 1
+            atom = parse_query_atom(q, engine.arity)
             print("?- %s" % atom)
             hits = [(t, v) for t, v in engine.rels.get(atom.pred, {}).items()
-                    if _match(atom.args, t, {}) is not None]
-            for t, v in sorted(hits, key=lambda x: _sort_key(x[0])):
+                    if match(atom.args, t, {}) is not None]
+            for t, v in sorted(hits, key=lambda x: sort_key(x[0])):
                 print("   %s = %s" % (format_atom(atom.pred, t), sr.fmt(v)))
             print("   (%d answer%s)" % (len(hits), "" if len(hits) == 1 else "s"))
         return 0
@@ -373,7 +366,7 @@ def main(argv=None):
         d = engine.rels.get(pred, {})
         print("%% %s/%d — %d fact%s" % (pred, engine.arity[pred], len(d),
                                         "" if len(d) == 1 else "s"))
-        for tup in sorted(d, key=_sort_key):
+        for tup in sorted(d, key=sort_key):
             print("%s = %s" % (format_atom(pred, tup), sr.fmt(d[tup])))
         print()
     return 0
