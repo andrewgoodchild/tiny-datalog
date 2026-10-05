@@ -12,6 +12,7 @@ Shapes:
     tree N     complete binary tree, N nodes  (log-depth recursion)
     clique N   every ordered pair             (dense joins; keep N small!)
     grid N     N x N lattice, right/down      (many alternative paths)
+    queens N   the N-queens puzzle             (search; Lesson 15)
 
 Every program ships with the transitive-closure rules; add your own
 queries.  Suggested experiment (Lesson 2): plot rounds and tuples
@@ -63,15 +64,56 @@ def ontology(n):
     return lines
 
 
+def queens(n):
+    """Not edges: the N-queens puzzle inside the fence (Lesson 15).  No
+    arithmetic, so the board is facts: attacks(R1, D, R2) says queens D
+    columns apart in rows R1 and R2 attack each other.  Datalog has no
+    lists either, so the rules are unrolled per column, and each N is
+    its own program — which is the point Lesson 15 makes about it.
+
+        python3 benchmarks/generate.py queens 8 > programs/queens.dl
+    """
+    xs = ["X%d" % i for i in range(n)]
+    lines = ["%% generated: queens %d" % n,
+             "%% queensN(X0, ..., X%d): one queen per column, X%d its row."
+             % (n - 1, 0), ""]
+    lines += ["row(r%d)." % r for r in range(n)]
+    for d in range(1, n):
+        lines.append("dist(d%d)." % d)
+        lines += ["attacks(r%d, d%d, r%d)." % (a, d, b)
+                  for a in range(n) for b in range(n)
+                  if a == b or abs(a - b) == d]
+    lines += ["",
+              "% two queens D columns apart are compatible unless they attack",
+              "ok(R1, D, R2) :- row(R1), row(R2), dist(D), not attacks(R1, D, R2).",
+              "",
+              "% queensK: compatible queens in the first K columns",
+              "queens1(X0) :- row(X0)."]
+    for k in range(1, n):
+        lines.append("queens%d(%s) :- queens%d(%s), next%d(%s)." % (
+            k + 1, ", ".join(xs[:k + 1]), k, ", ".join(xs[:k]), k + 1,
+            ", ".join(xs[:k + 1])))
+    lines += ["",
+              "% nextK: the last queen is compatible with every earlier one",
+              "next2(X0, X1) :- queens1(X1), ok(X0, d1, X1)."]
+    for k in range(2, n):
+        lines.append("next%d(%s) :- next%d(%s), ok(X0, d%d, X%d)." % (
+            k + 1, ", ".join(xs[:k + 1]), k, ", ".join(xs[1:k + 1]), k, k))
+    return lines
+
+
 SHAPES = {"chain": chain, "tree": tree, "clique": clique, "grid": grid}
 
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("shape", choices=sorted(SHAPES) + ["ontology"])
+    ap.add_argument("shape", choices=sorted(SHAPES) + ["ontology", "queens"])
     ap.add_argument("n", type=int, help="size parameter")
     args = ap.parse_args(argv)
 
+    if args.shape == "queens":
+        print("\n".join(queens(args.n)))
+        return 0
     if args.shape == "ontology":
         print("%% generated: ontology %d" % args.n)
         for line in ontology(args.n):

@@ -93,7 +93,7 @@ Nothing to install:
 
 ```sh
 git clone https://github.com/andrewgoodchild/tiny-datalog && cd tiny-datalog
-python3 tests.py        # 246 tests, ~12s
+python3 tests.py        # 254 tests, ~12s
 ```
 
 ## Why the language choice decides what you can ask later
@@ -256,7 +256,9 @@ regression test without writing Python.
 
 Not an engine to build a product on. Joins are nested-loop,
 stable-model search is exhaustive, evaluation is batch. For real
-workloads see Soufflé, clingo, RDFox or Feldera.
+workloads see Soufflé, clingo, RDFox or Feldera; for Datalog inside a
+Python application, with arithmetic and queries over SQL databases,
+see [pyDatalog](https://pypi.org/project/pyDatalog/).
 
 Deliberate omissions, because saying why teaches more than lacking them
 quietly:
@@ -273,7 +275,7 @@ quietly:
   (disjointness and unsatisfiability detection included). SNOMED needs
   ELH (EL plus role hierarchies) with right identities, which is what
   the ELK and Snorocket reasoners implement and this does not.
-- **A REPL (interactive prompt) and packaging.** `git clone` and run.
+- **A REPL (interactive prompt).** Run a file, or call it from Python.
 
 Aggregation used to be on this list;
 [lesson 13](https://github.com/andrewgoodchild/tiny-datalog/blob/main/lessons/13-aggregation.md) is what promoting an omission
@@ -291,8 +293,27 @@ pip install tiny-datalog
 from tiny_datalog import run_program, explain
 
 engine = run_program(open("supply-chain.dl").read())
-for service, cve in sorted(engine.rels["exposed"]):
-    print("\n".join(explain(engine, "exposed", (service, cve))))
+for answer in engine.query("exposed(S, C)"):
+    print(answer)                     # {'S': 'pkg0', 'C': 'cve_2026_0001'}
+print("\n".join(explain(engine, "exposed", ("pkg0", "cve_2026_0001"))))
+```
+
+Facts can come straight from Python data (a CSV file, a database
+query) instead of program text. Each row is checked as if it had been
+parsed:
+
+```python
+rules = """
+uses(X, Y) :- depends(X, Y).
+uses(X, Z) :- depends(X, Y), uses(Y, Z).
+exposed(S, C) :- service(S), uses(S, L), vulnerable(L, C).
+"""
+engine = run_program(rules, facts={
+    "depends": [("app", "lib"), ("lib", "core")],
+    "service": ["app"],                         # one-column rows may be bare
+    "vulnerable": [("core", "cve_2026_0001")],
+})
+engine.query("exposed(S, C)")       # [{'S': 'app', 'C': 'cve_2026_0001'}]
 ```
 
 The command-line interface installs too, as `tiny-datalog` (and
@@ -332,7 +353,7 @@ cases/          golden test cases — add one without writing Python
 conformance/    the external datalog-conformance corpus (Soufflé, Nemo,
                 Crepe, SPINdle), run against every evaluation strategy
 benchmarks/     scaled input generators (chain/tree/clique/grid)
-tests.py        246 tests: every shipped program and exercise answer is
+tests.py        254 tests: every shipped program and exercise answer is
                 executed, a conformance suite runs every query through
                 every applicable strategy, and a seeded fuzzer checks
                 the same property on random programs

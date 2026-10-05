@@ -90,6 +90,18 @@ three-valued logic is the bill for mixing the two assumptions in a
 single relation. The labelled null is open-world absence done
 honestly, with identity instead of a shrug.
 
+If you want Datalog inside a Python application rather than in a
+course, the practical neighbour is **pyDatalog** (Pierre Carbonnelle,
+2012; maintained again since 2026). You write clauses with Python
+operators, query Python objects, and, through SQLAlchemy, query a
+dozen SQL dialects: Datalog as a query layer over the databases SQL
+already won. It evaluates top-down with tabling, Lesson 15's family,
+over stratified negation. And it has what this course leaves out on
+purpose: arithmetic, Python functions inside rules, and a long list of
+aggregates. That is Lesson 14's trade made the other way, and for a
+good reason: an application wants answers, and a course wants every
+program to terminate.
+
 ## The road the rules camp took: F-logic
 
 The description-logic line was not the frame tradition's only heir.

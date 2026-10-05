@@ -821,6 +821,27 @@ class Engine:
             groups[key].append(s[var.name])
         return groups
 
+    def query(self, goal):
+        """The answers to a query, one dict per answer, in sorted order:
+
+            engine.query("exposed(S, C)")
+            -> [{"S": "pkg0", "C": "cve_2026_0001"}, ...]
+
+        `goal` is query text or an Atom.  Anonymous variables are left
+        out of the answers; a query with no variables answers [{}] if it
+        holds and [] if it does not."""
+        atom = parse_goal(goal) if isinstance(goal, str) else goal
+        check_query_atom(atom, self.program.arity)
+        names = []
+        for a in atom.args:
+            if isinstance(a, Var) and not a.anonymous and a.name not in names:
+                names.append(a.name)
+        rows = {tuple(s[n] for n in names)
+                for s in (_match(atom.args, tup, {})
+                          for tup in self.rels.get(atom.pred, ()))
+                if s is not None}
+        return [dict(zip(names, row)) for row in sorted(rows, key=_sort_key)]
+
     @staticmethod
     def _instantiate(atom, subst):
         return tuple(a.value if isinstance(a, Const) else subst[a.name]
@@ -851,11 +872,48 @@ def _fold(func, values, rule):
     return agg
 
 
-def run_program(text):
-    """Parse, stratify, and evaluate a program; return the Engine."""
-    engine = Engine(Program(parse(text)))
+def run_program(text, facts=None):
+    """Parse, stratify, and evaluate a program; return the Engine.
+
+    `facts` adds base facts from Python data, so rows from a CSV file or
+    a database query can feed the rules without first being written out
+    as Datalog text:
+
+        run_program(rules, facts={"depends": [("pkg4", "pkg13")],
+                                  "service": ["pkg4"]})
+
+    Each row is a tuple of str, int or float (a bare value is a one-
+    column row), and every fact is checked exactly as if it had been
+    parsed: arity, groundness, and agreement with the rules."""
+    engine = Engine(Program(parse(text) + python_facts(facts or {})))
     engine.run()
     return engine
+
+
+_PREDICATE = re.compile(r"[a-z][A-Za-z0-9_]*\Z")
+
+
+def python_facts(facts):
+    """{predicate: rows} as fact clauses (see run_program)."""
+    clauses = []
+    for pred, rows in facts.items():
+        if not isinstance(pred, str) or not _PREDICATE.match(pred) \
+                or pred == "not":
+            raise DatalogError("%r cannot name a predicate: a predicate is "
+                               "a lowercase identifier" % (pred,))
+        for row in rows:
+            if not isinstance(row, (tuple, list)):
+                row = (row,)
+            for v in row:
+                # bool is an int in Python, and would print as a constant
+                # named True; nan and inf print as constants too
+                if (isinstance(v, bool) or not isinstance(v, (str, int, float))
+                        or (isinstance(v, float) and not math.isfinite(v))):
+                    raise DatalogError(
+                        "fact %s%r: values must be str, int or finite float, "
+                        "not %r" % (pred, tuple(row), v))
+            clauses.append(Rule(Atom(pred, tuple(Const(v) for v in row)), ()))
+    return clauses
 
 
 # ---------------------------------------------------------------------------

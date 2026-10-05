@@ -406,6 +406,13 @@ flow through a rule body, determining the adornments magic sets
 generates. Here it is simply left to right, matching the evaluator.
 *(Lesson 7)*
 
+**SLG resolution.** Tabling for programs with negation through
+recursion (Chen & Warren 1996; XSB Prolog). It suspends and resumes
+calls instead of re-running them, detects when a group of tables is
+complete, and *delays* negative literals it cannot yet decide.
+Answers whose delays never resolve come out *undefined*: the
+**well-founded semantics**, computed top-down. *(Lesson 15)*
+
 **SLD resolution.** The top-down proof procedure of Prolog: unify the
 goal with a rule head, then prove the body. Tuple-at-a-time, and
 vulnerable to left recursion. **SLG** adds tabling. *(Lessons 11, 15)*

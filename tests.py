@@ -970,9 +970,37 @@ class TablingTests(unittest.TestCase):
         # only subgoals reachable from n5 — never n1..n4 or the n9 branch
         self.assertEqual(path_tables, {"n5", "n6", "n7", "n8"})
 
-    def test_rejects_negation(self):
-        with self.assertRaises(DatalogError):
-            TabledEngine(parse(load("tweety.dl")))
+    @staticmethod
+    def queens(n):
+        return subprocess.run(
+            [sys.executable, os.path.join(HERE, "benchmarks", "generate.py"),
+             "queens", str(n)], capture_output=True, text=True,
+            check=True).stdout
+
+    def test_queens_counts_agree_across_strategies(self):
+        # lesson 15: the known solution counts, three evaluators
+        for n, count in ((2, 0), (3, 0), (4, 2), (5, 10), (6, 4)):
+            with self.subTest(n=n):
+                text = self.queens(n)
+                q = query_atom("queens%d(%s)" % (
+                    n, ", ".join("X%d" % i for i in range(n))))
+                tabled = TabledEngine(parse(text)).query(q)
+                self.assertEqual(len(tabled), count)
+                self.assertEqual(magic_query(parse(text), q)[1], tabled)
+                self.assertEqual(set(run_program(text).rels.get(
+                    q.pred, ())), tabled)
+
+    def test_shipped_queens_program_is_the_generators(self):
+        self.assertEqual(load("queens.dl"), self.queens(8))
+        engine = TabledEngine(parse(load("queens.dl")))
+        answers = engine.query(query_atom(
+            "queens8(r0, X1, X2, X3, X4, X5, X6, X7)"))
+        self.assertEqual(len(answers), 4)
+        self.assertEqual(len(engine.tables), 1220)   # as lesson 15 quotes
+
+    def test_stratified_negation(self):
+        engine = TabledEngine(parse(load("tweety.dl")))
+        self.assertEqual(engine.query(query_atom("flies(X)")), {("tweety",)})
 
 
 class ConformanceTests(unittest.TestCase):
@@ -984,7 +1012,7 @@ class ConformanceTests(unittest.TestCase):
         ("reachability", load("reachability.dl"), "path(n5, X)"),
         ("same-generation", load("same-generation.dl"), "sg(cal, Y)"),
         ("even-odd", load("even-odd.dl"), "even(n1, X)"),
-        ("tweety", load("tweety.dl"), "flies(X)"),   # negation: no tabling
+        ("tweety", load("tweety.dl"), "flies(X)"),   # stratified negation
     ]
 
     def test_all_strategies_agree(self):
@@ -1002,10 +1030,9 @@ class ConformanceTests(unittest.TestCase):
             with self.subTest(case=name, engine="magic"):
                 _e, answers = magic_query(clauses, atom)
                 self.assertEqual(answers, reference)
-            if not any(l.negated for c in clauses for l in c.body):
-                with self.subTest(case=name, engine="tabled"):
-                    self.assertEqual(
-                        TabledEngine(parse(text)).query(atom), reference)
+            with self.subTest(case=name, engine="tabled"):
+                self.assertEqual(
+                    TabledEngine(parse(text)).query(atom), reference)
 
 
 class ContainmentTests(unittest.TestCase):
@@ -1183,9 +1210,8 @@ class DifferentialFuzzTests(unittest.TestCase):
                 _m, magic_answers = magic_query(parse(text), atom)
                 self.assertEqual(magic_answers, ref_answers)
 
-                if not negation:
-                    self.assertEqual(
-                        TabledEngine(parse(text)).query(atom), ref_answers)
+                self.assertEqual(
+                    TabledEngine(parse(text)).query(atom), ref_answers)
 
     def test_incremental_matches_recompute_under_random_updates(self):
         rng = random.Random(20260824)
@@ -1941,12 +1967,24 @@ class SatelliteRefusalTests(unittest.TestCase):
     boundary.  Refusing at the boundary is correct; refusing without
     saying which boundary was hit is not."""
 
-    def test_tabling_refuses_negation_and_says_what_would_be_needed(self):
-        with self.assertRaises(DatalogError) as cm:
-            TabledEngine(parse("p(a). q(X) :- p(X), not r(X)."))
+    def test_tabling_refuses_unstratified_negation_and_names_slg(self):
+        with self.assertRaises(StratificationError) as cm:
+            TabledEngine(parse("p(a). q(X) :- p(X), not r(X). "
+                               "r(X) :- p(X), not q(X)."))
         msg = str(cm.exception)
         self.assertIn("SLG", msg)
         self.assertIn("well-founded", msg)
+        self.assertTrue(cm.exception.cycle)
+
+    def test_tabling_completes_a_lower_stratum_before_negating(self):
+        # not reach(X) may only read a finished table: reach is
+        # recursive, so a half-grown table would wrongly admit c
+        text = ("e(a, b). e(b, c). node(a). node(b). node(c). node(d). "
+                "reach(a). reach(Y) :- reach(X), e(X, Y). "
+                "unreached(X) :- node(X), not reach(X).")
+        engine = TabledEngine(parse(text))
+        self.assertEqual(engine.query(query_atom("unreached(X)")), {("d",)})
+        self.assertIn(("reach", ("c",)), engine.complete)
 
     def test_tabling_refuses_aggregation(self):
         with self.assertRaises(DatalogError) as cm:
@@ -2345,6 +2383,65 @@ class DefeasibleTests(unittest.TestCase):
             for pred in ("p", "q"):
                 self.assertEqual({a for p, a in got if p == pred},
                                  set(want.get(pred, ())), dfl)
+
+
+class LibraryAPITests(unittest.TestCase):
+    """Calling the engine from Python: Engine.query answers as dicts,
+    and run_program(facts=...) feeds rows in without Datalog text."""
+
+    RULES = ("uses(X, Y) :- depends(X, Y).\n"
+             "uses(X, Z) :- depends(X, Y), uses(Y, Z).\n"
+             "exposed(S, C) :- service(S), uses(S, L), vulnerable(L, C).\n")
+
+    def test_query_answers_are_dicts_in_sorted_order(self):
+        e = run_program(load("supply-chain.dl"))
+        answers = e.query("exposed(S, C)")
+        self.assertEqual(answers[0], {"S": "pkg0", "C": "cve_2026_0001"})
+        self.assertEqual(len(answers), 4)
+        self.assertEqual(answers, sorted(answers, key=lambda a: a["S"]))
+
+    def test_query_constants_repeats_and_anonymous_variables(self):
+        e = run_program("e(a, b). e(b, b). e(c, d).")
+        self.assertEqual(e.query("e(X, X)"), [{"X": "b"}])
+        self.assertEqual(e.query("e(a, Y)"), [{"Y": "b"}])
+        self.assertEqual(e.query("e(X, _)"),
+                         [{"X": "a"}, {"X": "b"}, {"X": "c"}])
+        self.assertEqual(e.query("e(a, b)"), [{}])        # ground: holds
+        self.assertEqual(e.query("e(a, d)"), [])          # ground: does not
+        self.assertEqual(e.query("nothing(X)"), [])       # unknown: no answers
+        self.assertEqual(e.query(parse_goal("e(c, Y)")), [{"Y": "d"}])
+        with self.assertRaises(DatalogError):
+            e.query("e(X)")                               # wrong arity
+
+    def test_facts_from_python_data(self):
+        e = run_program(self.RULES, facts={
+            "depends": [("app", "lib"), ["lib", "core"]],
+            "service": ["app"],                           # bare one-column rows
+            "vulnerable": {("core", "cve_1"), ("core", 2)}})
+        self.assertEqual(e.query("exposed(S, C)"),
+                         [{"S": "app", "C": 2}, {"S": "app", "C": "cve_1"}])
+        # they are base facts like any other: explain says so
+        self.assertIn("(base fact)",
+                      "\n".join(explain(e, "depends", ("app", "lib"))))
+
+    def test_python_facts_meet_text_facts(self):
+        e = run_program(self.RULES + "service(app). depends(lib, core).",
+                        facts={"depends": [("app", "lib")],
+                               "vulnerable": [("core", "cve_1")]})
+        self.assertEqual(e.query("exposed(app, C)"), [{"C": "cve_1"}])
+
+    def test_bad_python_facts_are_refused(self):
+        for facts, says in (
+                ({"depends": [("a",)]}, "arity"),          # rules say 2
+                ({"Depends": [("a", "b")]}, "predicate"),
+                ({"not": [("a",)]}, "predicate"),
+                ({"service": [(True,)]}, "True"),
+                ({"service": [(None,)]}, "None"),
+                ({"service": [(float("nan"),)]}, "nan")):
+            with self.subTest(facts=facts):
+                with self.assertRaises(DatalogError) as cm:
+                    run_program(self.RULES, facts=facts)
+                self.assertIn(says, str(cm.exception))
 
 
 class CoreReviewFixTests(unittest.TestCase):

@@ -6,7 +6,7 @@
 Each core case is checked twice over: once through datalog-conformance's own runner,
 which compares our semi-naive answers with what Souffle / Nemo / Crepe
 produced, and then the same program through naive evaluation, magic
-sets, and -- for positive programs -- tabling, each of which must give
+sets, and tabling, each of which must give
 the same answer.  An external corpus that agrees with one engine is a
 conformance test; one that must also agree across four is a
 differential test as well.
@@ -114,7 +114,6 @@ def cross_check(evaluator, case):
     reference.run()
     naive = Engine(evaluator.program(case.program), naive=True)
     naive.run()
-    positive = not any(l.negated for r in program.rules for l in r.body)
     clauses = program.facts + program.rules
     problems = []
     for pred in case.expect:
@@ -129,10 +128,9 @@ def cross_check(evaluator, case):
         _engine, magic = magic_query(clauses, query)
         if set(magic) != set(match_answers(query, want)):
             problems.append("magic sets disagree on %s" % pred)
-        if positive:
-            tabled = TabledEngine(clauses).query(query)
-            if set(tabled) != set(match_answers(query, want)):
-                problems.append("tabling disagrees on %s" % pred)
+        tabled = TabledEngine(clauses).query(query)
+        if set(tabled) != set(match_answers(query, want)):
+            problems.append("tabling disagrees on %s" % pred)
     return problems
 
 

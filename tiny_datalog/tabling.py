@@ -30,9 +30,15 @@ the magic predicates' contents.  They are the same sets — magic sets is
 tabling performed at compile time, tabling is magic sets performed at
 run time.
 
-Positive programs only (tabling under negation is SLG resolution, which
-computes the well-founded semantics — XSB's whole claim to fame — and
-is beyond this teaching module).
+Negation is supported when the program is stratified, which is the
+simplification pyDatalog also makes.  A negated subgoal `not q(a)`
+belongs to a lower stratum, so q's tables can be *completed* first —
+grown to fixpoint on their own, since nothing in them depends on the
+rule asking — and then looked up.  Negation through recursion needs
+full SLG resolution (Chen & Warren 1996), which suspends calls instead
+of re-running them, detects when a group of tables is complete, and
+*delays* negative literals it cannot yet decide; it computes the
+well-founded semantics, and Lesson 15 says why it is not here.
 
 CLI
 ---
@@ -47,12 +53,14 @@ import sys
 from collections import defaultdict
 
 from tiny_datalog.datalog import (
-    check_query_atom, Const, DatalogError, format_fact, parse, parse_goal,
-    read_program, validate, _aggregate_of, _match, _sort_key)
+    check_query_atom, Const, DatalogError, StratificationError, format_fact,
+    parse, parse_goal, read_program, stratify, validate, _aggregate_of,
+    _match, _sort_key)
 
 
 class TabledEngine:
-    """Iterative QSQR: tables keyed by call pattern, filled to fixpoint.
+    """Iterative QSQR: tables keyed by call pattern, filled to fixpoint;
+    a negated subgoal's tables are completed first, one stratum down.
 
     After query(), `tables` maps (pred, pattern) — pattern has a constant
     per bound argument and None per free one — to the set of full answer
@@ -65,18 +73,27 @@ class TabledEngine:
                 raise DatalogError("retraction is incremental.py's job: %s" % c)
             if c.body and _aggregate_of(c.head):
                 raise DatalogError(
-                    "tabled aggregation needs completion detection (real "
-                    "SLG); this module is positive-rules-only: %s" % c)
-            for lit in c.body:
-                if lit.negated:
-                    raise DatalogError(
-                        "tabling under negation is SLG resolution (the "
-                        "well-founded semantics, XSB) — beyond this "
-                        "module: %s" % c)
+                    "tabled aggregation is not implemented here — use "
+                    "datalog.py: %s" % c)
+        try:
+            self.strata = stratify(clauses)
+        except StratificationError as exc:
+            raise StratificationError(
+                "%s.  Tabling under unstratified negation is full SLG "
+                "resolution, which computes the well-founded semantics "
+                "(Lesson 15); datalog.py --models computes it bottom-up."
+                % str(exc).rstrip("."), exc.cycle) from exc
         self.by_pred = defaultdict(list)   # (pred, arity) -> clauses
         for c in clauses:
-            self.by_pred[(c.head.pred, len(c.head.args))].append(c)
+            # positive literals first: they bind; negations then test
+            # ground atoms (safety guarantees they are ground by then)
+            body = tuple(sorted(c.body, key=lambda lit: lit.negated))
+            self.by_pred[(c.head.pred, len(c.head.args))].append(
+                (c.head, body))
         self.tables = {}
+        self.complete = set()   # tables known to hold every answer
+        self.open = {}          # ...and the rest, in creation order (a
+                                # dict: a set's order would vary per run)
         self.rounds = 0
 
     # -- call patterns ------------------------------------------------------
@@ -98,8 +115,8 @@ class TabledEngine:
     def _table(self, pred, pattern):
         key = (pred, pattern)
         if key not in self.tables:
-            self.tables[key] = set()   # discovered a new subgoal
-            self._grew = True          # ...which the fixpoint must revisit
+            self.tables[key] = set()   # discovered a new subgoal, which
+            self.open[key] = None      # the fixpoint will now revisit
         return self.tables[key]
 
     # -- one round of top-down solving --------------------------------------
@@ -112,8 +129,17 @@ class TabledEngine:
             yield subst
             return
         lit, rest = body[0], body[1:]
-        table = self._table(lit.atom.pred, self._pattern(lit.atom, subst))
-        for ans in table:
+        key = (lit.atom.pred, self._pattern(lit.atom, subst))
+        table = self._table(*key)
+        if lit.negated:
+            # `not q(a)` may only read a finished table.  q sits in a
+            # lower stratum, so finishing it cannot need this rule.
+            if key not in self.complete:
+                self._fixpoint(below=self.strata.get(lit.atom.pred, 0))
+            if key[1] not in table:     # the pattern is the ground atom
+                yield from self._prove(rest, subst)
+            return
+        for ans in list(table):         # a negation below may add to it
             s = _match(lit.atom.args, ans, subst)
             if s is not None:
                 yield from self._prove(rest, s)
@@ -122,11 +148,11 @@ class TabledEngine:
         """Re-derive a subgoal's answers from its clauses, one step of
         head unification plus a tabled body proof."""
         pred, pattern = key
-        for clause in self.by_pred.get((pred, len(pattern)), ()):
+        for head, body in self.by_pred.get((pred, len(pattern)), ()):
             # unify the head with the call pattern (bound args only)
             seed = {}
             ok = True
-            for a, v in zip(clause.head.args, pattern):
+            for a, v in zip(head.args, pattern):
                 if v is None:
                     continue
                 if isinstance(a, Const):
@@ -140,9 +166,9 @@ class TabledEngine:
                     seed[a.name] = v
             if not ok:
                 continue
-            for s in self._prove(list(clause.body), seed):
+            for s in self._prove(body, seed):
                 yield tuple(a.value if isinstance(a, Const) else s[a.name]
-                            for a in clause.head.args)
+                            for a in head.args)
 
     # -- the fixpoint --------------------------------------------------------
 
@@ -152,21 +178,39 @@ class TabledEngine:
         check_query_atom(atom, self.arity)
         root = (atom.pred, self._pattern(atom, {}))
         self.tables = {root: set()}
+        self.complete = set()
+        self.open = {root: None}
         self.rounds = 0
+        self._fixpoint()
+        return {t for t in self.tables[root]
+                if _match(atom.args, t, {}) is not None}
+
+    def _fixpoint(self, below=None):
+        """Re-solve tables until none grows and no new subgoal appears.
+        With `below`, only the tables of strata up to that one — the
+        nested fixpoint a negation runs to complete what it reads; they
+        are then marked complete.  Without, every table: the query's
+        own fixpoint, whose rounds are the ones counted."""
         changed = True
         while changed:
+            known = len(self.tables)
             changed = False
-            self._grew = False
-            self.rounds += 1
-            for key in list(self.tables):
+            if below is None:
+                self.rounds += 1
+            for key in list(self.open):       # complete tables cannot grow
+                if below is not None and self.strata.get(key[0], 0) > below:
+                    continue
                 table = self.tables[key]
                 for ans in list(self._answers_for(key)):
                     if ans not in table:
                         table.add(ans)
                         changed = True
-            changed = changed or self._grew
-        return {t for t in self.tables[root]
-                if _match(atom.args, t, {}) is not None}
+            changed = changed or len(self.tables) != known
+        done = {k for k in self.open
+                if below is None or self.strata.get(k[0], 0) <= below}
+        self.complete |= done
+        for k in done:
+            del self.open[k]
 
 
 # ---------------------------------------------------------------------------
@@ -175,9 +219,9 @@ class TabledEngine:
 
 def main(argv=None):
     ap = argparse.ArgumentParser(
-        description="Tabled top-down (QSQR) evaluation of positive "
+        description="Tabled top-down (QSQR) evaluation of stratified "
                     "Datalog — handles left recursion SLD cannot.")
-    ap.add_argument("file", help="Datalog program (.dl), positive rules only")
+    ap.add_argument("file", help="Datalog program (.dl), stratified")
     ap.add_argument("-q", "--query", action="append", default=[],
                     metavar="ATOM", help="goal to solve (repeatable)")
     ap.add_argument("-t", "--tables", action="store_true",

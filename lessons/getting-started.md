@@ -6,7 +6,7 @@ beyond Python 3.9+.
 ```sh
 git clone https://github.com/andrewgoodchild/tiny-datalog
 cd tiny-datalog
-python3 tests.py                     # 246 tests, should all pass
+python3 tests.py                     # 254 tests, should all pass
 python3 datalog.py programs/reachability.dl
 ```
 
@@ -84,6 +84,11 @@ from tiny_datalog.magic import magic_query
 
 engine = run_program(open("family.dl").read())
 print(engine.rels["ancestor"])           # set of tuples
+print(engine.query("ancestor(bob, X)"))  # [{'X': ...}, ...], one dict per answer
+
+# facts from Python data instead of text: {predicate: rows}
+engine = run_program(open("family.dl").read(),
+                     facts={"parent": [("dan", "eve")]})
 
 query = parse("ancestor(bob, X).")[0].head
 _, answers = magic_query(parse(open("family.dl").read()), query)
@@ -116,6 +121,7 @@ and the lesson that builds the machinery:
 | The data changed — what changed in the answers? | `python3 incremental.py programs/dred-graph.dl -u 'edge(n3, n4)~.'` | [10](10-incremental.md) |
 | How many, how much, largest? | `python3 datalog.py programs/spending.dl` | [13](13-aggregation.md) |
 | Answer a goal top-down, even left-recursive | `python3 tabling.py programs/left-recursive.dl -q 'ancestor(abe, X)'` | [15](15-tabling.md) |
+| Search a finite space — where can eight queens go? | `python3 tabling.py programs/queens.dl -q 'queens8(r0, X1, X2, X3, X4, X5, X6, X7)'` | [15](15-tabling.md) |
 | What if I allow function symbols, and lose termination? | `python3 prolog.py programs/peano.pl -q 'add(X, Y, s(s(zero)))'` | [11](11-horn-clauses.md) |
 | What do these definitions entail about each other? | `python3 subsumption.py programs/family-ontology.dl` | [12](12-kl-one-subsumption.md) |
 | Are these two queries the same query? | `python3 containment.py programs/minimise.dl` | [16](16-containment.md) |

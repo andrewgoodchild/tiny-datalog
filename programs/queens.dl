@@ -1,0 +1,152 @@
+% generated: queens 8
+% queensN(X0, ..., X7): one queen per column, X0 its row.
+
+row(r0).
+row(r1).
+row(r2).
+row(r3).
+row(r4).
+row(r5).
+row(r6).
+row(r7).
+dist(d1).
+attacks(r0, d1, r0).
+attacks(r0, d1, r1).
+attacks(r1, d1, r0).
+attacks(r1, d1, r1).
+attacks(r1, d1, r2).
+attacks(r2, d1, r1).
+attacks(r2, d1, r2).
+attacks(r2, d1, r3).
+attacks(r3, d1, r2).
+attacks(r3, d1, r3).
+attacks(r3, d1, r4).
+attacks(r4, d1, r3).
+attacks(r4, d1, r4).
+attacks(r4, d1, r5).
+attacks(r5, d1, r4).
+attacks(r5, d1, r5).
+attacks(r5, d1, r6).
+attacks(r6, d1, r5).
+attacks(r6, d1, r6).
+attacks(r6, d1, r7).
+attacks(r7, d1, r6).
+attacks(r7, d1, r7).
+dist(d2).
+attacks(r0, d2, r0).
+attacks(r0, d2, r2).
+attacks(r1, d2, r1).
+attacks(r1, d2, r3).
+attacks(r2, d2, r0).
+attacks(r2, d2, r2).
+attacks(r2, d2, r4).
+attacks(r3, d2, r1).
+attacks(r3, d2, r3).
+attacks(r3, d2, r5).
+attacks(r4, d2, r2).
+attacks(r4, d2, r4).
+attacks(r4, d2, r6).
+attacks(r5, d2, r3).
+attacks(r5, d2, r5).
+attacks(r5, d2, r7).
+attacks(r6, d2, r4).
+attacks(r6, d2, r6).
+attacks(r7, d2, r5).
+attacks(r7, d2, r7).
+dist(d3).
+attacks(r0, d3, r0).
+attacks(r0, d3, r3).
+attacks(r1, d3, r1).
+attacks(r1, d3, r4).
+attacks(r2, d3, r2).
+attacks(r2, d3, r5).
+attacks(r3, d3, r0).
+attacks(r3, d3, r3).
+attacks(r3, d3, r6).
+attacks(r4, d3, r1).
+attacks(r4, d3, r4).
+attacks(r4, d3, r7).
+attacks(r5, d3, r2).
+attacks(r5, d3, r5).
+attacks(r6, d3, r3).
+attacks(r6, d3, r6).
+attacks(r7, d3, r4).
+attacks(r7, d3, r7).
+dist(d4).
+attacks(r0, d4, r0).
+attacks(r0, d4, r4).
+attacks(r1, d4, r1).
+attacks(r1, d4, r5).
+attacks(r2, d4, r2).
+attacks(r2, d4, r6).
+attacks(r3, d4, r3).
+attacks(r3, d4, r7).
+attacks(r4, d4, r0).
+attacks(r4, d4, r4).
+attacks(r5, d4, r1).
+attacks(r5, d4, r5).
+attacks(r6, d4, r2).
+attacks(r6, d4, r6).
+attacks(r7, d4, r3).
+attacks(r7, d4, r7).
+dist(d5).
+attacks(r0, d5, r0).
+attacks(r0, d5, r5).
+attacks(r1, d5, r1).
+attacks(r1, d5, r6).
+attacks(r2, d5, r2).
+attacks(r2, d5, r7).
+attacks(r3, d5, r3).
+attacks(r4, d5, r4).
+attacks(r5, d5, r0).
+attacks(r5, d5, r5).
+attacks(r6, d5, r1).
+attacks(r6, d5, r6).
+attacks(r7, d5, r2).
+attacks(r7, d5, r7).
+dist(d6).
+attacks(r0, d6, r0).
+attacks(r0, d6, r6).
+attacks(r1, d6, r1).
+attacks(r1, d6, r7).
+attacks(r2, d6, r2).
+attacks(r3, d6, r3).
+attacks(r4, d6, r4).
+attacks(r5, d6, r5).
+attacks(r6, d6, r0).
+attacks(r6, d6, r6).
+attacks(r7, d6, r1).
+attacks(r7, d6, r7).
+dist(d7).
+attacks(r0, d7, r0).
+attacks(r0, d7, r7).
+attacks(r1, d7, r1).
+attacks(r2, d7, r2).
+attacks(r3, d7, r3).
+attacks(r4, d7, r4).
+attacks(r5, d7, r5).
+attacks(r6, d7, r6).
+attacks(r7, d7, r0).
+attacks(r7, d7, r7).
+
+% two queens D columns apart are compatible unless they attack
+ok(R1, D, R2) :- row(R1), row(R2), dist(D), not attacks(R1, D, R2).
+
+% queensK: compatible queens in the first K columns
+queens1(X0) :- row(X0).
+queens2(X0, X1) :- queens1(X0), next2(X0, X1).
+queens3(X0, X1, X2) :- queens2(X0, X1), next3(X0, X1, X2).
+queens4(X0, X1, X2, X3) :- queens3(X0, X1, X2), next4(X0, X1, X2, X3).
+queens5(X0, X1, X2, X3, X4) :- queens4(X0, X1, X2, X3), next5(X0, X1, X2, X3, X4).
+queens6(X0, X1, X2, X3, X4, X5) :- queens5(X0, X1, X2, X3, X4), next6(X0, X1, X2, X3, X4, X5).
+queens7(X0, X1, X2, X3, X4, X5, X6) :- queens6(X0, X1, X2, X3, X4, X5), next7(X0, X1, X2, X3, X4, X5, X6).
+queens8(X0, X1, X2, X3, X4, X5, X6, X7) :- queens7(X0, X1, X2, X3, X4, X5, X6), next8(X0, X1, X2, X3, X4, X5, X6, X7).
+
+% nextK: the last queen is compatible with every earlier one
+next2(X0, X1) :- queens1(X1), ok(X0, d1, X1).
+next3(X0, X1, X2) :- next2(X1, X2), ok(X0, d2, X2).
+next4(X0, X1, X2, X3) :- next3(X1, X2, X3), ok(X0, d3, X3).
+next5(X0, X1, X2, X3, X4) :- next4(X1, X2, X3, X4), ok(X0, d4, X4).
+next6(X0, X1, X2, X3, X4, X5) :- next5(X1, X2, X3, X4, X5), ok(X0, d5, X5).
+next7(X0, X1, X2, X3, X4, X5, X6) :- next6(X1, X2, X3, X4, X5, X6), ok(X0, d6, X6).
+next8(X0, X1, X2, X3, X4, X5, X6, X7) :- next7(X1, X2, X3, X4, X5, X6, X7), ok(X0, d7, X7).

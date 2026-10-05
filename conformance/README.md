@@ -13,8 +13,8 @@ python3 conformance/run.py
 
 Every core case runs twice over. First datalog-conformance's own
 runner compares our semi-naive answers with the source engine's. Then
-the same program goes through naive evaluation, magic sets and (for
-positive programs) tabling, and each must agree. One external program
+the same program goes through naive evaluation, magic sets and
+tabling, and each must agree. One external program
 thus tests four engines against each other as well as against the
 outside world.
 

@@ -118,6 +118,18 @@ be defended.
 - Constrained Horn clauses as the verification interface: the CHC-COMP
   competition and Z3's Spacer engine; descriptive.
 
+## Lesson 15 — tabling
+
+- H. Tamaki and T. Sato, *OLD Resolution with Tabulation*, ICLP 1986 —
+  tabling for positive programs.
+- L. Vieille, *Recursive Axioms in Deductive Databases: The
+  Query/Subquery Approach*, Expert Database Systems 1986 — QSQ, the
+  family `tabling.py`'s iterative QSQR belongs to.
+- W. Chen and D. S. Warren, *Tabled Evaluation with Delaying for
+  General Logic Programs*, JACM 43(1), 1996 — SLG resolution: suspend,
+  complete, delay; the well-founded semantics top-down. XSB Prolog is
+  its implementation.
+
 ## Lesson 16 — containment and views
 
 - A. Chandra and P. Merlin, *Optimal Implementation of Conjunctive
@@ -172,6 +184,8 @@ be defended.
 - D. Spivak, *Functorial Data Migration*, Information and
   Computation 2012; with R. Wisnesky, the CQL line of work;
   descriptive.
+- P. Carbonnelle, *pyDatalog* (software, LGPL), 2012–;
+  https://pydatalog.readthedocs.io — descriptive.
 
 ## Elsewhere
 
