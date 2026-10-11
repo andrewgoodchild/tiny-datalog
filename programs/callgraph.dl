@@ -1,0 +1,41 @@
+% Points-to analysis and the call graph, computed together (lesson 21).
+% The analysed program, in Java-ish:
+%
+%   class Dog { Object speak() { return new Bone(); } }      // h3
+%   class Cat { Object speak() { return new Yarn(); } }      // h4
+%   class Robot { Object speak() { return new Gear(); } }    // h5, never built
+%
+%   main() {
+%     a = new Dog();          // h1
+%     b = new Cat();          // h2
+%     c = a;
+%     x = c.speak();          // site s1: which speak?
+%     y = b.speak();          // site s2
+%   }
+%
+%   python3 datalog.py -q 'calls(S, M)' -q 'calls_cha(S, M)' programs/callgraph.dl
+
+% --- the extracted facts: what a front end would emit ------------------
+alloc(a, h1).        heap_type(h1, dog).
+alloc(b, h2).        heap_type(h2, cat).
+alloc(r_dog, h3).    alloc(r_cat, h4).    alloc(r_robot, h5).
+assign(c, a).
+vcall(s1, c, speak, x).            % site, receiver, method name, result
+vcall(s2, b, speak, y).
+method(dog, speak, dog_speak).     returns(dog_speak, r_dog).
+method(cat, speak, cat_speak).     returns(cat_speak, r_cat).
+method(robot, speak, robot_speak). returns(robot_speak, r_robot).
+
+% --- the analysis ---------------------------------------------------------
+pt(V, H) :- alloc(V, H).
+pt(V, H) :- assign(V, W), pt(W, H).
+
+% virtual dispatch: resolve a call by what the receiver may point to...
+calls(S, M) :- vcall(S, Recv, Name, _), pt(Recv, H),
+               heap_type(H, T), method(T, Name, M).
+% ...and the call's result points to what the callee returns
+pt(V, H) :- vcall(S, _, _, V), calls(S, M), returns(M, R), pt(R, H).
+
+% --- the cheap alternative: class hierarchy analysis ---------------------
+% "any method with that name might run" -- no points-to needed
+calls_cha(S, M) :- vcall(S, _, Name, _), method(_, Name, M).

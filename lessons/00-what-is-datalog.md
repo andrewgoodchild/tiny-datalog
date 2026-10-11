@@ -174,6 +174,7 @@ much larger territory than the one science fiction warned us about.
 | 1977 | conjunctive-query containment (Chandra–Merlin) | Lesson 16 · `containment.py` |
 | 1977–1985 | facts, rules, joins, recursion, semi-naive | Lessons 1–2 · `datalog.py` |
 | 1978 → today | KL-ONE → description logics → OWL / SNOMED CT | Lesson 12 · `subsumption.py` |
+| 1979 → today | the chase; RDFS and OWL 2 RL; existential rules (Datalog±) | Lesson 22 · `chase.py` |
 | 1986 | magic sets | Lesson 7 · `magic.py` |
 | 1988–1991 | stratification; stable models; well-founded | Lessons 3 & 5 · `semantics.py` |
 | 1990s → today | recursive aggregation; SLG tabling, the resolution strategy XSB implements | Lessons 13 & 15 · `tabling.py` |
@@ -184,10 +185,113 @@ much larger territory than the one science fiction warned us about.
 | the practice | authoring rules others must review | Lesson 17 |
 | 1994 → today | defeasible logic: exceptions and priorities as rules | Lesson 18 · `defeasible.py` |
 | the neighbours | SQL, F-logic, Haskell, and the road not taken | Lesson 19 |
+| 2002 → today | authorization as rules: Binder, SecPAL, Zanzibar, Biscuit | Lesson 20 |
+| 2004 → today | program analysis: bddbddb, Doop, CodeQL | Lesson 21 |
 
 The repository is small on purpose, every algorithm named above is
 implemented in readable standard-library Python, and every example in
 every lesson is a file you can run.
+
+## One language, many dialects
+
+If you have met "Datalog" before, it may not have looked like this
+course's. A recurring complaint in online discussions is some version
+of "that's not Datalog, that's Datomic". Prolog has had an ISO
+standard since 1995; Datalog has never had one. What every dialect
+shares is the logic: rules of the form *head if body*, recursion, and
+(usually) stratified negation. Almost everything else differs. Here is
+the `chain` program from the top of this lesson in five other
+dialects.
+
+**Soufflé** (program analysis, CodeQL's cousin). Relations are
+declared with types, and identifiers in rules are variables, so
+constants have to be quoted:
+
+```
+.decl manages(boss: symbol, report: symbol)
+.decl chain(boss: symbol, report: symbol)
+.output chain
+
+manages("alice", "bob").
+manages("bob", "carol").
+chain(x, y) :- manages(x, y).
+chain(x, z) :- manages(x, y), chain(y, z).
+```
+
+**Datomic** (and XTDB and DataScript, which share its syntax). Facts
+are not in the program at all. They are entity–attribute–value
+records already in the database, and rules are Clojure data passed to
+a query:
+
+```clojure
+;; the rules: a vector of rules, each headed by a list
+[[(chain ?x ?y) [?x :person/manages ?y]]
+ [(chain ?x ?z) [?x :person/manages ?y] (chain ?y ?z)]]
+
+;; the query receives them as %
+[:find ?name
+ :in $ %
+ :where [?a :person/name "alice"]
+        (chain ?a ?r)
+        [?r :person/name ?name]]
+```
+
+**Mangle** (Google). Closest to this course's syntax, except that
+named constants carry a leading slash:
+
+```
+manages(/alice, /bob).
+manages(/bob, /carol).
+chain(X, Y) :- manages(X, Y).
+chain(X, Z) :- manages(X, Y), chain(Y, Z).
+```
+
+**Logica** (also from Google), which compiles to SQL and runs inside
+BigQuery, DuckDB, SQLite or Postgres. Predicates are capitalised,
+clauses end with `;`, and recursion carries an annotation:
+
+```
+@Engine("duckdb");
+Manages("alice", "bob");
+Manages("bob", "carol");
+@Recursive(Chain, 20);
+Chain(x, y) distinct :- Manages(x, y) | (Manages(x, z), Chain(z, y));
+```
+
+**SQL**, the sibling (lesson 19):
+
+```sql
+WITH RECURSIVE chain(boss, report) AS (
+  SELECT boss, report FROM manages
+  UNION
+  SELECT m.boss, c.report FROM manages m JOIN chain c ON m.report = c.boss
+)
+SELECT * FROM chain;
+```
+
+| Dialect | Variables, constants | Where facts live | How recursion runs | Main additions to the core |
+|---|---|---|---|---|
+| this course | `X` variables; `bob`, `"Bob"` constants | the program file | semi-naive, to a fixpoint | `not`, head aggregates |
+| Soufflé | `x` variables; `"bob"` constants | the file, or CSV via `.input` | semi-naive, compiled to C++ | types, arithmetic, records, components |
+| Datomic family | `?x` variables | the database, as entity–attribute–value facts | by the query engine | Clojure functions as predicates |
+| Mangle | `X` variables; `/bob` names | the program file | semi-naive | type declarations, aggregation pipelines, time |
+| Logica | `x` variables; capitalised predicates | the file, or SQL tables | compiled to SQL, unrolled to a depth bound | the whole SQL engine underneath |
+| SQL | column names | tables | `WITH RECURSIVE`; many engines allow one recursive reference only | everything SQL has |
+
+Two rows deserve a warning, because they change what a program
+*means*, not just how it is spelled. Logica unrolls recursion to a
+fixed depth (that is what `@Recursive(Chain, 20)` sets), so a chain of
+command deeper than the bound is not reported unless you raise it. And
+SQL engines differ on which recursion they accept at all: PostgreSQL,
+for instance, rejects a recursive query that refers to itself twice,
+so lesson 2's non-linear `path` has to be rewritten into the
+linear form before it will run.
+
+So when you meet "Datalog" in the wild, check three things first:
+how a variable is told apart from a constant, where the facts live,
+and whether recursion runs to a fixpoint or to a limit. Lesson 17 has
+more on what survives a port between dialects. The logic always does.
+The spelling and the extensions never do.
 
 ## Five places Datalog earns its living
 
@@ -199,14 +303,16 @@ that teaches its core idea.
    became GitHub's **CodeQL**, which scans code across GitHub today.
    The **Soufflé** dialect writes pointer analyses for Java and
    control-flow analyses for Scheme. Recursion over a program's
-   dependency graph is Lessons 2 and 7's material.
+   dependency graph is Lessons 2 and 7's material, and Lesson 21
+   builds a call graph and a taint tracker from it.
 2. **Databases that speak it.** **Datomic** uses Datalog as its query
    language on a distributed database; **LogicBlox** ran web-based
    retail planning and insurance applications on it; and the **magic
    sets** algorithm — Lesson 7 — is implemented inside IBM's DB2.
 3. **Knowledge graphs and medical terminology.** **RDFox** is a
    main-memory triple store built on Datalog reasoning, with Lesson 10's
-   Backward/Forward as its deletion algorithm. And every release of
+   Backward/Forward as its deletion algorithm; Lesson 22 runs the
+   RDFS and OWL 2 RL rules such stores use. And every release of
    **SNOMED CT**, the ~350,000-concept clinical terminology behind
    electronic health records, is classified by EL reasoners running the
    saturation calculus Lesson 12 compiles to Datalog.
@@ -249,6 +355,10 @@ And a second index, for the reader arriving stuck rather than curious
 | brute-force searching a whole database per query | [7](07-magic-sets.md) |
 | unable to ask why a fact is *missing* | [17](17-writing-rules.md) |
 | treating a catalogue as if it were an authority | [4](04-closed-and-open-worlds.md) |
+| granting access because a revocation list came back empty | [20](20-authorization.md) |
+| building the call graph before the points-to analysis, or after | [21](21-program-analysis.md) |
+| expecting a schema's `domain` to reject bad data | [22](22-knowledge-graphs.md) |
+| copying every fact onto every alias of the same entity | [22](22-knowledge-graphs.md) |
 
 For everything else, there is [the glossary](glossary.md), and for the
 mathematically curious there is [Lesson 19](19-neighbours.md) —

@@ -1,0 +1,29 @@
+% Lesson 20 answers, runnable parts.
+%
+%   python3 datalog.py -q 'violation(R)' -q 'authorized' exercises/20-answers.dl
+
+% --- exercise 1: separation of duties -------------------------------------
+requested(r1, alice).  approved(r1, bob).
+requested(r2, carol).  approved(r2, carol).      % approved her own
+requested(r3, dan).    approved(r3, dan).  approved(r3, erin).
+
+% the repeated variable U is the equality test: no != required
+violation(R) :- requested(R, U), approved(R, U).
+
+% --- exercise 3: a token whose blocks cannot see each other's facts -------
+% every fact is tagged with the block that asserted it
+right(0, file1, read).                   % block 0: the issuer
+right(0, file1, write).
+right(2, file2, write).                  % block 2: the forgery
+
+resource(file2).                         % the request
+operation(write).
+
+% the authorizer trusts rights from block 0 only
+allow :- resource(R), operation(Op), right(0, R, Op).
+authorized :- allow.
+
+% --- exercise 5: groups nested at most two deep, without recursion -------
+member(alice, eng).  member(eng, staff).
+in_group2(U, G) :- member(U, G).
+in_group2(U, G) :- member(U, H), member(H, G).

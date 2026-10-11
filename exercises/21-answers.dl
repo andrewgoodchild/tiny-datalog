@@ -1,0 +1,38 @@
+% Lesson 21, exercise 2: the taint analysis of programs/taint.dl, made
+% context-sensitive by one call site.
+%
+%   python3 datalog.py -q 'finding(S, V)' exercises/21-answers.dl
+
+% --- extracted facts ------------------------------------------------------
+source(q).                                 % q holds request data
+% call(Site, Callee), actual(Site, Arg), result(Site, Var)
+call(c1, id).  actual(c1, q).    result(c1, t).
+call(c2, id).  actual(c2, lit).  result(c2, k).
+call(c3, escape). actual(c3, q). result(c3, safe).
+formal(id, p).  returns(id, p).
+sink(sink1, t).  sink(sink2, k).  sink(sink3, safe).
+
+% --- 1-call-site sensitivity (exercise 2) ---------------------------------
+% A callee's variables are tracked per call site: tainted_in(Ctx, V) says
+% V is tainted when the method runs on behalf of call site Ctx.  The
+% caller's own variables live in context top.
+tainted_in(top, V) :- source(V).
+tainted_in(S, F)   :- call(S, M), actual(S, A), formal(M, F),
+                      tainted_in(top, A).                     % in, per site
+tainted_in(top, R) :- call(S, M), returns(M, X), result(S, R),
+                      tainted_in(S, X).                       % out, same site
+
+finding(S, V) :- sink(S, V), tainted_in(top, V).
+
+% --- reaching definitions (exercise 3) --------------------------------------
+%   n1: x = 1      (d1)        n1 -> n2 -> n3 -> n4
+%   n2: y = x                  n2 -> n4        (a branch around n3)
+%   n3: x = 2      (d2)
+%   n4: print x
+def(d1, x, n1).  def(d2, x, n3).
+succ(n1, n2).  succ(n2, n3).  succ(n3, n4).  succ(n2, n4).
+
+kills(N, D) :- def(D, V, _), def(D2, V, N), not same_def(D, D2).
+same_def(D, D) :- def(D, _, _).
+reaches(D, N) :- def(D, _, P), succ(P, N).                       % leaves its node
+reaches(D, N) :- reaches(D, P), succ(P, N), not kills(P, D).     % ...and survives

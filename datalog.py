@@ -11,9 +11,9 @@ would hand back two different module objects, and isinstance checks
 across them would quietly fail — the double-import trap that this layout
 exists to close.
 
-The seven launchers beside this one (prolog.py, semiring.py,
+The eight launchers beside this one (prolog.py, semiring.py,
 tabling.py, incremental.py, subsumption.py, containment.py,
-defeasible.py) follow the same pattern for the same reasons, each
+defeasible.py, chase.py) follow the same pattern for the same reasons, each
 standing in for its own `tiny-datalog-<name>` command.
 """
 

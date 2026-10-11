@@ -1,0 +1,43 @@
+% A knowledge graph: one relation, triple(Subject, Predicate, Object),
+% holding the data AND the schema that describes it.  Six rules are
+% the core of RDFS entailment; four more are from OWL 2 RL (lesson 22).
+%
+%   python3 datalog.py -q 'triple(dana, type, C)' programs/kg.dl
+%   python3 datalog.py --explain 'triple(dana, type, person)' programs/kg.dl
+
+% --- the schema, as triples ----------------------------------------------
+triple(manager, subClassOf, employee).
+triple(employee, subClassOf, person).
+triple(memberOf, domain, employee).
+triple(memberOf, range, team).
+triple(manages, subPropertyOf, memberOf).    % you belong to what you run
+triple(manages, domain, manager).
+triple(reportsTo, domain, employee).
+triple(reportsTo, type, transitiveProperty).
+triple(managedBy, inverseOf, manages).
+triple(person, disjointWith, team).
+
+% --- the data -------------------------------------------------------------
+triple(dana, manages, sales).
+triple(alice, memberOf, sales).
+triple(alice, reportsTo, dana).
+triple(dana, reportsTo, erin).
+triple(sales, reportsTo, erin).              % a data-entry slip
+
+% --- RDFS: the six rules that do the work --------------------------------
+triple(X, type, C)  :- triple(P, domain, C), triple(X, P, _).          % rdfs2
+triple(Y, type, C)  :- triple(P, range, C), triple(_, P, Y).           % rdfs3
+triple(P, subPropertyOf, R) :- triple(P, subPropertyOf, Q),
+                               triple(Q, subPropertyOf, R).           % rdfs5
+triple(X, Q, Y)     :- triple(P, subPropertyOf, Q), triple(X, P, Y).   % rdfs7
+triple(X, type, D)  :- triple(C, subClassOf, D), triple(X, type, C).   % rdfs9
+triple(C, subClassOf, E) :- triple(C, subClassOf, D),
+                            triple(D, subClassOf, E).                 % rdfs11
+
+% --- OWL 2 RL: a few rules from the profile's tables ---------------------
+triple(X, P, Z) :- triple(P, type, transitiveProperty),
+                   triple(X, P, Y), triple(Y, P, Z).                  % prp-trp
+triple(Y, Q, X) :- triple(P, inverseOf, Q), triple(X, P, Y).           % prp-inv1
+triple(Y, P, X) :- triple(P, inverseOf, Q), triple(X, Q, Y).           % prp-inv2
+clash(X, C, D)  :- triple(C, disjointWith, D),
+                   triple(X, type, C), triple(X, type, D).            % cax-dw

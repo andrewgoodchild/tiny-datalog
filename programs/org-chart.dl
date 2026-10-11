@@ -1,0 +1,18 @@
+% Existential rules: every employee works in SOME department, every
+% department has SOME manager.  The data names only one of each; the
+% chase invents labelled nulls for the rest (lesson 22).
+%
+%   python3 chase.py programs/org-chart.dl
+%   python3 chase.py --variant oblivious --max-nulls 20 programs/org-chart.dl
+
+employee(alice).
+employee(bob).
+employee(carol).
+works_in(carol, sales).
+manages(dana, sales).
+
+works_in(E, D) :- employee(E).          % D is bound by nothing: invented
+dept(D)        :- works_in(_, D).
+manages(M, D)  :- dept(D).              % M likewise
+employee(M)    :- manages(M, _).        % managers are employees...
+works_in(M, D) :- manages(M, D).        % ...of the department they manage

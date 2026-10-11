@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tiny-datalog"
-version = "0.4.0"
+version = "0.5.0"
 description = "A Datalog engine whose core you can read in an afternoon, and a course built on it"
 readme = "README.md"
 license = "MIT"
@@ -52,6 +52,7 @@ tiny-datalog-incremental = "tiny_datalog.incremental:main"
 tiny-datalog-subsumption = "tiny_datalog.subsumption:main"
 tiny-datalog-containment = "tiny_datalog.containment:main"
 tiny-datalog-defeasible = "tiny_datalog.defeasible:main"
+tiny-datalog-chase = "tiny_datalog.chase:main"
 
 [tool.setuptools.packages.find]
 include = ["tiny_datalog*"]

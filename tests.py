@@ -26,6 +26,7 @@ from tiny_datalog import prolog
 from tiny_datalog import subsumption
 from tiny_datalog import containment
 from tiny_datalog import defeasible
+from tiny_datalog import chase
 from tiny_datalog.tabling import TabledEngine
 from tiny_datalog.engines import ENGINES
 from tiny_datalog.datalog import (
@@ -1294,7 +1295,7 @@ class LessonOutputTests(unittest.TestCase):
                          "set TINY_DATALOG_LESSONS=1 to run")
     def test_quoted_output_is_verbatim(self):
         import glob as _glob, shlex as _shlex
-        files = (sorted(_glob.glob(os.path.join(HERE, "lessons", "[01]*.md")))
+        files = (sorted(_glob.glob(os.path.join(HERE, "lessons", "[012]*.md")))
                  + [os.path.join(HERE, "README.md"),
                     os.path.join(HERE, "lessons", "getting-started.md")])
         ncmd = 0
@@ -1416,7 +1417,7 @@ class RepositoryClaimTests(unittest.TestCase):
     SATELLITES = ["engines.py", "magic.py", "tabling.py",
                   "semantics.py", "semiring.py", "defeasible.py",
                   "incremental.py", "prolog.py",
-                  "subsumption.py", "containment.py"]
+                  "subsumption.py", "containment.py", "chase.py"]
 
     def test_no_satellite_module_exceeds_500_lines(self):
         # measured on the real module, not the root launcher shim
@@ -1649,6 +1650,219 @@ class ExerciseTests(unittest.TestCase):
                             query_atom("ancestor(bob, X)"))
         magic_starts = {t[0] for t in m.rels["magic#ancestor#bf"]}
         self.assertEqual(table_patterns, magic_starts)
+
+
+class FieldLessonExerciseTests(unittest.TestCase):
+    """The runnable answers of lessons 20-22, and the numbers their
+    answer files quote."""
+
+    @staticmethod
+    def ex(name):
+        with open(os.path.join(HERE, "exercises", name)) as fh:
+            return fh.read()
+
+    def test_lesson20_duties_scoping_and_depth(self):
+        e = run_program(self.ex("20-answers.dl"))
+        self.assertEqual(e.rels["violation"], {("r2",), ("r3",)})
+        # the forged block-2 right is invisible to the authorizer
+        self.assertFalse(e.rels.get("authorized"))
+        self.assertEqual({g for u, g in e.rels["in_group2"] if u == "alice"},
+                         {"eng", "staff"})
+
+    def test_lesson20_unscoped_forgery_escalates(self):
+        text = "\n".join(l for l in load("token.dl").splitlines()
+                         if not l.startswith(("check(", "passes(",
+                                              "resource(", "operation(")))
+        e = run_program(text + "right(file2, write). resource(file2)."
+                        " operation(write).")
+        self.assertEqual(e.rels["authorized"], {()})
+
+    def test_lesson21_context_sensitivity_and_reaching_defs(self):
+        e = run_program(self.ex("21-answers.dl"))
+        self.assertEqual(e.rels["finding"], {("sink1", "t")})
+        self.assertEqual({c for c, v in e.rels["tainted_in"] if v == "p"},
+                         {"c1"})
+        self.assertEqual({d for d, n in e.rels["reaches"] if n == "n4"},
+                         {"d1", "d2"})
+        self.assertEqual(e.rels["kills"], {("n1", "d2"), ("n3", "d1")})
+
+    def test_lesson21_robot_call_site(self):
+        e = run_program(load("callgraph.dl") + "alloc(d, h6)."
+                        " heap_type(h6, robot). vcall(s3, d, speak, z).")
+        self.assertIn(("s3", "robot_speak"), e.rels["calls"])
+        self.assertEqual({h for v, h in e.rels["pt"] if v == "z"}, {"h5"})
+
+    def test_lesson22_answers(self):
+        c = chase.Chase(parse(self.ex("22-answers.dl")))
+        c.run()
+        self.assertIsNone(c.cycle)                 # weakly acyclic
+        self.assertEqual(c.nulls, 2)
+        self.assertEqual([t[0] for t in c.rels["works_in"]], ["e"])
+
+    def test_lesson22_sameas_growth(self):
+        text = load("kg-sameas.dl") + (
+            'triple(acme_eu, vatId, "GB123"). sameAs(s_1187, acme_eu).')
+        sizes = lambda e: tuple(len(e.rels[p])
+                                for p in ("same", "copy", "ctriple"))
+        self.assertEqual(sizes(run_program(text)), (43, 42, 7))
+        text += ("triple(zenith, locatedIn, york)."
+                 " triple(zenith_ltd, supplies, gears)."
+                 " sameAs(zenith, zenith_ltd).")
+        self.assertEqual(sizes(run_program(text)), (49, 46, 9))
+
+    def test_lesson22_managers_in_some_department_never_stop(self):
+        text = load("org-chart.dl").replace(
+            "works_in(M, D) :- manages(M, D).",
+            "works_in(M, D2) :- manages(M, D).")
+        with self.assertRaises(chase.ChaseBudget):
+            chase.Chase(parse(text), max_nulls=50).run()
+
+
+class FieldLessonProgramTests(unittest.TestCase):
+    """The programs of lessons 20-22: what each lesson claims about them."""
+
+    def test_access_check_list_and_type_guard(self):
+        e = run_program(load("access.dl"))
+        self.assertEqual({u for u, a, o in e.rels["can"]
+                          if a == "view" and o == "roadmap"},
+                         {"alice", "bob"})
+        # without the user/1 guard, groups answer "who?"
+        self.assertIn(("staff", "viewer", "roadmap"), e.rels["has"])
+
+    def test_access_fails_open_and_closed(self):
+        text = "\n".join(l for l in load("access.dl").splitlines()
+                         if not l.startswith(("suspended", "hr_feed")))
+        e = run_program(text)
+        self.assertIn(("bob", "view", "handbook"), e.rels["allowed_open"])
+        self.assertFalse(e.rels.get("allowed"))
+        e = run_program(load("access.dl"))
+        self.assertNotIn(("bob", "view", "handbook"), e.rels["allowed_open"])
+
+    def test_token_check_vetoes_the_write(self):
+        e = run_program(load("token.dl"))
+        self.assertEqual(e.rels["allow"], {()})
+        self.assertFalse(e.rels.get("authorized"))
+        e = run_program(load("token.dl").replace("operation(write)",
+                                                 "operation(read)"))
+        self.assertEqual(e.rels["authorized"], {()})
+
+    def test_call_graph_is_more_precise_than_cha(self):
+        e = run_program(load("callgraph.dl"))
+        self.assertEqual(e.rels["calls"],
+                         {("s1", "dog_speak"), ("s2", "cat_speak")})
+        self.assertEqual(len(e.rels["calls_cha"]), 6)
+        self.assertEqual({h for v, h in e.rels["pt"] if v == "x"}, {"h3"})
+
+    def test_taint_finds_the_flow_and_the_false_positive(self):
+        e = run_program(load("taint.dl"))
+        self.assertEqual(e.rels["finding"],
+                         {("sink1", "t"), ("sink2", "k")})
+
+    def test_kg_rdfs_types_and_the_clash(self):
+        e = run_program(load("kg.dl"))
+        self.assertEqual({c for s, p, c in e.rels["triple"]
+                          if s == "dana" and p == "type"},
+                         {"employee", "manager", "person"})
+        self.assertEqual(e.rels["clash"], {("sales", "person", "team")})
+        self.assertIn(("sales", "managedBy", "dana"), e.rels["triple"])
+
+    def test_sameas_materialised_against_rewritten(self):
+        e = run_program(load("kg-sameas.dl"))
+        self.assertEqual((len(e.rels["same"]), len(e.rels["copy"]),
+                          len(e.rels["ctriple"])), (31, 30, 6))
+
+
+class ExplainDeterminismTests(unittest.TestCase):
+    """A fact with several derivations must get the same tree on every
+    run.  The index tables --explain searches are built from sets, whose
+    order follows the hash seed, so this runs under several seeds."""
+
+    def test_same_tree_under_every_hash_seed(self):
+        outs = set()
+        for seed in ("1", "2", "3", "4"):
+            r = subprocess.run(
+                [sys.executable, os.path.join(HERE, "datalog.py"),
+                 "--explain", "triple(dana, type, person)",
+                 os.path.join(HERE, "programs", "kg.dl")],
+                capture_output=True, text=True,
+                env=dict(os.environ, PYTHONHASHSEED=seed))
+            outs.add(r.stdout)
+        self.assertEqual(len(outs), 1, outs)
+
+
+class ChaseTests(unittest.TestCase):
+    """chase.py: existential rules, labelled nulls, weak acyclicity."""
+
+    def run_chase(self, text, **kw):
+        c = chase.Chase(parse(text), **kw)
+        c.run()
+        return c
+
+    def test_restricted_chase_reuses_known_witnesses(self):
+        c = self.run_chase(load("org-chart.dl"))
+        self.assertEqual(c.nulls, 4)
+        self.assertEqual(c.rounds, 3)
+        # carol's recorded department satisfies the rule: nothing invented
+        self.assertEqual({d for e, d in c.rels["works_in"] if e == "carol"},
+                         {"sales"})
+        alice = [d for e, d in c.rels["works_in"] if e == "alice"]
+        self.assertEqual(len(alice), 1)
+        self.assertIsInstance(alice[0], chase.Null)
+
+    def test_oblivious_chase_runs_out_of_budget(self):
+        with self.assertRaises(chase.ChaseBudget) as cm:
+            self.run_chase(load("org-chart.dl"), variant="oblivious",
+                           max_nulls=20)
+        self.assertIn("not weakly acyclic", str(cm.exception))
+
+    def test_weak_acyclicity_names_the_cycle(self):
+        c = chase.Chase(parse(load("ancestors-forever.dl")))
+        self.assertEqual(chase.format_cycle(c.cycle),
+                         "person[1] =*=> parent[1] -> person[1]")
+        # plain Datalog rules are always weakly acyclic
+        self.assertIsNone(chase.Chase(parse(load("reachability.dl"))).cycle)
+
+    def test_weakly_acyclic_but_over_budget_says_so(self):
+        text = "p(a). p(b). p(c). q(X, Y) :- p(X)."
+        with self.assertRaises(chase.ChaseBudget) as cm:
+            self.run_chase(text, max_nulls=2)
+        self.assertIn("weakly acyclic, so a larger budget", str(cm.exception))
+        self.assertEqual(self.run_chase(text).nulls, 3)
+
+    def test_plain_datalog_is_unchanged(self):
+        c = self.run_chase(load("reachability.dl"))
+        self.assertEqual(c.nulls, 0)
+        self.assertEqual(c.rels["path"],
+                         run_program(load("reachability.dl")).rels["path"])
+
+    def test_refuses_negation_and_aggregates(self):
+        for text in ("p(a). q(X, Y) :- p(X), not r(X). r(b).",
+                     "p(a, 1). t(sum(V)) :- p(_, V)."):
+            with self.subTest(text=text):
+                with self.assertRaises(DatalogError):
+                    chase.Chase(parse(text))
+
+    def test_null_numbering_is_stable_across_hash_seeds(self):
+        outs = set()
+        for seed in ("1", "2", "3"):
+            r = subprocess.run(
+                [sys.executable, os.path.join(HERE, "chase.py"),
+                 os.path.join(HERE, "programs", "org-chart.dl")],
+                capture_output=True, text=True,
+                env=dict(os.environ, PYTHONHASHSEED=seed))
+            outs.add(r.stdout)
+        self.assertEqual(len(outs), 1)
+
+    def test_cli_marks_uncertain_answers(self):
+        r = subprocess.run(
+            [sys.executable, os.path.join(HERE, "chase.py"),
+             "-q", "manages(M, D)", os.path.join(HERE, "programs",
+                                                 "org-chart.dl")],
+            capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("manages(dana, sales).\n", r.stdout)
+        self.assertIn("[not certain: mentions a null]", r.stdout)
+        self.assertIn("(3 answers, 1 certain)", r.stdout)
 
 
 class CLITests(unittest.TestCase):
