@@ -16,7 +16,8 @@ question of a program: `semantics` (stable and well-founded models),
 `semiring` (provenance-weighted evaluation), `incremental` (maintenance
 under updates), `subsumption` (KL-ONE style classification),
 `containment` (query containment), `defeasible` (rules with exceptions
-and priorities), and `prolog` (a Prolog reader for the same syntax).
+and priorities), `chase` (existential rules and labelled nulls), and
+`prolog` (a Prolog reader for the same syntax).
 Import those by name: `from tiny_datalog import semiring`.
 """
 

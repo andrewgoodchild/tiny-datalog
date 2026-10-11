@@ -94,7 +94,7 @@ Nothing to install:
 
 ```sh
 git clone https://github.com/andrewgoodchild/tiny-datalog && cd tiny-datalog
-python3 tests.py        # 303 tests, ~12s
+python3 tests.py        # 326 tests, ~12s
 ```
 
 ## Why the language choice decides what you can ask later
@@ -216,8 +216,12 @@ the current research threads. The field's own recent lecture notes
 observe that the literature advises people building Datalog engines
 better than people trying to *use* one; this course does both halves
 on purpose — sixteen lessons where the engine is the explanation, then
-a lesson on authoring rules that survive review, and one on a logic
-built for rules with exceptions. And it is built to be
+a lesson on authoring rules that survive review, one on a logic
+built for rules with exceptions, and three where the engine goes to
+work: [authorization](https://github.com/andrewgoodchild/tiny-datalog/blob/main/lessons/20-authorization.md),
+[program analysis](https://github.com/andrewgoodchild/tiny-datalog/blob/main/lessons/21-program-analysis.md),
+and [knowledge graphs and the chase](https://github.com/andrewgoodchild/tiny-datalog/blob/main/lessons/22-knowledge-graphs.md).
+And it is built to be
 inherited: `git clone`, no dependencies, no hosted anything, and every
 quoted transcript re-verified by CI — the exercises cannot rot. (For where each
 technique ships — CodeQL, RDFox, Feldera, SNOMED and the rest —
@@ -351,18 +355,20 @@ tiny_datalog/   the code you read, in three tiers:
   subsumption.py  KL-ONE-style EL classifier, compiled to Datalog
   containment.py  query containment and minimisation by homomorphism
   defeasible.py   defeasible logic: exceptions, priorities, defeaters
+  chase.py      existential rules: the chase, labelled nulls, weak
+                acyclicity
 *.py            three-line launchers, so `python3 datalog.py ...` works
                 straight from a checkout with nothing installed
 programs/       teaching programs, numbered by the lesson that uses
                 them (00-* are the README's examples)
-lessons/        getting started, glossary, and lessons 0–19
+lessons/        getting started, glossary, and lessons 0–22
 exercises/      worked answers, verified by the test suite
 cases/          golden test cases — add one without writing Python
 conformance/    the external datalog-conformance corpus (Soufflé, Nemo,
                 Crepe, SPINdle), run against every evaluation strategy
 benchmarks/     scaled input generators (chain/tree/clique/grid, an EL
                 ontology, and the N-queens puzzle)
-tests.py        303 tests: every shipped program and exercise answer is
+tests.py        326 tests: every shipped program and exercise answer is
                 executed, a conformance suite runs every query through
                 every engine that handles it, and a seeded fuzzer checks
                 the same property on random programs
@@ -379,7 +385,7 @@ This project started as an attempt at a tiny implementation of
 Datalog, small enough to read in an afternoon. It grew with the
 course. Each lesson that taught a new technique — magic sets, stable models,
 semirings, incremental maintenance, tabling, subsumption, containment,
-defeasible logic — brought a module to run it, and the repository is
+defeasible logic, the chase — brought a module to run it, and the repository is
 now several thousand lines. The core idea stayed small, and the code
 is laid out so you can still read just that: the common core and the
 base engine, below, are the original tiny Datalog. Everything else is
@@ -391,19 +397,19 @@ Measured in lines, comments, docstrings and blank lines included:
 |---|---|
 | the common core (`core.py`: the language, evaluating nothing) | 785 |
 | the base engine's evaluator (`datalog.py` up to its CLI section: the module docstring, the import list that re-exports the core, `Program`, `Engine`, aggregation folding, `run_program`) | 395 |
-| `--explain`, why-not, printing and the CLI (the rest of `datalog.py`) | 535 |
+| `--explain`, why-not, printing and the CLI (the rest of `datalog.py`) | 538 |
 | the other pluggable engines: magic sets (`magic.py`) and tabling (`tabling.py`), plus the `engines.py` registry (naive evaluation is a flag on the base engine) | 549 |
-| the seven extensions | 2,425 |
+| the eight extensions | 2,822 |
 
 So the smallest complete Datalog system here — parse, check, stratify,
 evaluate semi-naively — is the core plus the evaluator, about 1,200
-lines. All of it is 4.7k lines of toolkit (every module but the
+lines. All of it is 5.1k lines of toolkit (every module but the
 re-export list in `__init__.py`), roughly a quarter of it commentary,
-and 3.4k of tests.
+and 3.6k of tests.
 
 "Tiny" is a claim about that core and evaluator, and about each module
-built on them singly: none of the ten (`magic.py`, `tabling.py`,
-`engines.py` and the seven extensions) exceeds 500 lines, which a test asserts. It is not a
+built on them singly: none of the eleven (`magic.py`, `tabling.py`,
+`engines.py` and the eight extensions) exceeds 500 lines, which a test asserts. It is not a
 claim about the repository, which is a dozen modules because it
 teaches a dozen things.
 

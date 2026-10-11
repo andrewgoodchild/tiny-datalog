@@ -226,7 +226,8 @@ impossible. Still missing: **⊤** (no universal concept), **role
 hierarchies** (`subrole(has_part, has_component)` is rejected, loudly,
 rather than silently ignored), **role chains and right identities**,
 nominals, datatypes, and there is no ABox at all: this reasons about
-definitions, never about individuals.
+definitions, never about individuals. ([Lesson 22](22-knowledge-graphs.md)
+is the other half: rules over the individuals of a knowledge graph.)
 
 SNOMED CT genuinely needs the role hierarchy and right identities
 (that's how "a fracture of the femur is a fracture of a bone" and

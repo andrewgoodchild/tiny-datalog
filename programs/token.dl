@@ -1,0 +1,24 @@
+% A Biscuit-style capability token, flattened into one Datalog program
+% (lesson 20).  Each block is appended by whoever holds the token; the
+% authorizer adds the request and decides.
+%
+%   python3 datalog.py -q 'authorized' -q 'failed(C)' programs/token.dl
+
+% --- block 0, the authority block, signed by the issuer ------------------
+right(file1, read).
+right(file1, write).
+right(file2, read).
+
+% --- block 1, appended by the holder before handing the token on --------
+% "whoever holds this from now on may only read"
+check(only_reads).
+passes(only_reads) :- operation(read).
+
+% --- the authorizer: the service that received the request -------------
+resource(file1).
+operation(write).
+
+allow :- resource(R), operation(Op), right(R, Op).
+failed(C) :- check(C), not passes(C).
+some_check_failed :- failed(_).
+authorized :- allow, not some_check_failed.

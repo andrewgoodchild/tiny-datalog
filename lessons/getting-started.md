@@ -6,7 +6,7 @@ beyond Python 3.9+.
 ```sh
 git clone https://github.com/andrewgoodchild/tiny-datalog
 cd tiny-datalog
-python3 tests.py                     # 303 tests, should all pass
+python3 tests.py                     # 326 tests, should all pass
 python3 datalog.py programs/reachability.dl
 ```
 
@@ -76,6 +76,7 @@ input facts). The other modes:
 | `python3 subsumption.py ontology.dl` | classify a KL-ONE-style ontology (compiled to Datalog) |
 | `python3 containment.py prog.dl` | minimise conjunctive queries; `--contains` tests containment |
 | `python3 defeasible.py theory.dfl` | defeasible logic: strict `->`, defeasible `=>`, defeaters `~>`, priorities `r1 > r2` |
+| `python3 chase.py prog.dl` | existential rules: head variables the body does not bind are invented as labelled nulls |
 
 ## Syntax reference
 
@@ -154,6 +155,11 @@ and the lesson that builds the machinery:
 | How do I write rules someone else can sign off? | `python3 datalog.py --explain 'may_borrow(iris)' programs/lending.dl` | [17](17-writing-rules.md) |
 | What holds when rules have exceptions, and exceptions to those? | `python3 defeasible.py programs/birds.dfl` | [18](18-defeasible.md) |
 | Which conflicts did the policy forget to rank? | `python3 defeasible.py -q 'may_borrow(P)' programs/lending-defeasible-draft.dfl` | [18](18-defeasible.md) |
+| Who can see this document, and through which group? | `python3 datalog.py --explain 'can(bob, view, roadmap)' programs/access.dl` | [20](20-authorization.md) |
+| Which method does this call actually reach? | `python3 datalog.py -q 'calls(S, M)' programs/callgraph.dl` | [21](21-program-analysis.md) |
+| Can user input reach a database query? | `python3 datalog.py --explain 'finding(sink1, t)' programs/taint.dl` | [21](21-program-analysis.md) |
+| What does a knowledge graph's schema imply about its data? | `python3 datalog.py -q 'clash(X, C, D)' programs/kg.dl` | [22](22-knowledge-graphs.md) |
+| What must exist, though nobody recorded it? | `python3 chase.py -q 'works_in(alice, D)' programs/org-chart.dl` | [22](22-knowledge-graphs.md) |
 
 Provenance, in full:
 
@@ -182,10 +188,13 @@ a given purpose.
 | write rules for a real policy | 13 (aggregation), 4 (missing data), 6 (for-all), 17 (authoring) |
 | understand how evaluation works | 2, 7 (magic sets), 15 (tabling), and the *Under the hood* sections |
 | know what a rule set *means* | 5 (stable models), 4 (open vs closed worlds) |
-| get at the theory | 8 (semirings), 11 (Horn clauses), 16 (containment), 18 (the neighbours) |
+| get at the theory | 8 (semirings), 11 (Horn clauses), 16 (containment), 19 (the neighbours) |
 | see where it meets machine learning | 8, 9 (probabilistic) |
 | keep answers fresh as data changes | 10 (incremental) |
 | reason about definitions, not data | 12 (subsumption) |
+| decide who may do what | 4, 17, then 20 (authorization) |
+| analyse code | 2, 3, 7, then 21 (program analysis) |
+| reason over a knowledge graph | 4, 12, then 22 (knowledge graphs and the chase) |
 
 **The full list:**
 
@@ -209,13 +218,19 @@ a given purpose.
 17. [Writing rules that survive review](17-writing-rules.md)
 18. [Rules with exceptions: defeasible logic](18-defeasible.md)
 19. [The neighbours: SQL, F-logic, Haskell, category theory](19-neighbours.md)
+20. [Authorization: who may do what, and the proof](20-authorization.md)
+21. [Program analysis: when the database is a program](21-program-analysis.md)
+22. [Knowledge graphs: ontologies over data, and the chase](22-knowledge-graphs.md)
 
-Three groupings worth knowing about, because each is a single idea told
-across several lessons: **3, 5 and 12** share one thesis (finish a
-relation before you negate or summarise it); **10 and 13** are one
+Four groupings worth knowing about, because each is a single idea told
+across several lessons: **3, 6 and 13** share one thesis (finish a
+relation before you negate or summarise it); **7 and 15** are one
 argument about top-down evaluation; **4 and 12** are one contrast
 met twice — 4 shows closed against open worlds from the data side,
-and 12 builds the reasoner living on the other side of it.
+and 12 builds the reasoner living on the other side of it; and
+**4, 20 and 22** keep asking lesson 4's question — what an empty
+revocation list means (20), and what a fact nobody recorded means in a
+knowledge graph (22).
 
 Hit a word you don't know? [glossary.md](glossary.md) defines every
 technical term the course uses, with the lesson that introduces it.

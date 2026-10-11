@@ -1,0 +1,32 @@
+% Five names for one supplier, from five source systems, linked by
+% owl:sameAs.  Equality written as plain rules (OWL 2 RL's eq-* table)
+% copies every triple onto every name; the canonical-name rewrite keeps
+% one copy (lesson 22).
+%
+%   python3 datalog.py --trace programs/kg-sameas.dl
+
+triple(acme, locatedIn, leeds).
+triple(acme_corp, supplies, widgets).
+triple(acme_inc, rating, a).
+triple(duns_04412, registeredIn, uk).
+triple(s_1187, contact, "ops@acme.example").
+triple(order_77, placedWith, s_1187).
+
+sameAs(acme, acme_corp).                 % record linkage found these,
+sameAs(acme_corp, acme_inc).             % one pair at a time
+sameAs(acme_inc, duns_04412).
+sameAs(duns_04412, s_1187).
+
+% --- equality as rules: OWL 2 RL eq-ref, eq-sym, eq-trans, eq-rep-s/o ---
+node(X) :- triple(X, _, _).
+node(X) :- triple(_, _, X).
+same(X, X) :- node(X).                                         % eq-ref
+same(X, Y) :- sameAs(X, Y).
+same(Y, X) :- same(X, Y).                                      % eq-sym
+same(X, Z) :- same(X, Y), same(Y, Z).                          % eq-trans
+copy(S2, P, O) :- triple(S, P, O), same(S, S2).                % eq-rep-s
+copy(S, P, O2) :- copy(S, P, O), same(O, O2).                  % eq-rep-o
+
+% --- the rewrite: one representative per class, every triple moved onto it
+canon(X, min(Y)) :- same(X, Y).
+ctriple(CS, P, CO) :- triple(S, P, O), canon(S, CS), canon(O, CO).

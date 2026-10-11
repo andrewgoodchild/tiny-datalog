@@ -1,0 +1,49 @@
+% Relationship-based access control in the style of Google's Zanzibar:
+% grants are tuples (object, relation, subject), groups nest, documents
+% inherit from their folders, and stronger relations imply weaker ones
+% (lesson 20).
+%
+%   python3 datalog.py -q 'can(U, view, roadmap)' programs/access.dl
+%   python3 datalog.py --explain 'can(bob, view, roadmap)' programs/access.dl
+
+% --- who is in what; groups may contain groups ---------------------------
+user(alice). user(bob). user(carol). user(dana).
+member(alice, eng).
+member(bob, sales).
+member(carol, contractors).
+member(eng, staff).
+member(sales, staff).
+
+% --- where things live ---------------------------------------------------
+parent(roadmap, eng_folder).
+parent(eng_folder, company).
+parent(handbook, company).
+
+% --- the grants: grant(Object, Relation, Subject) ------------------------
+grant(company, viewer, staff).
+grant(eng_folder, editor, eng).
+grant(roadmap, owner, alice).
+grant(handbook, viewer, contractors).
+grant(payroll, owner, dana).
+
+% --- the model: four rules, each one sentence of the policy -------------
+in_group(U, G) :- member(U, G).
+in_group(U, G) :- member(H, G), in_group(U, H).      % groups nest
+
+has(U, R, O) :- grant(O, R, U).                      % granted directly
+has(U, R, O) :- grant(O, R, G), in_group(U, G).      % granted to a group
+has(U, R, O) :- parent(O, F), has(U, R, F).          % inherited from a folder
+has(U, editor, O) :- has(U, owner, O).               % owners edit
+has(U, viewer, O) :- has(U, editor, O).              % editors view
+
+can(U, view, O)   :- user(U), has(U, viewer, O).   % people, not groups
+can(U, edit, O)   :- user(U), has(U, editor, O).
+can(U, delete, O) :- user(U), has(U, owner, O).
+
+% --- revocation: lesson 4's trap, pointed at security -------------------
+suspended(bob).                                      % from the HR feed
+hr_feed_current.                                     % ...which loaded today
+
+allowed_open(U, A, O) :- can(U, A, O), not suspended(U).          % fails open
+allowed(U, A, O)      :- can(U, A, O), hr_feed_current,
+                         not suspended(U).                        % fails closed

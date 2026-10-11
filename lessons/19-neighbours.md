@@ -1,8 +1,9 @@
 # Lesson 19 — The neighbours
 
-> **Entirely optional.** Nothing later depends on this lesson, because
-> nothing comes later. The course compared Datalog to its neighbours
-> in passing for eighteen lessons; this one collects the comparisons
+> **Entirely optional.** Nothing later depends on this lesson: the
+> three that follow put the spine to work in authorization, program
+> analysis and knowledge graphs. The course compared Datalog to its
+> neighbours in passing for eighteen lessons; this one collects the comparisons
 > and finishes them — SQL, F-logic, functional programming, and the
 > road not taken, category theory.
 
@@ -242,10 +243,10 @@ the recasting above does no work and this does.
 
 The same boundary holds for **existential rules** (Datalog±), where
 the chase — the procedure CQL's Σ is computed by — is a left Kan
-extension. Both concern the fragment this engine deliberately does not
-implement, and both are live research rather than settled technique.
-If you add existentials, that is the road; until then, it is a
-signpost.
+extension. Both concern a fragment the core engine deliberately leaves
+out, and both are live research rather than settled technique.
+[Lesson 22](22-knowledge-graphs.md) adds existentials and walks the
+first stretch of that road.
 
 ## Exercises
 
@@ -266,3 +267,6 @@ signpost.
    Find one problem in it that is genuinely about mappings between
    structures, and one that only *sounds* like it is, and say which
    side of the line each falls on and why.
+
+Next: [authorization](20-authorization.md), the first of three lessons
+where the engine goes to work.

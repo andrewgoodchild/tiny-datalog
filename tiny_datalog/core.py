@@ -18,7 +18,8 @@ The package is built in three tiers:
   well-founded models (semantics.py), semiring weights (semiring.py),
   maintenance under updates (incremental.py), defeasible logic
   (defeasible.py), Prolog with function symbols (prolog.py), concept
-  subsumption (subsumption.py) and query containment (containment.py).
+  subsumption (subsumption.py), query containment (containment.py) and
+  existential rules (chase.py).
 
 Every engine and extension imports from here; nothing here imports
 them.

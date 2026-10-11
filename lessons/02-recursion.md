@@ -268,6 +268,8 @@ pt(V, H2)    :- load(V, P), pt(P, H1), hpt(H1, H2). % v = *p
 
 `pt` (variable points to heap object) and `hpt` (heap object's field
 points to heap object) feed each other until the analysis stabilizes.
+[Lesson 21](21-program-analysis.md) grows this into a call graph and a
+taint tracker.
 
 
 ## Under the hood: the join, the delta, and the stamps

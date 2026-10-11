@@ -1,0 +1,38 @@
+% Taint analysis: can untrusted input reach a dangerous call?  The shape
+% of a CodeQL path query, at toy scale (lesson 21).  The analysed code:
+%
+%   String id(String p) { return p; }            // a harmless helper
+%
+%   void handle(Request req) {
+%     q    = req.param("q");                     // SOURCE: user input
+%     safe = escape(q);                          // a sanitizer
+%     t    = id(q);                              // call site c1
+%     k    = id("SELECT 1");                     // call site c2
+%     db.query(t);                               // SINK
+%     db.query(k);                               // SINK
+%     db.query(safe);                            // SINK
+%   }
+%
+%   python3 datalog.py -q 'finding(S, V)' programs/taint.dl
+%   python3 datalog.py --explain 'finding(sink1, t)' programs/taint.dl
+
+% --- extracted facts ------------------------------------------------------
+source(q).                                 % q holds request data
+% call(Site, Callee), actual(Site, Arg), result(Site, Var)
+call(c1, id).  actual(c1, q).    result(c1, t).
+call(c2, id).  actual(c2, lit).  result(c2, k).
+call(c3, escape). actual(c3, q). result(c3, safe).
+formal(id, p).  returns(id, p).
+sink(sink1, t).  sink(sink2, k).  sink(sink3, safe).
+
+% --- flow: one value moves to another variable ---------------------------
+flow(F, A) :- call(S, M), actual(S, A), formal(M, F).     % into a parameter
+flow(R, X) :- call(S, M), returns(M, X), result(S, R).    % out of a return
+
+% a sanitizer's result is clean, so the analysis simply has no flow
+% through it: escape has no formal/returns facts, by design
+
+tainted(V) :- source(V).
+tainted(V) :- flow(V, W), tainted(W).
+
+finding(S, V) :- sink(S, V), tainted(V).

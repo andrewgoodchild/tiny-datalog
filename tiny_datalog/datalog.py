@@ -555,7 +555,10 @@ def _earlier_solution(engine, rule, seed, stamp, index):
                         new.append(m)
         substs = new
         known |= {a.name for a in args if isinstance(a, Var)}
-    for s in substs:
+    # several derivations may qualify; the index tables are built from
+    # sets, whose order varies with the hash seed, so pick in a fixed
+    # order or the same --explain prints a different tree from run to run
+    for s in sorted(substs, key=lambda s: sort_key([s[k] for k in sorted(s)])):
         if all(engine.instantiate(lit.atom, s)
                not in engine.rels.get(lit.atom.pred, _EMPTY)
                for lit in rule.body if lit.negated):

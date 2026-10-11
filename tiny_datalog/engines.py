@@ -39,9 +39,10 @@ it and demand the semi-naive answer from each.  `datalog.py --engine
 NAME -q ATOM` picks one from the command line.
 
 The extensions (semantics, semiring, incremental, defeasible, prolog,
-subsumption, containment) are deliberately not here: they ask other
-questions — other semantics, weighted answers, updates, a different
-logic — so "same answers as semi-naive" is not their contract.
+subsumption, containment, chase) are deliberately not here: they ask
+other questions — other semantics, weighted answers, updates, a
+different logic, invented values — so "same answers as semi-naive" is
+not their contract.
 """
 
 from __future__ import annotations

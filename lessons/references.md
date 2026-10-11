@@ -23,6 +23,18 @@ be defended.
 - The CALM theorem: Hellerstein and Alvaro's line of work on
   consistency as logical monotonicity; descriptive.
 
+## Lesson 0 — dialects
+
+- B. Jordan, B. Scholz and P. Subotić, *Soufflé: On Synthesis of
+  Program Analyzers*, CAV 2016 — and the Soufflé documentation for
+  the syntax quoted.
+- The Datomic query and rules documentation; XTDB and DataScript
+  follow the same syntax. Descriptive.
+- Google's Mangle (github.com/google/mangle) and Logica
+  (github.com/EvgSkv/logica, logica.dev): the syntax and the
+  `@Recursive` depth annotation are as their repositories show them in
+  2026. Descriptive.
+
 ## Lesson 2 — fixpoints
 
 - B. Knaster and A. Tarski — the fixpoint theorem the lesson names;
@@ -186,6 +198,71 @@ be defended.
   descriptive.
 - P. Carbonnelle, *pyDatalog* (software, LGPL), 2012–;
   https://pydatalog.readthedocs.io — descriptive.
+
+## Lesson 20 — authorization
+
+- R. Pang et al., *Zanzibar: Google's Consistent, Global Authorization
+  System*, USENIX ATC 2019 — relation tuples, Expand, and the Leopard
+  indexing service.
+- J. DeTreville, *Binder, a Logic-Based Security Language*, IEEE
+  Symposium on Security and Privacy, 2002.
+- M. Y. Becker, C. Fournet and A. D. Gordon, *SecPAL: Design and
+  Semantics of a Decentralized Authorization Language*, Journal of
+  Computer Security 18(4), 2010.
+- N. Li and J. C. Mitchell, *Datalog with Constraints: A Foundation for
+  Trust Management Languages*, PADL 2003 — the RT family's
+  semantics.
+- Biscuit, the authorization token format from Clever Cloud
+  (biscuitsec.org), and Oso's Polar language; Cedar, the AWS policy
+  language. Descriptive: the claims made are about their documented
+  design, not about any paper.
+
+## Lesson 21 — program analysis
+
+- M. Bravenboer and Y. Smaragdakis, *Strictly Declarative
+  Specification of Sophisticated Points-to Analyses*, OOPSLA 2009 —
+  Doop.
+- J. Whaley and M. S. Lam, *Cloning-Based Context-Sensitive Pointer
+  Alias Analysis Using Binary Decision Diagrams*, PLDI 2004 —
+  bddbddb.
+- Y. Smaragdakis, M. Bravenboer and O. Lhoták, *Pick Your Contexts
+  Well: Understanding Object-Sensitivity*, POPL 2011.
+- L. O. Andersen, *Program Analysis and Specialization for the C
+  Programming Language*, PhD thesis, DIKU, 1994 — the inclusion-based
+  points-to analysis the lesson's rules descend from.
+- B. Jordan, B. Scholz and P. Subotić, *Soufflé: On Synthesis of
+  Program Analyzers*, CAV 2016.
+- GitHub's CodeQL documentation, for extraction into a database and
+  path queries. Descriptive.
+
+## Lesson 22 — knowledge graphs and the chase
+
+- W3C, *RDF 1.1 Semantics* (2014) — the rdfs1–rdfs13 entailment rules.
+- W3C, *OWL 2 Web Ontology Language Profiles* (2009; second edition
+  2012) — EL, QL and RL, and the RL rule tables.
+- W3C, *Shapes Constraint Language (SHACL)* (2017).
+- D. Maier, A. O. Mendelzon and Y. Sagiv, *Testing Implications of
+  Data Dependencies*, ACM TODS 4(4), 1979 — the chase.
+- D. S. Johnson and A. Klug, *Testing Containment of Conjunctive
+  Queries under Functional and Inclusion Dependencies*, JCSS 28(1),
+  1984.
+- R. Fagin, P. G. Kolaitis, R. J. Miller and L. Popa, *Data Exchange:
+  Semantics and Query Answering*, Theoretical Computer Science 336(1),
+  2005 — weak acyclicity.
+- A. Deutsch, A. Nash and J. Remmel, *The Chase Revisited*, PODS 2008
+  — chase termination.
+- A. Calì, G. Gottlob and T. Lukasiewicz, *A General Datalog-Based
+  Framework for Tractable Query Answering over Ontologies*, PODS 2009
+  (journal version, Journal of Web Semantics 2012) — Datalog±.
+- L. Bellomarini, E. Sallinger and G. Gottlob, *The Vadalog System:
+  Datalog-based Reasoning for Knowledge Graphs*, PVLDB 11(9), 2018.
+- B. Motik, Y. Nenov, R. Piro and I. Horrocks, *Handling owl:sameAs via
+  Rewriting*, AAAI 2015.
+- Y. Zhang, Y. R. Wang, O. Flatt, D. Cao, P. Zucker, E. Rosenthal,
+  Z. Tatlock and M. Willsey, *Better Together: Unifying Datalog and
+  Equality Saturation*, PLDI 2023 — egglog.
+- R. E. Tarjan, *Efficiency of a Good but Not Linear Set Union
+  Algorithm*, JACM 22(2), 1975 — union-find's near-constant bound.
 
 ## Elsewhere
 

@@ -1,0 +1,15 @@
+% Lesson 22 answers, runnable parts: run with the chase, not datalog.py.
+%
+%   python3 chase.py exercises/22-answers.dl
+
+% --- exercise 4: every person has a parent, weakly acyclic ----------------
+% Invented parents go into their own predicate, so they are never fed
+% back into the rule that invents the next one.
+person(ada).
+parent(P, C)  :- person(C).
+ancestor(P)   :- parent(P, _).
+
+% --- exercise 6: the frozen body of q(E) :- employee(E). -------------------
+% Freeze E as the constant e, chase, and look for works_in(e, _).
+employee(e).
+works_in(E, D) :- employee(E).

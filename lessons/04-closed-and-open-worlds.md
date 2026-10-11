@@ -175,7 +175,9 @@ billion-dollar reference — waits for [Lesson 19](19-neighbours.md),
 where the neighbours get their due. The sentence to carry out of *this*
 lesson: SQL's NULL-as-unknown smuggles one open-world cell into a
 closed-world table, and every nullable column is quietly asking the
-question this lesson taught you to ask.
+question this lesson taught you to ask. (Labelled nulls are not only
+theory: [Lesson 22](22-knowledge-graphs.md)'s chase invents them, and
+answers questions over open-world data with them.)
 
 ## The trade, stated plainly
 

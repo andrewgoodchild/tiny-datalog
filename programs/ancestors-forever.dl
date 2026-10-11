@@ -1,0 +1,10 @@
+% The chase that never stops: every person has a parent, and every
+% parent is a person.  Each invented parent needs a parent of its own
+% (lesson 22).
+%
+%   python3 chase.py --max-nulls 5 programs/ancestors-forever.dl
+
+person(ada).
+
+parent(P, C) :- person(C).
+person(P)    :- parent(P, _).
