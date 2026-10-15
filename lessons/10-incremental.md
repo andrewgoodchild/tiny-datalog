@@ -204,8 +204,9 @@ research frontier.
 
 ## What's deliberately missing
 
-Negation. Deleting a fact can *create* derivations through `not`, and
-insertions can retract them — maintenance under stratified negation needs
+Negation (and, for the same reason, lesson 13's aggregation). Deleting
+a fact can *create* derivations through `not`, and insertions can
+retract them — maintenance under stratified negation needs
 per-stratum bookkeeping this teaching module omits. It rejects such
 programs rather than getting them quietly wrong.
 

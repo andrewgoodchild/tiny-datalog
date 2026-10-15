@@ -41,7 +41,7 @@ from collections import defaultdict
 
 from tiny_datalog.core import (
     Atom, cli, Const, DatalogError, Literal, parse, parse_goal, read_program,
-    Rule, Struct, Var)
+    Rule, Struct, Var, refuse_extras)
 
 
 # ---------------------------------------------------------------------------
@@ -129,6 +129,9 @@ class PrologEngine:
     of absence)."""
 
     def __init__(self, clauses):
+        # Prolog's own `<` evaluates arithmetic and `=` unifies; neither
+        # is this course's check-only comparison, so refuse both forms
+        refuse_extras(clauses, "prolog.py")
         self.clauses = list(clauses)
         # index clauses by (pred, arity) so each resolution step only
         # scans candidates that could possibly unify; source order is

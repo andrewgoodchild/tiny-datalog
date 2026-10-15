@@ -1,0 +1,47 @@
+% Lesson 24: an assistant's memory of one user, as a deductive database.
+%
+% A language model read six conversations (episodes e1..e6) and wrote
+% down what it was told, one statement per fact, each tagged with the
+% date and the episode it came from.  It wrote nothing else: every
+% belief below is derived by rules, so every belief can be traced back
+% to the words that caused it.
+%
+%   python3 datalog.py -q 'current(user, R, O)' programs/memory.dl
+%   python3 datalog.py --explain 'reports_to(user, marco)' programs/memory.dl
+
+%     subject relation  object    date          episode
+said(user,  works_at, acme,    "2024-01-08", e1).  % "I just started at Acme."
+said(user,  manager,  priya,   "2024-01-08", e1).  % "My manager is Priya."
+said(priya, manager,  marco,   "2024-02-19", e2).  % "Priya reports to Marco."
+said(user,  allergy,  peanuts, "2024-03-04", e3).  % "I'm allergic to peanuts."
+said(user,  manager,  sam,     "2024-06-10", e4).  % "After the reorg I report to Sam."
+said(user,  manager,  dana,    "2024-06-10", e5).  % "...actually, Dana, while Sam's away."
+said(sam,   manager,  marco,   "2024-07-01", e6).  % "Sam reports to Marco."
+
+functional(works_at).    % one value at a time: a new one supersedes
+functional(manager).
+
+now("2024-08-01").
+
+% ---------------------------------------------------------------- time
+% Lesson 23's supersession, asked about one moment, `now`.  The episode
+% stays in `said`, where --explain finds it.
+superseded(E, R, O, F, U) :- said(E, R, O, F, _), functional(R),
+                             said(E, R, O2, U, _), O != O2, F < U.
+
+current(E, R, O) :- said(E, R, O, F, _), now(T), F <= T,
+                    not ended_by(E, R, O, F, T).
+ended_by(E, R, O, F, T) :- superseded(E, R, O, F, U), now(T), U <= T.
+
+% --------------------------------------------------------------- rules
+reports_to(X, Y) :- current(X, manager, Y).
+reports_to(X, Z) :- current(X, manager, Y), reports_to(Y, Z).
+
+% --------------------------------------------------------- constraints
+% Two current values for a one-value relation.  Supersession cannot
+% pick one when both were stated the same day, so the memory must ask;
+% a later statement settles it, and nothing has to be deleted.
+:- current(E, R, O1), current(E, R, O2), functional(R), O1 < O2.
+
+% Nobody manages themselves, however indirectly.
+:- reports_to(X, X).

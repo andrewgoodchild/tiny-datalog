@@ -1,0 +1,9 @@
+% Lesson 23: a comparison checks values, it never supplies them.  T is
+% compared with D, but nothing says what T is, so the engine refuses.
+%
+%   python3 datalog.py programs/late-unsafe.dl
+
+due(loan1, "2024-03-01").
+due(loan2, "2024-05-20").
+
+late(L) :- due(L, D), D < T.

@@ -53,7 +53,8 @@ survive *through* `n3`, which kills it. The `not` is legal by lesson
 3's discipline: `kills` depends only on `def`, so it sits in a stratum
 below `reaches` and is finished before `reaches` consults it. (The
 `same_def` trick is the engine-without-`!=` way to say "a different
-definition of the same variable": lesson 14, exercise 4.)
+definition of the same variable". The engine now has `!=`, so
+`D != D2` says it in one literal: lesson 14, exercise 4.)
 
 **4. Demand on the taint program.**
 

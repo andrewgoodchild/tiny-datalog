@@ -51,8 +51,8 @@ from collections import defaultdict
 
 from tiny_datalog.core import (
     cli, DatalogError, format_fact, match, parse, read_program, sort_key,
-    validate, aggregate_of)
-from tiny_datalog.datalog import Engine, Program
+    validate, aggregate_of, body_order, holds, is_comparison)
+from tiny_datalog.datalog import Engine, Program, _print_violations
 
 
 def _refuse_weight(clause):
@@ -70,6 +70,8 @@ class IncrementalEngine:
         clauses = parse(text)
         for r in clauses:
             _refuse_weight(r)
+            if r.constraint:      # checked on demand, so `not` is fine
+                continue
             if any(lit.negated for lit in r.body) or aggregate_of(r.head):
                 raise DatalogError(
                     "incremental maintenance supports positive, "
@@ -270,9 +272,10 @@ class IncrementalEngine:
         is well-founded by construction — a fact cannot survive by
         deriving itself around a cycle."""
         affected = self._affected(facts)
-        by_head = defaultdict(list)
+        by_head = defaultdict(list)     # head -> (rule, body in join order)
         for r in self.rules:
-            by_head[r.head.pred].append(r)
+            by_head[r.head.pred].append(
+                (r, [r.body[i] for i in body_order(r.body)]))
         proven, checks = {}, [0]
 
         def usable(f, blocked):
@@ -290,9 +293,9 @@ class IncrementalEngine:
             # after a top-level search exhausts them all
             checks[0] += 1
             pred, tup = f
-            for rule in by_head[pred]:
+            for rule, body in by_head[pred]:
                 subst = match(rule.head.args, tup, {})
-                if subst is not None and solve(rule.body, 0, subst, blocked):
+                if subst is not None and solve(body, 0, subst, blocked):
                     proven[f] = True
                     return True
             return False
@@ -301,6 +304,9 @@ class IncrementalEngine:
             if i == len(body):
                 return True
             atom = body[i].atom
+            if is_comparison(atom):
+                return (holds(atom, subst)
+                        and solve(body, i + 1, subst, blocked))
             for tup in sorted(self.rels.get(atom.pred, ()), key=sort_key):
                 ext = match(atom.args, tup, subst)
                 if (ext is not None and usable((atom.pred, tup), blocked)
@@ -322,6 +328,11 @@ class IncrementalEngine:
         return {"deleted": len(facts), "affected": len(affected),
                 "confirmed": len(affected) - removed, "removed": removed,
                 "backward_checks": checks[0]}
+
+    def violations(self):
+        """The integrity constraints the current state breaks — the base
+        engine's check, run against the repaired relations."""
+        return self.engine.violations()
 
     def total_facts(self):
         return sum(len(ts) for ts in self.rels.values())
@@ -414,7 +425,7 @@ def main(argv=None):
         for pred in sorted(inc.program.idb):
             for tup in sorted(inc.rels.get(pred, ()), key=sort_key):
                 print(format_fact(pred, tup))
-    return 0
+    return 3 if _print_violations(inc.engine) else 0
 
 
 if __name__ == "__main__":

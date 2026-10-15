@@ -1,0 +1,11 @@
+% Lesson 23: one wrong letter in an interval test.  `T < F` should be
+% `T < U`, and together with `F <= T` it can never hold, so the rule
+% never fires.  The engine says so before it evaluates.
+%
+%   python3 datalog.py -q 'holds_at(E, R, O, T)' programs/employment-typo.dl
+
+until(alice, works_at, acme,   "2019-03-01", "2022-07-15").
+until(alice, works_at, globex, "2022-07-15", "9999-12-31").
+asked("2024-01-01").
+
+holds_at(E, R, O, T) :- until(E, R, O, F, U), asked(T), F <= T, T < F.

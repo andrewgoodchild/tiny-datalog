@@ -16,6 +16,9 @@ Semantics
 * Safety and stratified negation: checked by core.py before evaluation
   starts (see its docstring); a program that fails either check never
   reaches the evaluator.
+* Integrity constraints (`:- body.`) derive nothing.  After evaluation,
+  each one's body is solved against the finished database, and every
+  solution is a counterexample (Engine.violations; lesson 17).
 * Semi-naive evaluation: each stratum is evaluated to fixpoint; after the
   first round, recursive rules are re-evaluated only with the previous
   round's new facts (the "delta") substituted into each recursive body
@@ -47,6 +50,10 @@ CLI
     python3 datalog.py --engine tabling -q 'path(n5, X)' program.dl
                                     # any engine in engines.py's ENGINES
     python3 datalog.py --models program.dl      # stable + well-founded models
+    python3 datalog.py --assume 'edge(a, z).' program.dl   # what if?
+
+Exit status: 0, or 1 on an error, 2 for an unstratifiable program, 3
+when an integrity constraint is violated (after printing the rest).
 """
 
 from __future__ import annotations
@@ -66,16 +73,19 @@ from collections import defaultdict
 from tiny_datalog.core import (  # noqa: F401 -- re-exported
     # AST and errors
     Var, Const, Struct, Atom, Literal, Rule,
+    COMPARISONS, CONSTRAINT_HEAD, is_comparison, split_constraints,
     DatalogError, ParseError, SafetyError, StratificationError,
     # parser
     parse, parse_goal, _Parser, _TOKEN, _tokenize, _num, _shown,
     # validation and stratification
     AGGREGATES, aggregate_of, _aggregate_of, validate,
-    stratify, _tarjan, _find_cycle, _format_cycle,
+    stratify, _tarjan, _find_cycle, _format_cycle, lint, _contradiction,
+    # comparisons
+    body_order, compare, holds, refuse_extras,
     # matching
     match, _match, _MISSING, _EMPTY,
     # facts from Python data
-    python_facts, _PREDICATE,
+    python_facts, _PREDICATE, check_text,
     # values: sorting and formatting
     sort_key, _sort_key, format_atom, format_fact, _format_value,
     # queries
@@ -98,7 +108,8 @@ class Program:
                     "static program simply wouldn't assert the fact.  "
                     "Apply it to a live materialisation via incremental.py."
                     % c)
-        self.arity = validate(clauses)
+        self.arity = validate(clauses, constraints=True)
+        clauses, self.constraints = split_constraints(clauses)
         self.facts = [r for r in clauses if not r.body]
         self.rules = [r for r in clauses if r.body]
         self.idb = {r.head.pred for r in self.rules}
@@ -230,19 +241,16 @@ class Engine:
 
     def substitutions(self, rule, delta_occ=None, delta=None, seed=None):
         """Every substitution satisfying the rule body (positives joined
-        first — they bind; negatives filter afterwards, against fully
-        computed lower strata).  If delta_occ is given, the positive
+        first — they bind; comparisons and then negatives filter
+        afterwards, the negatives against fully computed lower strata).  If delta_occ is given, the positive
         literal at that body index reads from `delta` instead of the
         full relations — the semi-naive restriction.  A `seed`
         substitution pre-binds variables (--explain uses this).
         Public because extensions reuse this join over a database they
         filled themselves: semantics.py grounds rules with it, and
         defeasible.py instantiates rules against a fact base."""
-        # Positives first (they bind variables), negatives filter afterwards.
-        ordered = sorted(range(len(rule.body)),
-                         key=lambda i: rule.body[i].negated)
         substs = [dict(seed) if seed else {}]
-        for i in ordered:
+        for i in body_order(rule.body):
             lit = rule.body[i]
             if not substs:
                 return []
@@ -258,8 +266,11 @@ class Engine:
         relation `rel`.  A positive literal is a join: each substitution
         extends once per tuple it matches (and may bind new variables).
         A negated literal only filters: its atom is ground by now, and
-        the substitution survives if that fact is absent.  why-not
-        (whynot) walks a body with this same step, to see where it dies."""
+        the substitution survives if that fact is absent.  A comparison
+        filters too, and reads no relation at all.  why-not (whynot)
+        walks a body with this same step, to see where it dies."""
+        if is_comparison(lit):
+            return [s for s in substs if holds(lit.atom, s)]
         if lit.negated:
             return [s for s in substs
                     if self.instantiate(lit.atom, s) not in rel]
@@ -306,6 +317,26 @@ class Engine:
                         for j, a in enumerate(rule.head.args) if j != idx)
             groups[key].append(s[var.name])
         return groups
+
+    def violations(self):
+        """The integrity constraints that fail, each with its
+        counterexamples: [(constraint, [substitution, ...]), ...] in
+        program order, substitutions sorted.  A constraint's body is a
+        question whose every answer is a mistake, so this is one join
+        per constraint against the finished database.  Call run()
+        first; incremental.py shares this method, so a repaired
+        materialisation is checked the same way.  As in query(), `_`
+        is not reported: `:- p(_).` has one counterexample, {}."""
+        return [(c, _sorted_substs({tuple(sorted(
+                    (k, v) for k, v in s.items() if not k.startswith("_#")))
+                    for s in found}))
+                for c, found in self._counterexamples()]
+
+    def _counterexamples(self):
+        """[(constraint, every body solution)], `_` included: the CLI
+        prints each solution as the ground body it satisfied."""
+        return [(c, found) for c in self.program.constraints
+                for found in [self.substitutions(c)] if found]
 
     def query(self, goal):
         """The answers to a query, one dict per answer, in sorted order:
@@ -477,6 +508,56 @@ def _print_models(clauses):
     return 0
 
 
+def _sorted_substs(items):
+    """Substitutions, given as sorted (name, value) item tuples, as
+    dicts in a stable order."""
+    return [dict(t) for t in sorted(set(items), key=lambda t: sort_key(
+        [v for _k, v in t]))]
+
+
+def _print_violations(engine):
+    """Report every integrity constraint's verdict; True if any failed.
+    A counterexample prints as the body it satisfied, ground: the facts
+    to --explain, and the comparisons that held between them."""
+    constraints = engine.program.constraints
+    if not constraints:
+        return False
+    failed = engine._counterexamples()
+    for c, found in failed:
+        print("constraint violated: %s" % c)
+        for s in _sorted_substs(tuple(sorted(s.items())) for s in found):
+            print("   " + ", ".join(
+                ("not " if lit.negated else "")
+                + _ground(lit.atom, engine.instantiate(lit.atom, s))
+                for lit in c.body))
+        print("   (%d counterexample%s)" % (len(found),
+                                           "" if len(found) == 1 else "s"))
+    if not failed:
+        print("%% %d integrity constraint%s checked: none violated"
+              % (len(constraints), "" if len(constraints) == 1 else "s"))
+    return bool(failed)
+
+
+def assume(clauses, script):
+    """`clauses` under a hypothetical update: each fact in `script` is
+    added, and each `fact~.` removes a stated fact.  Nothing is undone
+    afterwards because nothing was changed — the program is a function
+    of its facts, so a "what if" is just another input (lesson 24)."""
+    changes = parse(script)
+    for c in changes:
+        if c.body:
+            raise DatalogError("--assume takes facts (and `fact~.` "
+                               "retractions), not rules: %s" % c)
+    gone = {c.head for c in changes if c.retract}
+    for atom in gone:
+        if not any(not c.body and not c.retract and c.head == atom
+                   for c in clauses):
+            raise DatalogError("cannot assume %s away: the program does "
+                               "not state it" % atom)
+    return ([c for c in clauses if c.body or c.head not in gone]
+            + [c for c in changes if not c.retract])
+
+
 def _print_answers(atom, tuples, suffix=""):
     print("?- %s%s" % (atom, suffix))
     answers = sorted(tuples, key=sort_key)
@@ -531,7 +612,8 @@ def _earlier_solution(engine, rule, seed, stamp, index):
     literal with the most arguments already known, and looks its matches
     up in a hash index (built once per relation and pattern of known
     positions, then reused down the tree).  Negatives filter at the end."""
-    positives = [lit for lit in rule.body if not lit.negated]
+    positives = [lit for lit in rule.body
+                 if not lit.negated and not is_comparison(lit)]
     substs = [seed]
     known = set(seed)
 
@@ -559,9 +641,10 @@ def _earlier_solution(engine, rule, seed, stamp, index):
     # sets, whose order varies with the hash seed, so pick in a fixed
     # order or the same --explain prints a different tree from run to run
     for s in sorted(substs, key=lambda s: sort_key([s[k] for k in sorted(s)])):
-        if all(engine.instantiate(lit.atom, s)
+        if all(holds(lit.atom, s) if is_comparison(lit)
+               else engine.instantiate(lit.atom, s)
                not in engine.rels.get(lit.atom.pred, _EMPTY)
-               for lit in rule.body if lit.negated):
+               for lit in rule.body if lit.negated or is_comparison(lit)):
             return s
     return None
 
@@ -634,6 +717,9 @@ def explain(engine, pred, tup):
         for item in premises:
             if item[0] == "aggregate":
                 children.append((indent, None, "  = %s" % item[1]))
+            elif is_comparison(item[0]):
+                children.append((indent, None, "  %s   (comparison)"
+                                 % _ground(item[0].atom, item[1])))
             elif item[0].negated:
                 children.append((indent, None,
                                  "  not %s   (absent from its completed "
@@ -643,6 +729,11 @@ def explain(engine, pred, tup):
                 children.append((indent + 1, item[0].atom.pred, item[1]))
         stack.extend(reversed(children))   # so the first premise pops first
     return lines
+
+
+def _ground(atom, values):
+    """An atom with its arguments replaced by ground values, as text."""
+    return str(Atom(atom.pred, tuple(Const(v) for v in values)))
 
 
 def whynot(engine, pred, tup, lines=None):
@@ -680,10 +771,8 @@ def whynot(engine, pred, tup, lines=None):
             continue
         lines.append("  via %s" % rule)
         substs = [dict(seed)]
-        ordered = sorted(range(len(rule.body)),
-                         key=lambda i: rule.body[i].negated)
         blocked = None
-        for i in ordered:
+        for i in body_order(rule.body):
             lit = rule.body[i]
             survivors = engine._join_step(
                 lit, substs, engine.rels.get(lit.atom.pred, _EMPTY))
@@ -699,7 +788,10 @@ def whynot(engine, pred, tup, lines=None):
         shown = Atom(lit.atom.pred,
                      tuple(Const(s[a.name]) if isinstance(a, Var)
                            and a.name in s else a for a in lit.atom.args))
-        if lit.negated:
+        if is_comparison(lit):
+            lines.append("    blocked at: %s -- the comparison is false"
+                         % shown)
+        elif lit.negated:
             inst = engine.instantiate(lit.atom, s)
             lines.append("    blocked at: not %s -- %s holds:"
                          % (shown, format_atom(lit.atom.pred, inst)))
@@ -842,6 +934,11 @@ def main(argv=None):
                          "(goal-directed: only facts relevant to the query's "
                          "bound arguments are derived); with --trace, also "
                          "print the rewritten program and derivation counts")
+    ap.add_argument("--assume", action="append", default=[],
+                    metavar="FACTS",
+                    help="what if? evaluate as though these facts were "
+                         "added, and `fact~.` ones removed, e.g. "
+                         "'edge(a, z). edge(a, b)~.' (repeatable)")
     ap.add_argument("--engine", choices=ENGINE_NAMES, default=None,
                     help="evaluation strategy (default seminaive; see "
                          "engines.py).  All four give the same answers.  "
@@ -864,6 +961,20 @@ def main(argv=None):
     # ground_program, so parsing is all that must happen up front;
     # a DatalogError anywhere below is reported by @cli
     clauses = parse(read_program(args.file))
+    for script in args.assume:
+        clauses = assume(clauses, script)
+    for warning in lint(clauses):
+        print(warning, file=sys.stderr)
+
+    rules, constraints = split_constraints(clauses)
+    if constraints and (args.models or engine_name in ("magic", "tabling")):
+        # constraints change no answer, so these modes may set them
+        # aside -- but say so, rather than imply they were checked
+        print("note: %d integrity constraint%s not checked: that needs "
+              "the full materialisation of seminaive or naive evaluation"
+              % (len(constraints), "" if len(constraints) == 1 else "s"),
+              file=sys.stderr)
+        clauses = rules
 
     if args.models:
         return _print_models(clauses)
@@ -914,7 +1025,7 @@ def main(argv=None):
             _run_query(q, engine)
         for q in args.explain:
             _run_explain(q, engine)
-        return 0
+        return 3 if _print_violations(engine) else 0
 
     preds = sorted(set(program.arity) if args.all else program.idb)
     for pred in preds:
@@ -926,7 +1037,7 @@ def main(argv=None):
         for tup in sorted(tuples, key=sort_key):
             print(format_fact(pred, tup))
         print()
-    return 0
+    return 3 if _print_violations(engine) else 0
 
 
 if __name__ == "__main__":

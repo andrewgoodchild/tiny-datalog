@@ -1,0 +1,19 @@
+% Lesson 23, exercise 2: intervals stated outright, as an HR system
+% stores them, guarded by integrity constraints.
+%
+%   python3 datalog.py exercises/23-answers.dl      (exits 3: two violations)
+
+%        person  employer  from          until (exclusive)
+employed(ann,    acme,     "2020-01-01", "2021-06-30").
+employed(ann,    globex,   "2021-06-01", "9999-12-31").   % a month too early
+employed(ben,    initech,  "2022-03-01", "2022-02-01").   % typed backwards
+employed(cy,     acme,     "2019-01-01", "2020-01-01").
+employed(cy,     acme,     "2020-01-01", "2023-01-01").   % adjacent: fine
+
+% A period may not close before it opens (or on the day it opens).
+:- employed(P, C, F, U), U <= F.
+
+% Nobody has two employers at once.  C1 < C2 reports each pair once,
+% and leaves two periods at the same employer alone.
+:- employed(P, C1, F1, U1), employed(P, C2, F2, U2), C1 < C2,
+   F1 < U2, F2 < U1.

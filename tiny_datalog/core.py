@@ -31,6 +31,9 @@ Syntax
                                       % (ignored by datalog.py; used by
                                       % semiring.py)
     head(X) :- body(X, Y), not q(Y).  % rules; `not` is stratified negation
+    late(P) :- due(P, D), now(T), D < T.  % comparisons: < <= > >= = !=
+    :- manages(X, X).                 % an integrity constraint: a body that
+                                      % must never hold (lesson 17)
     % and # start line comments
 
 Constants are lowercase identifiers, numbers (int or float), or quoted
@@ -41,10 +44,18 @@ top-down interpreter in prolog.py.
 Variables start with an uppercase letter or underscore ('_' is anonymous).
 `not` is reserved for negation.
 
+Comparisons check values and never produce them: both sides must be
+bound by a positive literal, so they filter like negation does and
+cannot make a relation infinite.  That is why they are here and `+` is
+not (lesson 14).  Numbers compare as numbers, strings as text (ISO
+dates such as "2024-03-01" therefore compare as dates, lesson 23), and
+ordering a number against a string is an error.
+
 The two static checks
 ---------------------
-* Safety: every variable in a rule head, and every variable in a negated
-  body literal, must also appear in a positive body literal of that rule.
+* Safety: every variable in a rule head, in a negated body literal, or
+  in a comparison, must also appear in a positive body literal of that
+  rule.
 * Stratified negation: IDB predicates are partitioned into strata so that
   no predicate depends (directly or transitively) on its own negation.
   If negation occurs inside a recursive cycle, the program is rejected
@@ -56,10 +67,12 @@ file and of the evaluator in datalog.py.
 
 from __future__ import annotations
 
+import difflib
 import functools
 import math
 import re
 import sys
+import unicodedata
 from collections import defaultdict, deque
 from dataclasses import dataclass
 
@@ -104,12 +117,21 @@ class Struct:
         return "%s(%s)" % (self.functor, ", ".join(map(str, self.args)))
 
 
+# The comparison built-ins.  A comparison is stored as an ordinary
+# Atom whose predicate is the operator, so every module that walks a
+# rule body sees it; none of these can be written as a predicate name,
+# so none can collide with one.
+COMPARISONS = ("<", "<=", ">", ">=", "=", "!=")
+
+
 @dataclass(frozen=True)
 class Atom:
     pred: str
     args: tuple
 
     def __str__(self):
+        if self.pred in COMPARISONS:
+            return "%s %s %s" % (self.args[0], self.pred, self.args[1])
         if not self.args:
             return self.pred
         return "%s(%s)" % (self.pred, ", ".join(map(str, self.args)))
@@ -124,14 +146,24 @@ class Literal:
         return ("not " if self.negated else "") + str(self.atom)
 
 
+def is_comparison(lit):
+    """True for a comparison literal (or atom) such as X < Y."""
+    atom = lit.atom if isinstance(lit, Literal) else lit
+    return atom.pred in COMPARISONS
+
+
 @dataclass(frozen=True)
 class Rule:
     head: Atom
     body: tuple  # tuple of Literal; empty tuple => fact
     weight: object = None   # numeric fact annotation `@ w`; facts only
     retract: bool = False   # `fact~.` — an update for incremental.py
+    constraint: bool = False   # `:- body.` — derives nothing; its body
+                               # must never hold (head is CONSTRAINT_HEAD)
 
     def __str__(self):
+        if self.constraint:
+            return ":- %s." % ", ".join(map(str, self.body))
         if not self.body:
             if self.retract:
                 return "%s~." % self.head
@@ -139,6 +171,19 @@ class Rule:
                 return "%s @ %s." % (self.head, self.weight)
             return "%s." % self.head
         return "%s :- %s." % (self.head, ", ".join(map(str, self.body)))
+
+
+# The head a constraint carries, so that code reading `rule.head` never
+# meets None.  '#' starts a comment, so no program can name it.
+CONSTRAINT_HEAD = Atom("#constraint", ())
+
+
+def split_constraints(clauses):
+    """(clauses without constraints, the constraints).  Constraints
+    derive nothing, so an engine answering queries may set them aside;
+    checking them is the base engine's job (Engine.violations)."""
+    return ([c for c in clauses if not c.constraint],
+            [c for c in clauses if c.constraint])
 
 
 class DatalogError(Exception):
@@ -176,6 +221,7 @@ _TOKEN = re.compile(
     | (?P<implies>:-)
     | (?P<lparen>\() | (?P<rparen>\)) | (?P<comma>,) | (?P<at>@)
     | (?P<retract>~)
+    | (?P<cmp><=|>=|!=|<|>|=)
     | (?P<number>-?[0-9]+(?:\.[0-9]+)?(?:[eE][-+]?[0-9]+)?)
     | (?P<dot>\.)
     | (?P<string>"[^"\n]*"|'[^'\n]*')
@@ -208,6 +254,8 @@ def _tokenize(text):
             raise ParseError("line %d: unexpected character %r" % (line, text[pos]))
         kind = m.lastgroup
         value = m.group()
+        if kind == "string":
+            check_text(value[1:-1], "line %d: string" % line, ParseError)
         if kind not in ("ws", "comment"):
             tokens.append((kind, value, line))
         line += value.count("\n")
@@ -221,8 +269,9 @@ class _Parser:
     rule, reading top to bottom:
 
         program := clause*
-        clause  := atom [ '@' number ] '.'  |  atom ':-' literal (',' literal)* '.'
-        literal := [ 'not' ] atom
+        clause  := atom [ '@' number ] '.'  |  [ atom ] ':-' body '.'
+        body    := literal (',' literal)*
+        literal := [ 'not' ] atom  |  term CMP term
         atom    := IDENT [ '(' term (',' term)* ')' ]
         term    := VARIABLE | NUMBER | STRING | IDENT [ '(' term... ')' ]
 
@@ -266,6 +315,11 @@ class _Parser:
         return clauses
 
     def _parse_clause(self):
+        if self._peek()[0] == "implies":     # `:- body.`, a constraint
+            self._next()
+            body = tuple(self._comma_list(self._parse_literal))
+            self._expect("dot")
+            return Rule(CONSTRAINT_HEAD, body, constraint=True)
         head = self._parse_atom()
         body = ()
         weight = None
@@ -293,6 +347,18 @@ class _Parser:
             if self._peek()[0] == "lparen":
                 raise ParseError("line %d: `not` is negation, not a predicate "
                                  "— write `not p(X)`" % line)
+        # a comparison starts with a term that cannot start an atom (a
+        # variable, number or string), or with a constant followed by
+        # an operator: one token of lookahead tells `a < X` from `a(X)`
+        nxt = self.tokens[self.i + 1][0] if self.i + 1 < len(self.tokens) else ""
+        if self._peek()[0] in ("var", "number", "string") or nxt == "cmp":
+            if negated:
+                raise ParseError("line %d: `not` applies to atoms; negate a "
+                                 "comparison by flipping it (X >= Y for "
+                                 "not X < Y)" % line)
+            left = self._parse_term()
+            op = self._expect("cmp")[1]
+            return Literal(Atom(op, (left, self._parse_term())))
         return Literal(self._parse_atom(), negated)
 
     def _parse_atom(self):
@@ -335,7 +401,8 @@ class _Parser:
 
 
 def parse(text):
-    """Parse a Datalog program into a list of Rule (facts have empty body)."""
+    """Parse a Datalog program into a list of Rule (facts have empty
+    body; constraints have `constraint` set)."""
     return _Parser(text).parse_program()
 
 
@@ -366,19 +433,26 @@ def aggregate_of(atom):
 _aggregate_of = aggregate_of
 
 
-def validate(clauses, arity=None):
+def validate(clauses, arity=None, constraints=False):
     """Check arities, ground facts, and safety.  Returns {pred: arity}.
     An `arity` seed map lets a caller check new clauses against an
     already-loaded program's signature (incremental.py does this).
     "Safety" is range restriction, and it is what makes every relation
-    finite: a variable may appear in a rule head, or under `not`, only if
-    a positive body literal also binds it.  Without it, p(X) :- q(a)
-    would assert p of *everything*, and `not r(X)` with X unbound would
-    quantify over an open universe.  The compound-term check is the
-    Datalog boundary itself — see the module docstring and prolog.py."""
+    finite: a variable may appear in a rule head, under `not`, or in a
+    comparison only if a positive body literal also binds it.  Without
+    it, p(X) :- q(a) would assert p of *everything*, `not r(X)` with X
+    unbound would quantify over an open universe, and X < 3 would be
+    infinite.  The compound-term check is the Datalog boundary itself —
+    see the module docstring and prolog.py.
+
+    Integrity constraints (`:- body.`) are refused unless the caller
+    says it checks them (`constraints=True`): a module that quietly
+    skipped them would report a program as fine when it is not."""
     arity = dict(arity) if arity is not None else {}
 
     def check_arity(atom):
+        if atom.pred in COMPARISONS:
+            return
         n = arity.setdefault(atom.pred, len(atom.args))
         if n != len(atom.args):
             raise SafetyError(
@@ -387,14 +461,20 @@ def validate(clauses, arity=None):
     def check_term(a, rule):
         if isinstance(a, Struct):
             raise SafetyError(
-                "function symbols are not Datalog: term %s in %s.  "
+                "function symbols are not Datalog: term %s in %s  "
                 "Datalog bans compound terms so that bottom-up "
                 "evaluation always terminates; for Horn clauses with "
                 "function symbols use the top-down engine (prolog.py)."
                 % (a, rule))
 
     for rule in clauses:
-        check_arity(rule.head)
+        if rule.constraint and not constraints:
+            raise SafetyError(
+                "integrity constraints are checked by the base engine "
+                "(datalog.py, seminaive or naive); this one would ignore "
+                "it: %s" % rule)
+        if not rule.constraint:
+            check_arity(rule.head)
         # heads may carry one aggregate term, e.g. total(P, sum(A)); any
         # other compound term is the function-symbol boundary
         agg = aggregate_of(rule.head)
@@ -417,7 +497,8 @@ def validate(clauses, arity=None):
             if any(isinstance(a, Var) for a in rule.head.args):
                 raise SafetyError("fact is not ground: %s" % rule)
             continue
-        positive_vars = {a.name for lit in rule.body if not lit.negated
+        positive_vars = {a.name for lit in rule.body
+                         if not lit.negated and not is_comparison(lit)
                          for a in lit.atom.args if isinstance(a, Var)}
         head_vars = [a for a in rule.head.args if isinstance(a, Var)]
         if agg:
@@ -428,13 +509,60 @@ def validate(clauses, arity=None):
                     "unsafe rule: head variable %s is not bound by a positive "
                     "body literal in: %s" % (a, rule))
         for lit in rule.body:
-            if lit.negated:
+            if lit.negated or is_comparison(lit):
+                what = "negated literal" if lit.negated else "comparison"
                 for a in lit.atom.args:
                     if isinstance(a, Var) and a.name not in positive_vars:
                         raise SafetyError(
-                            "unsafe rule: variable %s of negated literal %s is not "
-                            "bound by a positive literal in: %s" % (a, lit, rule))
+                            "unsafe rule: variable %s of %s %s is not "
+                            "bound by a positive literal in: %s"
+                            % (a, what, lit, rule))
     return arity
+
+
+def body_order(body):
+    """Indices of a rule body in evaluation order: positive literals
+    first (they bind), then comparisons, then negations — both of which
+    only filter, and need their variables bound.  Every engine that
+    joins a body left to right uses this order."""
+    def rank(i):
+        lit = body[i]
+        return 2 if lit.negated else 1 if is_comparison(lit) else 0
+    return sorted(range(len(body)), key=rank)
+
+
+def compare(op, a, b):
+    """Evaluate one comparison between two ground values."""
+    if op == "=":
+        return a == b
+    if op == "!=":
+        return a != b
+    if isinstance(a, str) != isinstance(b, str):
+        raise DatalogError(
+            "cannot order %s %s %s: one is a number and the other a "
+            "string" % (_format_value(a), op, _format_value(b)))
+    return {"<": a < b, "<=": a <= b, ">": a > b, ">=": a >= b}[op]
+
+
+def holds(atom, subst):
+    """Does a comparison atom hold under a substitution binding its
+    variables?"""
+    left, right = (a.value if isinstance(a, Const) else subst[a.name]
+                   for a in atom.args)
+    return compare(atom.pred, left, right)
+
+
+def refuse_extras(clauses, module):
+    """Refuse constraints and comparisons, for a module that implements
+    neither — a clear error rather than an answer that silently ignores
+    part of the program."""
+    for c in clauses:
+        if c.constraint:
+            raise DatalogError("%s does not check integrity constraints "
+                               "(datalog.py does): %s" % (module, c))
+        if any(is_comparison(l) for l in c.body):
+            raise DatalogError("%s does not support comparisons: %s"
+                               % (module, c))
 
 
 # ---------------------------------------------------------------------------
@@ -646,6 +774,8 @@ def python_facts(facts):
                     raise DatalogError(
                         "fact %s%r: values must be str, int or finite float, "
                         "not %r" % (pred, tuple(row), v))
+                if isinstance(v, str):
+                    check_text(v, "fact %s%r" % (pred, tuple(row)))
             clauses.append(Rule(Atom(pred, tuple(Const(v) for v in row)), ()))
     return clauses
 
@@ -653,6 +783,24 @@ def python_facts(facts):
 # ---------------------------------------------------------------------------
 # Values: sorting and formatting
 # ---------------------------------------------------------------------------
+
+def check_text(text, where, error=DatalogError):
+    """Refuse a string value that could not be printed back as one
+    visible, quoted token: line breaks, control characters, invisible
+    and direction-changing characters (Unicode categories Cc, Cf, Zl,
+    Zp), or both kinds of quote at once.  Every value this engine prints
+    — in answers, derivations, counterexamples — then reads as data and
+    nothing else, which matters when the reader is a language model and
+    the value came from text somebody else wrote (lesson 24)."""
+    if '"' in text and "'" in text:
+        raise error("%s holds both kinds of quote, so it could not be "
+                    "printed back as one value" % where)
+    for ch in text:
+        if unicodedata.category(ch) in ("Cc", "Cf", "Zl", "Zp"):
+            raise error("%s contains U+%04X (%s), a control or invisible "
+                        "character, which values may not hold"
+                        % (where, ord(ch), unicodedata.name(ch, "unnamed")))
+
 
 def sort_key(tup):
     """The key every printed listing sorts a tuple of values by, so that
@@ -671,7 +819,8 @@ def _format_value(v):
     """A value as source text that parses back to it: bare identifiers
     stay bare, anything else is quoted — with single quotes if it
     contains a double one.  (The lexer has no escapes, so a string with
-    both kinds of quote cannot be written, and so never needs printing.)"""
+    both kinds of quote cannot be written, and check_text keeps one from
+    arriving any other way.)"""
     if isinstance(v, str) and re.fullmatch(r"[a-z][A-Za-z0-9_]*", v) \
             and v != "not":
         return v
@@ -745,6 +894,127 @@ _parse_query_atom = parse_query_atom
 def match_answers(atom, tuples):
     """The tuples matching a query atom: constants filter, variables bind."""
     return [tup for tup in tuples if match(atom.args, tup, {}) is not None]
+
+
+# ---------------------------------------------------------------------------
+# Lint: legal programs that are probably not what was meant
+# ---------------------------------------------------------------------------
+
+def lint(clauses):
+    """Warnings, as lines of text, about mistakes the static checks
+    accept because they are legal Datalog:
+
+    * a predicate used in a body that no fact or rule defines — empty,
+      and usually a typo, so the closest defined name is suggested;
+    * a predicate that can never hold because every rule for it needs
+      its own recursion first (no base case);
+    * a rule whose comparisons contradict each other, so it never fires
+      (or a constraint that can never be violated).
+
+    Warnings, not errors: facts may arrive later (run_program's `facts`,
+    incremental.py), and an empty relation is sometimes the point.  The
+    CLI prints them; the library leaves calling this to you."""
+    out = []
+    used = {}                            # body predicate -> arity
+    for c in clauses:
+        for lit in c.body:
+            if not is_comparison(lit):
+                used.setdefault(lit.atom.pred, len(lit.atom.args))
+    defined = {c.head.pred for c in clauses if not c.constraint}
+    for p in used:                      # first use order, each once
+        if p not in defined:
+            msg = ("warning: no fact or rule defines %s/%d, so it is empty"
+                   % (p, used[p]))
+            close = difflib.get_close_matches(p, sorted(defined), n=1)
+            if close:
+                msg += " (did you mean %s?)" % close[0]
+            out.append(msg)
+
+    # Which predicates can ever hold?  Facts can; a rule's head can once
+    # every positive body predicate can.  (Negations and comparisons may
+    # still block it on the data, but cannot make it impossible.)
+    rules = [c for c in clauses if c.body and not c.constraint]
+    productive = {c.head.pred for c in clauses if not c.body}
+    changed = True
+    while changed:
+        changed = False
+        for r in rules:
+            if r.head.pred not in productive and all(
+                    lit.atom.pred in productive for lit in r.body
+                    if not lit.negated and not is_comparison(lit)):
+                productive.add(r.head.pred)
+                changed = True
+    idb = {r.head.pred for r in rules}
+    sccs = _tarjan(idb, {(r.head.pred, lit.atom.pred, False) for r in rules
+                         for lit in r.body
+                         if not lit.negated and lit.atom.pred in idb})
+    for p in sorted(idb - productive):
+        own = [r for r in rules if r.head.pred == p]
+        if all(any(not lit.negated and sccs.get(lit.atom.pred) == sccs[p]
+                   for lit in r.body) for r in own):
+            group = sorted(q for q in idb if sccs[q] == sccs[p])
+            out.append("warning: %s can never hold: every rule for it "
+                       "needs %s first (no base case?)"
+                       % (p, " or ".join(group)))
+
+    for c in clauses:
+        clash = _contradiction(c.body)
+        if clash:
+            out.append("warning: %s cannot all hold, so this %s: %s"
+                       % (", ".join(map(str, clash)),
+                          "constraint can never be violated"
+                          if c.constraint else "rule can never fire", c))
+    return out
+
+
+def _contradiction(body):
+    """The comparisons of a body if they can never all hold, else None.
+    Each comparison is an edge a <= b (strict for <), constants of one
+    kind are chained in their own order, and the comparisons contradict
+    exactly when some cycle of edges contains a strict one, or when
+    terms forced equal (one strongly connected component, no strict
+    edge inside) are two different constants or are said to differ.
+    The same SCC test stratification uses, on a graph of terms."""
+    cmps = [lit.atom for lit in body if is_comparison(lit)]
+    if not cmps:
+        return None
+    ids, consts = {}, {}
+
+    def node(t):
+        key = ("v", t.name) if isinstance(t, Var) else (
+            "c", type(t.value) is str, t.value)
+        if key not in ids:
+            ids[key] = len(ids)
+            if key[0] == "c":
+                consts[ids[key]] = t.value
+        return ids[key]
+
+    edges, differ = set(), []
+    for a in cmps:
+        l, r = node(a.args[0]), node(a.args[1])
+        if a.pred == "!=":
+            differ.append((l, r))
+        elif a.pred in ("<", "<="):
+            edges.add((l, r, a.pred == "<"))
+        elif a.pred in (">", ">="):
+            edges.add((r, l, a.pred == ">"))
+        else:
+            edges |= {(l, r, False), (r, l, False)}
+    for kind in (False, True):
+        chain = sorted((v, i) for i, v in consts.items()
+                       if isinstance(v, str) == kind)
+        for (v1, i1), (v2, i2) in zip(chain, chain[1:]):
+            edges.add((i1, i2, v1 != v2))
+    scc = _tarjan(set(ids.values()), edges)
+    groups = defaultdict(set)
+    for i, sid in scc.items():
+        if i in consts:
+            groups[sid].add(consts[i])
+    if (any(strict and scc[u] == scc[v] for u, v, strict in edges)
+            or any(len(vals) > 1 for vals in groups.values())
+            or any(scc[l] == scc[r] for l, r in differ)):
+        return cmps
+    return None
 
 
 # ---------------------------------------------------------------------------

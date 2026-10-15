@@ -152,6 +152,19 @@ be defended.
 - A. Halevy, *Answering Queries Using Views: A Survey*, VLDB
   Journal 2001.
 
+## Lesson 17 — integrity constraints and warnings
+
+- J.-M. Nicolas, *Logic for Improving Integrity Checking in Relational
+  Data Bases*, Acta Informatica 18, 1982 — integrity constraints as
+  logical formulas checked against a database.
+- The answer-set programming reading of `:- body.`, which discards
+  models instead of reporting them: the clingo (Potassco) documentation.
+  Descriptive.
+- Synalog (github.com/SynaLinks/synalog), a Rust rewrite of Logica: its
+  `@Assert` statements, checked by searching the data for
+  counterexamples, and its "a check, not a proof" warning, as its
+  documentation shows them in 2026. Descriptive.
+
 ## Lesson 18 — rules with exceptions
 
 - D. Nute, *Defeasible Logic*, in D. Gabbay, C. Hogger and J. Robinson
@@ -263,6 +276,35 @@ be defended.
   Equality Saturation*, PLDI 2023 — egglog.
 - R. E. Tarjan, *Efficiency of a Good but Not Linear Set Union
   Algorithm*, JACM 22(2), 1975 — union-find's near-constant bound.
+
+## Lesson 23 — time
+
+- J. F. Allen, *Maintaining Knowledge about Temporal Intervals*, CACM
+  26(11), 1983 — the thirteen interval relations.
+- R. T. Snodgrass, *Developing Time-Oriented Database Applications in
+  SQL*, Morgan Kaufmann 2000 — valid time, transaction time, and
+  bitemporal tables in practice.
+- K. Kulkarni and J.-E. Michels, *Temporal Features in SQL:2011*, ACM
+  SIGMOD Record 41(3), 2012 — system-versioned tables and application-
+  time periods.
+- The Datomic documentation on `as-of` and history databases.
+  Descriptive.
+
+## Lesson 24 — memory
+
+- Lemmalog (github.com/JordyZomer/lemmalog), a Datalog engine for
+  language-model agent memory: its thesis, its scoped recompute, and
+  its LongMemEval and LoCoMo results with the run-to-run variance its
+  authors report, as its README shows them in 2026. Self-reported
+  measurements; descriptive.
+- Synalog (github.com/SynaLinks/synalog): the semantic layer compiled
+  to SQL, the verifier, and quoted values in reports, as its
+  documentation shows them in 2026. Descriptive.
+- LongMemEval (Wu and colleagues, 2024) and LoCoMo (Maharana and
+  colleagues, ACL 2024), the long-conversation memory benchmarks those
+  results use; descriptive.
+- The Agent Skills format (agentskills.io), which
+  `skills/tiny-datalog/SKILL.md` follows. Descriptive.
 
 ## Elsewhere
 

@@ -43,7 +43,8 @@ import sys
 
 from tiny_datalog.core import (
     cli, Const, DatalogError, format_atom, match, parse, parse_query_atom,
-    read_program, sort_key, validate, aggregate_of)
+    read_program, sort_key, validate, aggregate_of, body_order, holds,
+    is_comparison)
 from tiny_datalog.datalog import Program
 
 
@@ -198,9 +199,15 @@ SEMIRINGS = {sr.name: sr for sr in (
 
 def _eval_rule(rule, rels, sr):
     """Yield (head_tuple, value): every instantiation of the rule, with
-    the product of its body facts' values."""
+    the product of its body facts' values.  A comparison filters and
+    multiplies in nothing: it is a test, not a fact."""
     pairs = [({}, sr.one)]
-    for lit in rule.body:
+    for lit in (rule.body[i] for i in body_order(rule.body)):
+        if is_comparison(lit):
+            pairs = [(s, v) for s, v in pairs if holds(lit.atom, s)]
+            if not pairs:
+                return
+            continue
         rel = rels.get(lit.atom.pred, {})
         args = lit.atom.args
         new = []

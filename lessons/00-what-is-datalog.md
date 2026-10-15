@@ -187,6 +187,8 @@ much larger territory than the one science fiction warned us about.
 | the neighbours | SQL, F-logic, Haskell, and the road not taken | Lesson 19 |
 | 2002 → today | authorization as rules: Binder, SecPAL, Zanzibar, Biscuit | Lesson 20 |
 | 2004 → today | program analysis: bddbddb, Doop, CodeQL | Lesson 21 |
+| 1983 → today | interval relations; valid, transaction and bitemporal time | Lesson 23 |
+| 2024 → today | memory for language-model agents: extracted facts, derived beliefs | Lesson 24 |
 
 The repository is small on purpose, every algorithm named above is
 implemented in readable standard-library Python, and every example in
@@ -271,7 +273,7 @@ SELECT * FROM chain;
 
 | Dialect | Variables, constants | Where facts live | How recursion runs | Main additions to the core |
 |---|---|---|---|---|
-| this course | `X` variables; `bob`, `"Bob"` constants | the program file | semi-naive, to a fixpoint | `not`, head aggregates |
+| this course | `X` variables; `bob`, `"Bob"` constants | the program file | semi-naive, to a fixpoint | `not`, comparisons, head aggregates, `:-` constraints |
 | Soufflé | `x` variables; `"bob"` constants | the file, or CSV via `.input` | semi-naive, compiled to C++ | types, arithmetic, records, components |
 | Datomic family | `?x` variables | the database, as entity–attribute–value facts | by the query engine | Clojure functions as predicates |
 | Mangle | `X` variables; `/bob` names | the program file | semi-naive | type declarations, aggregation pipelines, time |

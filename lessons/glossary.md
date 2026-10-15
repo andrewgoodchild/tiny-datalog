@@ -69,6 +69,11 @@ counterpart to **DRed**'s demolish-first. *(Lesson 10)*
 here only to reconstruct the shortest offending cycle when
 stratification fails. *(Lesson 3)*
 
+**Bitemporal.** Data that records two times for each fact: when it was
+true (**valid time**) and when it was recorded (**transaction time**).
+It answers "as known on K, what held on T?", which an audit needs and
+a table of current state cannot give. *(Lesson 23)*
+
 **Body.** The part of a rule to the right of `:-`, a conjunction of
 literals. The **head** is to the left. *(Lesson 1)*
 
@@ -131,6 +136,10 @@ cannot be derived, it is taken to be untrue. What makes negation
 computable, and what makes missing data dangerous. Contrast **OWA**.
 *(Lessons 3, 4)*
 
+**Coalescing.** Merging overlapping or adjacent intervals that carry the
+same value into one interval, so that counting or summing over
+intervals does not count one period twice. *(Lesson 23)*
+
 **Coinduction.** Truth by unfalsifiability: a fact holds because no
 finite refutation of it exists, where induction demands a finite proof.
 The natural reading of properties over cyclic structures — subtyping
@@ -142,6 +151,12 @@ Datalog by deriving the refutation inductively and negating it.
 allowed to vary. Datalog is EXPTIME-complete here, and the exponential
 lives in the number of variables per rule. Contrast **data
 complexity**. *(Lesson 2)*
+
+**Comparison.** A built-in literal `X < Y` (also `<=`, `>`, `>=`, `=`,
+`!=`) that checks two values and produces none. Both sides must be
+bound, so a comparison can only filter, which is why it is safe when
+`+` is not. Numbers compare as numbers, strings as text. *(Lessons 14,
+23)*
 
 **Completion rules.** The saturation calculus that decides EL
 subsumption (CR1–CR4 plus reflexivity). Monotone rules run to fixpoint,
@@ -166,6 +181,10 @@ identifiers, numbers, or quoted strings. *(Lesson 1)*
 calling context (call sites, or receiver objects), so that values
 passed in at one call do not come out at another. It trades fact count
 for precision. *(Lesson 21)*
+
+**Counterexample.** A way of matching an **integrity constraint**'s
+body: a set of facts showing the property fails. Printed as the body
+made ground, so each fact in it can be explained. *(Lesson 17)*
 
 **DAG (directed acyclic graph).** A directed graph with no cycles.
 Transitive closure over one always terminates quickly; the interesting
@@ -237,12 +256,21 @@ underneath OWL 2 EL (this repository ships **EL⊥**, adding
 disjointness). **EL++** and **ELH** add role hierarchies and
 right identities. *(Lesson 12)*
 
+**Episode.** In lesson 24, one conversation the memory learned from. Each
+stated fact carries its episode id, so every derivation ends at the
+conversations that caused it. *(Lesson 24)*
+
 **Equivalence.** See **Containment**.
 
 **Existential rule.** A rule with a head variable no body literal
 binds, read as "there exists": `works_in(E, D) :- employee(E).`
 Plain Datalog's safety check forbids it, and the **chase** evaluates
 it. Also called a tuple-generating dependency (TGD). *(Lesson 22)*
+
+**Extraction boundary.** The line between a language model and a rule
+engine in a memory system: the model turns text into stated facts, and
+everything after that is rules. Nothing the rules derive is written by
+the model. *(Lesson 24)*
 
 **F-logic.** Frame Logic (Kifer–Lausen 1989): objects, attributes and
 class hierarchies as first-class logical syntax, whose rule fragment
@@ -270,6 +298,11 @@ polynomials ℕ[X] are the free commutative semiring, which is why every
 semiring's answer factors through them. *(Lesson 8)*
 
 **Function symbol.** See **Compound term**.
+
+**Functional relation.** A relation with one value at a time per
+subject, such as an employer. A later statement about it supersedes
+an earlier one; statements about a non-functional relation, such as
+who someone knows, accumulate. *(Lesson 23)*
 
 **Functor.** A structure-preserving map between categories. In CQL a
 database instance *is* a functor from the schema to sets, so violating
@@ -322,6 +355,11 @@ iterating it to a fixpoint. *(Lesson 2)*
 input changes, rather than recomputing. Insertions resume semi-naive;
 deletions need **DRed**. *(Lesson 10)*
 
+**Integrity constraint.** A rule with no head, `:- body.`, whose body
+must never hold. It derives nothing; after evaluation, every match is
+reported as a **counterexample**, and the CLI exits with status 3. A
+check on the data in hand, not a proof for all data. *(Lesson 17)*
+
 **Join.** Combining two relations on shared variables. In this engine
 a rule body *is* a join, performed by folding `match` over its
 literals under one growing substitution. *(Lesson 1)*
@@ -357,7 +395,8 @@ miniature ones. *(Lessons 4, 19, 22)*
 meet and a join; here, all possible fact-sets ordered by ⊆. The stage
 on which Knaster–Tarski performs. *(Lesson 2)*
 
-**Literal.** An atom, or a negated atom (`not p(X)`). *(Lesson 3)*
+**Literal.** An atom, a negated atom (`not p(X)`), or a **comparison**
+(`X < Y`). *(Lessons 3, 23)*
 
 **Magic sets.** A program rewriting that makes bottom-up evaluation
 goal-directed, by adding **magic predicates** recording which bindings
@@ -464,9 +503,9 @@ more often. *(Lesson 22)*
 A **role hierarchy** relates roles to each other; not supported here.
 *(Lesson 12)*
 
-**Safety (range restriction).** Every variable in a rule head, and
-every variable under `not`, must also appear in a positive body
-literal. What keeps every derived relation finite. *(Lessons 1, 3)*
+**Safety (range restriction).** Every variable in a rule head, under
+`not`, or in a comparison must also appear in a positive body literal.
+What keeps every derived relation finite. *(Lessons 1, 3, 23)*
 
 **sameAs.** OWL's equality between names (`owl:sameAs`). As rules it
 needs reflexivity, symmetry, transitivity and replacement, which copies
@@ -483,6 +522,10 @@ maintenance. *(Lesson 2)*
 semiring value to every fact, multiply along a derivation and add
 across derivations, and the same program computes reachability, cost,
 counts, provenance, or probability. *(Lesson 8)*
+
+**Sentinel.** A value that stands for something outside the domain,
+such as `"9999-12-31"` for an interval with no end yet. A convention,
+not logic, and shared with SQL's temporal tables. *(Lesson 23)*
 
 **Sideways information passing (SIPS).** The order in which bindings
 flow through a rule body, determining the adornments magic sets
@@ -534,6 +577,11 @@ statement about definitions, not data. *(Lesson 12)*
 when r1 and r2 support complementary conclusions, r1 wins. Defeasible
 logic infers no priorities; every one is stated. *(Lesson 18)*
 
+**Supersession.** One statement ending another: a later statement about
+a **functional relation** bounds the validity of the earlier one, which
+stays on record. Non-monotone, since a new fact retracts a conclusion.
+*(Lesson 23)*
+
 **Tabling.** Top-down evaluation that memoises each subgoal's answers
 in a **table**, so recursive calls read the table instead of
 descending. Gives Prolog-style goal direction with Datalog-style
@@ -557,6 +605,9 @@ term. *(Lesson 1)*
 the facts. Natively goal-directed; see **SLD resolution** and
 **tabling**. *(Lessons 11, 15)*
 
+**Transaction time.** When a fact was recorded, as opposed to when it
+was true (**valid time**). See **Bitemporal**. *(Lesson 23)*
+
 **Triple.** One subject–predicate–object statement of a **knowledge
 graph**. In Datalog, a graph is the single relation
 `triple(S, P, O)`. *(Lesson 22)*
@@ -577,12 +628,20 @@ pointer per element. Engines use it to handle **sameAs** without
 materialising the n² pairs; egglog makes it a first-class part of
 Datalog. *(Lesson 22)*
 
+**Valid time.** When a fact was true in the world, usually a half-open
+interval `[From, Until)`. See **Bitemporal**. *(Lesson 23)*
+
 **Variable.** A placeholder, written with an initial capital or
 underscore: `X`, `Cook`, `_`. *(Lesson 1)*
 
 **Viterbi semiring.** (max, ×) over [0,1]: the probability of the most
 likely single derivation. A genuine semiring, unlike "total
 probability", which is not. *(Lesson 9)*
+
+**Warning (lint).** A message, on stderr, about a program that is legal
+but probably wrong: a predicate nothing defines (usually a typo, so the
+nearest name is suggested), a predicate with no base case, or
+comparisons that contradict each other. *(Lessons 17, 23)*
 
 **Weak acyclicity.** A static test that guarantees the **chase**
 terminates (Fagin, Kolaitis, Miller and Popa, 2005): draw a graph of
@@ -593,6 +652,11 @@ necessary. *(Lesson 22)*
 **Well-founded semantics.** A three-valued semantics (true, false,
 **undefined**) that always exists, settling what it can and naming what
 is genuinely circular. *(Lesson 5)*
+
+**What-if (`--assume`).** Evaluating as though some facts were added
+(`edge(a, z).`) or removed (`edge(a, b)~.`), without editing the
+program. Constraints are checked against the hypothetical database, so
+a batch can be tried before it is stored. *(Lesson 24)*
 
 **Witness.** A minimal set of base facts sufficient to derive a
 conclusion; why-provenance returns the set of them. *(Lesson 8)*

@@ -94,7 +94,7 @@ Nothing to install:
 
 ```sh
 git clone https://github.com/andrewgoodchild/tiny-datalog && cd tiny-datalog
-python3 tests.py        # 326 tests, ~12s
+python3 tests.py        # 362 tests, ~20s
 ```
 
 ## Why the language choice decides what you can ask later
@@ -150,7 +150,9 @@ it:
 
 Every feature in this repository is a check of that kind: stratification
 catches circularity, `--models` catches contradiction and ambiguity,
-`containment.py` catches redundancy, and `--explain` produces the
+`containment.py` catches redundancy, integrity constraints catch a rule
+set that breaks the policy stated another way, warnings catch the typo
+that silently empties a relation, and `--explain` produces the
 derivation somebody has to sign off on.
 
 Two limits. An engine checks coherence, not intent: a rule set can pass
@@ -161,7 +163,7 @@ the better tool, and that covers most problems.
 
 ## What else you can ask it
 
-The worked example above is one row of a table. The full version — 23
+The worked example above is one row of a table. The full version — 32
 questions, each with the command that answers it and the lesson that
 builds the machinery — is in
 [getting started](https://github.com/andrewgoodchild/tiny-datalog/blob/main/lessons/getting-started.md), beside the reading
@@ -217,10 +219,12 @@ observe that the literature advises people building Datalog engines
 better than people trying to *use* one; this course does both halves
 on purpose — sixteen lessons where the engine is the explanation, then
 a lesson on authoring rules that survive review, one on a logic
-built for rules with exceptions, and three where the engine goes to
+built for rules with exceptions, and five where the engine goes to
 work: [authorization](https://github.com/andrewgoodchild/tiny-datalog/blob/main/lessons/20-authorization.md),
 [program analysis](https://github.com/andrewgoodchild/tiny-datalog/blob/main/lessons/21-program-analysis.md),
-and [knowledge graphs and the chase](https://github.com/andrewgoodchild/tiny-datalog/blob/main/lessons/22-knowledge-graphs.md).
+[knowledge graphs and the chase](https://github.com/andrewgoodchild/tiny-datalog/blob/main/lessons/22-knowledge-graphs.md),
+[time and history](https://github.com/andrewgoodchild/tiny-datalog/blob/main/lessons/23-time.md),
+and [memory for a language-model agent](https://github.com/andrewgoodchild/tiny-datalog/blob/main/lessons/24-memory.md).
 And it is built to be
 inherited: `git clone`, no dependencies, no hosted anything, and every
 quoted transcript re-verified by CI — the exercises cannot rot. (For where each
@@ -268,10 +272,9 @@ see [pyDatalog](https://pypi.org/project/pyDatalog/).
 Deliberate omissions, because saying why teaches more than lacking them
 quietly:
 
-- **Arithmetic and comparisons.** A built-in isn't a relation you can
-  enumerate, so it must be *evaluated* the moment its operands bind —
-  which entangles correctness with join order and forces terms to
-  become trees. [Lesson 14](https://github.com/andrewgoodchild/tiny-datalog/blob/main/lessons/14-arithmetic.md) is the whole
+- **Arithmetic.** `Z = X + 1` makes values nobody stated, so it can make
+  a relation infinite, and the termination theorem goes with it.
+  [Lesson 14](https://github.com/andrewgoodchild/tiny-datalog/blob/main/lessons/14-arithmetic.md) is the whole
   story, including what to do instead.
 - **Indexes and join planning.** Every join is a nested loop so the
   algorithms stay one-screen readable. It is also why the magic-sets
@@ -284,7 +287,10 @@ quietly:
 
 Aggregation used to be on this list;
 [lesson 13](https://github.com/andrewgoodchild/tiny-datalog/blob/main/lessons/13-aggregation.md) is what promoting an omission
-into a feature looks like.
+into a feature looks like. Comparisons (`<`, `<=`, `>`, `>=`, `=`,
+`!=`) used to share arithmetic's entry. They check values and never
+make them, so they can only filter, and lesson 14's own argument lets
+them in; [lesson 23](https://github.com/andrewgoodchild/tiny-datalog/blob/main/lessons/23-time.md) puts them to work.
 
 ## Using it in your own project
 
@@ -321,6 +327,25 @@ engine = run_program(rules, facts={
 engine.query("exposed(S, C)")       # [{'S': 'app', 'C': 'cve_2026_0001'}]
 ```
 
+A rule with no head is an integrity constraint, a situation that must
+never arise. `engine.violations()` lists each broken one with its
+counterexamples, and the command line prints them and exits with
+status 3:
+
+```python
+checked = run_program(rules + ":- exposed(S, C).", facts={
+    "depends": [("app", "lib"), ("lib", "core")],
+    "service": ["app"],
+    "vulnerable": [("core", "cve_2026_0001")],
+})
+checked.violations()  # [(constraint, [{'S': 'app', 'C': 'cve_2026_0001'}])]
+```
+
+For agents, `skills/tiny-datalog/SKILL.md` is an Agent Skill that
+teaches a coding agent the language and the habits (explain before
+trusting, state properties as constraints); copy it into your agent's
+skills directory.
+
 The command-line interface installs too, as `tiny-datalog` (and
 `tiny-datalog-semiring`, `-tabling`, `-incremental`, `-subsumption`,
 `-containment`, `-defeasible`, `-prolog` for the other engines and the
@@ -338,11 +363,12 @@ installed package; clone the repository for that.
 ```
 tiny_datalog/   the code you read, in three tiers:
   core.py       the common core — the language every module shares:
-                AST, parser, safety checks, stratification, matching,
-                formatting, query helpers
+                AST, parser, safety checks, comparisons, stratification,
+                matching, formatting, query helpers, warnings
  engines — four strategies, one answer (engines.py lists them):
   datalog.py    the base engine: semi-naive and naive bottom-up
-                evaluation, aggregation, --explain / why-not, the CLI
+                evaluation, aggregation, integrity constraints,
+                --explain / why-not, --assume, the CLI
   magic.py      the magic-sets rewriting (a program-to-program pass)
   tabling.py    tabled top-down evaluation (iterative QSQR)
   engines.py    the registry and the interface the four share
@@ -359,16 +385,17 @@ tiny_datalog/   the code you read, in three tiers:
                 acyclicity
 *.py            three-line launchers, so `python3 datalog.py ...` works
                 straight from a checkout with nothing installed
-programs/       teaching programs, numbered by the lesson that uses
-                them (00-* are the README's examples)
-lessons/        getting started, glossary, and lessons 0–22
+programs/       teaching programs, named for what they model; each
+                lesson says which ones it runs
+lessons/        getting started, glossary, and lessons 0–24
 exercises/      worked answers, verified by the test suite
 cases/          golden test cases — add one without writing Python
+skills/         an Agent Skill that teaches coding agents to use the engine
 conformance/    the external datalog-conformance corpus (Soufflé, Nemo,
                 Crepe, SPINdle), run against every evaluation strategy
 benchmarks/     scaled input generators (chain/tree/clique/grid, an EL
                 ontology, and the N-queens puzzle)
-tests.py        326 tests: every shipped program and exercise answer is
+tests.py        362 tests: every shipped program and exercise answer is
                 executed, a conformance suite runs every query through
                 every engine that handles it, and a seeded fuzzer checks
                 the same property on random programs
@@ -395,17 +422,17 @@ Measured in lines, comments, docstrings and blank lines included:
 
 | Tier | Lines |
 |---|---|
-| the common core (`core.py`: the language, evaluating nothing) | 785 |
-| the base engine's evaluator (`datalog.py` up to its CLI section: the module docstring, the import list that re-exports the core, `Program`, `Engine`, aggregation folding, `run_program`) | 395 |
-| `--explain`, why-not, printing and the CLI (the rest of `datalog.py`) | 538 |
-| the other pluggable engines: magic sets (`magic.py`) and tabling (`tabling.py`), plus the `engines.py` registry (naive evaluation is a flag on the base engine) | 549 |
-| the eight extensions | 2,822 |
+| the common core (`core.py`: the language, evaluating nothing; about 270 of these lines arrived with comparisons, constraints, value checks and the warnings) | 1,056 |
+| the base engine's evaluator (`datalog.py` up to its CLI section: the module docstring, the import list that re-exports the core, `Program`, `Engine`, aggregation folding, `run_program`) | 423 |
+| `--explain`, why-not, constraint reports, `--assume`, printing and the CLI (the rest of `datalog.py`) | 621 |
+| the other pluggable engines: magic sets (`magic.py`) and tabling (`tabling.py`), plus the `engines.py` registry (naive evaluation is a flag on the base engine) | 578 |
+| the eight extensions | 2,860 |
 
 So the smallest complete Datalog system here — parse, check, stratify,
-evaluate semi-naively — is the core plus the evaluator, about 1,200
-lines. All of it is 5.1k lines of toolkit (every module but the
+evaluate semi-naively — is the core plus the evaluator, about 1,500
+lines. All of it is 5.5k lines of toolkit (every module but the
 re-export list in `__init__.py`), roughly a quarter of it commentary,
-and 3.6k of tests.
+and 3.9k of tests.
 
 "Tiny" is a claim about that core and evaluator, and about each module
 built on them singly: none of the eleven (`magic.py`, `tabling.py`,

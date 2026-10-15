@@ -400,6 +400,7 @@ reading every triple.
    `q(E) :- employee(E).` on every database that satisfies the rule?
    Run the chase on the first query's frozen body to decide.
 
-Back to [the index](getting-started.md), or to lesson 0's list of
+Next: [time](23-time.md), where facts stop being true. Or back to lesson
+0's list of
 [places Datalog earns its living](00-what-is-datalog.md#five-places-datalog-earns-its-living),
 which this lesson and the two before it have now visited in code.

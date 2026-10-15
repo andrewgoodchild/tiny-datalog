@@ -4,16 +4,19 @@ Every newcomer asks this in week one. Here is the engine's answer:
 
 ```
 $ python3 datalog.py programs/no-arithmetic.dl
-error: line 4: unexpected character '='
+error: line 4: unexpected character '+'
 ```
 
 (The file ships, as a museum piece: two comment lines, one fact, and
 the rule `p(Z) :- q(X), Z = X + 1.` that the tokenizer refuses at the
-`=`.)
+`+`.)
 
 Not "unsupported feature" — the *tokenizer* doesn't know the
-character. Arithmetic is the course's most deliberate omission, and
-this lesson is the reasoning: numbers break both pillars the language
+character. The `=` before it is accepted: the engine has comparisons
+(`<`, `<=`, `>`, `>=`, `=`, `!=`; [lesson 23](23-time.md) is where they
+earn their keep), and this lesson explains why the line falls exactly
+between `=` and `+`. Arithmetic is the course's most deliberate
+omission, and this lesson is the reasoning: numbers break both pillars the language
 stands on, every workaround lives inside a fence you already know, and
 every production engine's arithmetic is some way of paying for numbers
 without giving up the termination theorem.
@@ -118,9 +121,11 @@ the termination theorem survives.
 3. Define `lt(X, Y)` and predict how many facts it holds over ten
    numerals before counting.
 4. Lesson 1's exercise 4 added `X != Y` as a built-in with both
-   arguments required bound. State its mode declaration in this
-   lesson's terms, and explain why `!=` never threatens termination
-   while `+` does.
+   arguments required bound, and the engine now ships it, with the
+   other comparisons. State its mode declaration in this lesson's
+   terms, and explain why `!=` never threatens termination while `+`
+   does. (The answer is why one is in the engine and the other is
+   not.)
 
 Next: [tabling](15-tabling.md) — the third way to evaluate, and the
 secret identity of magic sets.

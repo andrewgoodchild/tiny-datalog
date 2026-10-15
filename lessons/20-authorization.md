@@ -198,6 +198,8 @@ load overnight, so both of its facts are missing:
 ```
 $ grep -v -e '^suspended' -e '^hr_feed_current' programs/access.dl > /tmp/a.dl
 $ python3 datalog.py -q 'allowed_open(U, view, handbook)' -q 'allowed(U, view, handbook)' /tmp/a.dl
+warning: no fact or rule defines suspended/1, so it is empty
+warning: no fact or rule defines hr_feed_current/0, so it is empty
 ?- allowed_open(U, view, handbook)
    allowed_open(alice, view, handbook).
    allowed_open(bob, view, handbook).
@@ -213,6 +215,9 @@ a clean bill of health. `allowed` refused everybody, which is
 inconvenient and safe. Every `not` in a rule that *grants* access is a
 grant conditioned on absence, so it asks lesson 4's question: whose
 authority says this is absent, and what if that authority is down?
+(Here the engine's warnings happen to notice, because the feed's
+predicates vanished entirely. A feed that loaded yesterday's file, or
+half of today's, defines them and draws no warning.)
 The fix is lesson 4's fix: model the check (`hr_feed_current`), not
 just its result. Security people call the two behaviours **fail open**
 and **fail closed**, and Datalog lets you see which one you wrote by
@@ -297,7 +302,7 @@ decision.
 
 ## The checklist, for access rules
 
-Lesson 17's five checks apply unchanged. Authorization adds three:
+Lesson 17's checks apply unchanged. Authorization adds three:
 
 1. **Default deny.** No rule should derive access from nothing. In
    Datalog that is the closed world doing its job, so the risk lies
@@ -314,8 +319,8 @@ tells an auditor nothing, but a derivation tree is the audit.
 
 1. **Separation of duties.** Add `requested(R, U)` and `approved(R, U)`
    facts for expense reports, and derive `violation(R)` when someone
-   approved their own request. The engine has no `!=`; say why you do
-   not need one here.
+   approved their own request. You might reach for `!=`; say why you
+   do not need one here.
 2. Add a `banned(U, O)` relation that removes one person's access to
    one document, even when a group grants it. Write it once failing
    open and once failing closed, then use `--explain` to show a

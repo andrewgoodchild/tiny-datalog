@@ -30,7 +30,7 @@ same answers by conflict-driven search instead.
 from __future__ import annotations
 
 from tiny_datalog.core import (
-    DatalogError, Rule, aggregate_of, sort_key, validate)
+    DatalogError, Rule, aggregate_of, is_comparison, sort_key, validate)
 from tiny_datalog.datalog import Engine, Program
 
 
@@ -79,13 +79,16 @@ def ground_program(clauses):
 
     # Instantiate every rule over the envelope: each grounding whose
     # positive body lies inside the envelope becomes one ground rule,
-    # negated literals and all.
+    # negated literals and all.  A comparison is settled by grounding
+    # (the substitutions only include those it allows), so it leaves
+    # no ground atom behind.
     ground_rules = []
     seen = set()
     for rule, pos_rule in zip(rules, positive):
         for s in engine.substitutions(pos_rule):
             gr = (ground(rule.head, s),
-                  tuple(ground(l.atom, s) for l in rule.body if not l.negated),
+                  tuple(ground(l.atom, s) for l in rule.body
+                        if not l.negated and not is_comparison(l)),
                   tuple(ground(l.atom, s) for l in rule.body if l.negated))
             if gr not in seen:
                 seen.add(gr)

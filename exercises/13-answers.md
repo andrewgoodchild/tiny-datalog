@@ -11,9 +11,10 @@ average_parts(P, S, N)   :- spend_sum(P, S), spend_count(P, N).
 ```
 
 `average_parts(alice, 180, 2)`: the division is the consumer's job,
-because dividing requires arithmetic over *derived* values, which is a
-built-in, which the README lists as a deliberate omission: a built-in must fire at the moment its operands bind, and
-this engine refuses to make join order semantically significant.
+because dividing requires arithmetic over *derived* values, which the
+README lists as a deliberate omission: a comparison only checks two
+values it is given, while division makes a value nobody stated, which
+is lesson 14's whole objection to `+`.
 
 **2. `reach(alice, N)`, and dana's absence.**
 
