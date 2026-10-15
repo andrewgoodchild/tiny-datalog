@@ -1,0 +1,24 @@
+% Draft 3 of the lending policy with one letter missing, pasted into both
+% rules.  It parses, it stratifies, it runs, and it is wrong: `suspened`
+% is a different predicate, nothing defines it, so `not suspened(P)` is
+% always true.
+%
+%   python3 datalog.py -q 'may_borrow(P)' programs/lending-typo.dl
+
+member(iris).      member(jon).      member(kim).      member(lena).
+staff(kim).        staff(lena).
+
+% loans recorded as overdue, by whoever runs circulation
+overdue(jon, book_a).
+overdue(lena, book_b).     % staff may borrow despite overdue loans
+
+% suspensions are a decision made elsewhere, not derived here
+suspended(kim).
+
+% Draft 3.  Every negation points at a base fact, so this stratifies
+% and has exactly one model — see the lesson for why drafts 1 and 2
+% did not survive review.
+has_overdue(P) :- overdue(P, _).
+
+may_borrow(P) :- member(P), not has_overdue(P), not suspened(P).
+may_borrow(P) :- staff(P), not suspened(P).

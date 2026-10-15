@@ -1,0 +1,14 @@
+% Lesson 24: how sure is the memory, and why?  The manager statements of
+% programs/memory.dl, each weighted with the confidence the extractor
+% gave it.  A positive program, so lesson 8's semirings apply.
+%
+%   python3 semiring.py --semiring viterbi -q 'reports_to(user, marco)' programs/memory-confidence.dl
+%   python3 semiring.py --semiring why -q 'reports_to(user, marco)' programs/memory-confidence.dl
+
+manager(user, sam)   @ 0.9.    % e4 "After the reorg I report to Sam."
+manager(user, dana)  @ 0.6.    % e5 "...actually, Dana, while Sam's away."
+manager(sam, marco)  @ 0.8.    % e6 "Sam reports to Marco."
+manager(dana, marco) @ 0.5.    % e8 "I think Dana's under Marco too?"
+
+reports_to(X, Y) :- manager(X, Y).
+reports_to(X, Z) :- manager(X, Y), reports_to(Y, Z).

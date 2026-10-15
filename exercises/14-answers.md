@@ -47,3 +47,9 @@ argument *manufactures a new constant*, and new constants are exactly
 what the finiteness argument of Lesson 2 forbids. A built-in is safe
 precisely when it can only filter the Herbrand universe, never grow
 it.
+
+That argument is the engine's design rule. The comparisons
+(`<`, `<=`, `>`, `>=`, `=`, `!=`) all only filter, so they ship, with
+the mode enforced as safety: `validate` refuses a comparison whose
+variables no positive literal binds. `+` would grow the universe, so
+the tokenizer still does not know the character.

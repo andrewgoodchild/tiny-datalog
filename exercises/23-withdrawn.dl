@@ -1,0 +1,38 @@
+% Lesson 23, exercise 4: a statement entered in error, and withdrawn.
+% Withdrawal is itself a statement with a recorded date, so a view
+% from before it still sees the mistake, as the system did at the time.
+%
+%   python3 datalog.py -q 'holds_at(carol, works_at, C, "2021-09-30", K)' exercises/23-withdrawn.dl
+
+%     subject  relation  object   effective     recorded
+said(bob,   works_at, acme,    "2020-05-01", "2020-05-01").
+said(bob,   works_at, initech, "2021-09-01", "2021-11-15").   % filed late
+said(carol, works_at, globex,  "2021-01-04", "2021-01-04").
+said(carol, works_at, initech, "2021-08-01", "2021-08-02").   % wrong person
+
+withdrawn(carol, works_at, initech, "2021-08-01", "2021-12-01").
+
+functional(works_at).
+
+% The questions: (known on K, true on T).
+view("2021-10-01", "2021-09-30").   % the October payroll run, as it ran
+view("2024-01-01", "2021-09-30").   % the same day, as we know it now
+
+% What had been recorded by K.  Everything below is employment.dl with
+% K threaded through it: supersession is judged among the statements
+% known at K.
+known(E, R, O, F, K) :- said(E, R, O, F, Rec), view(K, _), Rec <= K,
+                        not withdrawn_by(E, R, O, F, K).
+withdrawn_by(E, R, O, F, K) :- withdrawn(E, R, O, F, W), view(K, _), W <= K.
+
+superseded(E, R, O, F, K, U) :- known(E, R, O, F, K), functional(R),
+                                known(E, R, O2, U, K), O != O2, F < U.
+ends(E, R, O, F, K, min(U)) :- superseded(E, R, O, F, K, U).
+ended(E, R, O, F, K) :- ends(E, R, O, F, K, _).
+
+until(E, R, O, F, K, U) :- ends(E, R, O, F, K, U).
+until(E, R, O, F, K, "9999-12-31") :- known(E, R, O, F, K),
+                                      not ended(E, R, O, F, K).
+
+holds_at(E, R, O, T, K) :- until(E, R, O, F, K, U), view(K, T),
+                           F <= T, T < U.

@@ -55,7 +55,7 @@ from collections import defaultdict
 from tiny_datalog.core import (
     check_query_atom, cli, Const, DatalogError, StratificationError,
     format_fact, match, parse, parse_goal, read_program, sort_key, stratify,
-    validate, aggregate_of)
+    validate, aggregate_of, body_order, holds, is_comparison)
 
 
 class TabledEngine:
@@ -85,9 +85,10 @@ class TabledEngine:
                 % str(exc).rstrip("."), exc.cycle) from exc
         self.by_pred = defaultdict(list)   # (pred, arity) -> clauses
         for c in clauses:
-            # positive literals first: they bind; negations then test
-            # ground atoms (safety guarantees they are ground by then)
-            body = tuple(sorted(c.body, key=lambda lit: lit.negated))
+            # positive literals first: they bind; comparisons and
+            # negations then test ground atoms (safety guarantees they
+            # are ground by then)
+            body = tuple(c.body[i] for i in body_order(c.body))
             self.by_pred[(c.head.pred, len(c.head.args))].append(
                 (c.head, body))
         self.tables = {}
@@ -129,6 +130,10 @@ class TabledEngine:
             yield subst
             return
         lit, rest = body[0], body[1:]
+        if is_comparison(lit):          # a test, never a subgoal
+            if holds(lit.atom, subst):
+                yield from self._prove(rest, subst)
+            return
         key = (lit.atom.pred, self._pattern(lit.atom, subst))
         table = self._table(*key)
         if lit.negated:

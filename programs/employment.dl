@@ -1,0 +1,45 @@
+% Lesson 23: facts that stop being true.
+%
+% Each statement says that something became true on a date.  Nothing is
+% ever deleted: a later statement about a one-value-at-a-time relation
+% supersedes an earlier one, and the rules work out when each fact was
+% true.  Dates are ISO strings, which compare correctly as text.
+%
+%   python3 datalog.py -q 'holds_at(alice, works_at, O, T)' programs/employment.dl
+%   python3 datalog.py -q 'colleagues(X, Y, C)' programs/employment.dl
+
+said(alice, works_at, acme,    "2019-03-01").
+said(alice, works_at, globex,  "2022-07-15").
+said(alice, lives_in, leeds,   "2019-03-01").
+said(alice, lives_in, york,    "2023-01-10").
+said(bob,   works_at, acme,    "2020-05-01").
+said(bob,   works_at, initech, "2021-09-01").
+said(carol, works_at, globex,  "2021-01-04").
+said(alice, knows,    bob,     "2020-02-11").   % not functional: accumulates
+
+functional(works_at).      % one employer at a time
+functional(lives_in).      % one home at a time
+
+% A later statement about the same functional slot ends an earlier one.
+% The earliest such statement is the end of its validity.
+superseded(E, R, O, F, U) :- said(E, R, O, F), functional(R),
+                             said(E, R, O2, U), O != O2, F < U.
+ends(E, R, O, F, min(U)) :- superseded(E, R, O, F, U).
+
+% Validity as a half-open interval [From, Until).  An open interval
+% needs an end too; the far-future sentinel is a convention, as in SQL.
+until(E, R, O, F, U) :- ends(E, R, O, F, U).
+until(E, R, O, F, "9999-12-31") :- said(E, R, O, F), not ended(E, R, O, F).
+ended(E, R, O, F) :- ends(E, R, O, F, _).
+
+% The moments we ask about.
+asked("2021-06-30").
+asked("2024-01-01").
+
+holds_at(E, R, O, T) :- until(E, R, O, F, U), asked(T), F <= T, T < U.
+
+% Two people at the same employer at the same time: their intervals
+% overlap when each starts before the other ends.
+colleagues(X, Y, C) :- until(X, works_at, C, F1, U1),
+                       until(Y, works_at, C, F2, U2),
+                       X < Y, F1 < U2, F2 < U1.

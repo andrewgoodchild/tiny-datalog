@@ -352,6 +352,6 @@ theory mentions. "Undecided" is whatever got neither +∂ nor −∂.
    usually are not, and Nixon is both. Then add a third rule that
    depends on `pacifist(nixon)`, and compare `--propagating` with the
    default.
-4. Lesson 17 ended with a five-question checklist. Which of the five
+4. Lesson 17 ended with a checklist. Which of its first five
    questions does defeasible logic answer by itself, and which still
    need a person?

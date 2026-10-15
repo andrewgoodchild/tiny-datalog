@@ -171,9 +171,119 @@ the blocker is a negation that *held*. Why-not is the other half of
 provenance, and it turns "the answer looks wrong" into "this literal,
 this fact."
 
+## Saying it twice: integrity constraints
+
+Look at how draft 2's bug was found. Somebody read three names, knew
+that Kim is suspended, and noticed she should not be there. That works
+with four people. It does not work with four thousand, or with a rule
+change nobody re-read the output of.
+
+The fix is to state the policy a second time, in a different shape.
+The rules say what *follows*. An **integrity constraint** says what
+must *never happen*: it is a rule with no head, `:- body.`, and every
+way its body can be matched is a mistake.
+
+```prolog
+% programs/lending-draft2-checked.dl -- draft 2's rules, then:
+:- may_borrow(P), suspended(P).                  % suspension applies to everybody
+:- may_borrow(P), has_overdue(P), not staff(P).  % overdue members wait
+:- may_borrow(P), not member(P).                 % only members borrow
+```
+
+Each line is one clause of the English policy, read as a prohibition.
+None of them derives anything. After evaluation the engine solves each
+body against the finished database, and reports what it finds:
+
+```
+$ python3 datalog.py programs/lending-draft2-checked.dl
+...
+constraint violated: :- may_borrow(P), suspended(P).
+   may_borrow(kim), suspended(kim)
+   (1 counterexample)
+```
+
+Nobody had to know about Kim. The counterexample is the constraint's
+body made ground, so it lists exactly the facts to `--explain`, and
+explaining `may_borrow(kim)` lands on the staff rule, as before. The
+exit status is 3, so a script or a CI job can refuse a rule change
+that breaks a stated property. With draft 3's rules the same three
+constraints hold:
+
+```
+$ python3 datalog.py -q 'may_borrow(P)' programs/lending-checked.dl
+?- may_borrow(P)
+   may_borrow(iris).
+   may_borrow(lena).
+   (2 answers)
+% 3 integrity constraints checked: none violated
+```
+
+Two statements of one policy, written in different shapes, rarely make
+the same mistake. When they disagree, one of them is wrong, and the
+counterexample tells you where to look. That is the value of a
+constraint. It is not a second implementation. It is a cheaper,
+independent description you can check the implementation against.
+
+Two cautions keep this honest.
+
+**A check, not a proof.** A constraint that holds has no counterexample
+*in this data*. It says nothing about tomorrow's data. Draft 2 would
+have passed all three constraints if the roster had no suspended
+staffer in it. Run constraints on data that contains the awkward cases,
+which is the same advice as for tests. Lesson 16 is the contrast: for
+rules without negation, containment *proves* a property on every
+database at once. Constraints reach further than containment (negation,
+aggregates, anything the engine evaluates), and pay for it by only
+ever looking at the data in front of them.
+
+**Constraints check; they do not repair.** A violated constraint does
+not remove Kim from `may_borrow`. Answer set programming uses the same
+`:- body.` syntax to *discard* models that violate it, which is a
+different and stronger reading. Here a constraint is an alarm, and the
+rules stay as written until a person changes them.
+
+## Mistakes that are legal
+
+Some mistakes pass every check above, because they are perfectly good
+Datalog. Here is draft 3 with one letter missing, pasted into both
+rules:
+
+```
+$ python3 datalog.py -q 'may_borrow(P)' programs/lending-typo.dl
+warning: no fact or rule defines suspened/1, so it is empty (did you mean suspended?)
+?- may_borrow(P)
+   may_borrow(iris).
+   may_borrow(kim).
+   may_borrow(lena).
+   (3 answers)
+```
+
+`suspened` is a new predicate with no facts, so `not suspened(P)` is
+true of everybody, and Kim borrows again. A typo under `not` fails
+*open*: it removes a restriction, silently. Before the warning, nothing
+in the output said anything was wrong.
+
+The engine prints three kinds of warning, on stderr, before it
+evaluates:
+
+- **A predicate nothing defines.** Usually a typo, so the nearest
+  defined name is suggested. Sometimes the relation is empty on purpose
+  (lesson 5's paradox has no `employed` facts), which is why this is a
+  warning and not an error.
+- **A predicate that can never hold**, because every rule for it needs
+  its own recursion to have fired first: a missing base case.
+- **Comparisons that contradict each other** (lesson 23), such as
+  `X > 10, X < 5`, so the rule can never fire, or the constraint can
+  never be violated.
+
+They are warnings because facts can arrive later: from Python
+(`run_program(..., facts=...)`), or as updates (lesson 10). The
+library leaves the check to you (`tiny_datalog.core.lint`), and the
+command line always runs it.
+
 ## The checklist
 
-Five questions, all mechanical, all cheap. Run them before you ask
+Eight questions, all mechanical, all cheap. Run them before you ask
 anyone to review a rule set.
 
 | Ask | How | If it fails |
@@ -184,6 +294,8 @@ anyone to review a rule set.
 | Any rule doing no work? | `containment.py` | a redundant rule is usually a modelling mistake |
 | Does the reason read correctly? | `--explain` on a surprising answer | the derivation names the rule at fault |
 | Why is this *missing*? | `--explain` the absent fact | every rule's first failing literal, blockers explained |
+| Does it break the policy, stated another way? | `:- body.` constraints | each counterexample, and exit status 3 |
+| Did a typo make a relation empty? | the warnings on stderr | the name, and the nearest defined one |
 
 The fourth is the one people skip. A redundant rule is rarely harmless:
 it usually means you wrote the same condition twice in different words,
@@ -278,7 +390,7 @@ actually do.
    `blocked(P) :- member(P), not may_borrow(P).` Predict what
    `--models` says before running it.
 4. Take a policy you actually work with, model its first paragraph, and
-   run the five checks. The interesting output is not the answer — it
+   run the checks. The interesting output is not the answer — it
    is which question you could not express.
 
 Next: [rules with exceptions](18-defeasible.md) — the same policy in a

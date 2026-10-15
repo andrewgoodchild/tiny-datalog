@@ -42,7 +42,7 @@ import sys
 
 from tiny_datalog.core import (
     aggregate_of, cli, Const, DatalogError, parse, read_program, validate,
-    Var)
+    Var, is_comparison)
 
 
 def _extend(mapping, source_args, target_args):
@@ -93,6 +93,12 @@ def _bodies(rule):
             raise DatalogError(
                 "containment by homomorphism is a conjunctive-query "
                 "result; negation needs different theory: %s" % rule)
+        if is_comparison(lit):
+            # Klug (1988): with comparisons one homomorphism no longer
+            # suffices -- every ordering of the variables must be checked
+            raise DatalogError(
+                "containment by homomorphism is a conjunctive-query "
+                "result; comparisons need different theory: %s" % rule)
     if aggregate_of(rule.head):
         # sum/count see duplicates; Chandra–Merlin is about sets.
         raise DatalogError(
@@ -196,6 +202,10 @@ def main(argv=None):
             continue
         if any(lit.negated for lit in rule.body):
             print("%s\n  (skipped: negation is outside the theory)"
+                  % rule)
+            continue
+        if any(is_comparison(lit) for lit in rule.body):
+            print("%s\n  (skipped: comparisons are outside the theory)"
                   % rule)
             continue
         if aggregate_of(rule.head):

@@ -1,0 +1,61 @@
+% Lesson 24, exercises 2 and 4, on top of programs/memory.dl.
+%
+%   python3 datalog.py -q 'current(user, manager, M)' exercises/24-answers.dl
+%   python3 datalog.py exercises/24-answers.dl     (exits 3: see exercise 4)
+
+%     subject relation  object    date          episode
+said(user,  works_at, acme,    "2024-01-08", e1).  % "I just started at Acme."
+said(user,  manager,  priya,   "2024-01-08", e1).  % "My manager is Priya."
+said(priya, manager,  marco,   "2024-02-19", e2).  % "Priya reports to Marco."
+said(user,  allergy,  peanuts, "2024-03-04", e3).  % "I'm allergic to peanuts."
+said(user,  manager,  sam,     "2024-06-10", e4).  % "After the reorg I report to Sam."
+said(user,  manager,  dana,    "2024-06-10", e5).  % "...actually, Dana, while Sam's away."
+said(sam,   manager,  marco,   "2024-07-01", e6).  % "Sam reports to Marco."
+
+functional(works_at).    % one value at a time: a new one supersedes
+functional(manager).
+
+now("2024-08-01").
+
+% ---------------------------------------------------------------- time
+% Lesson 23's supersession, asked about one moment, `now`.  The episode
+% stays in `said`, where --explain finds it.
+superseded(E, R, O, F, U) :- said(E, R, O, F, _), functional(R),
+                             said(E, R, O2, U, _), O != O2, F < U.
+
+current(E, R, O) :- said(E, R, O, F, _), now(T), F <= T,
+                    not ended_by(E, R, O, F, T).
+ended_by(E, R, O, F, T) :- superseded(E, R, O, F, U), now(T), U <= T.
+
+% --------------------------------------------------------------- rules
+reports_to(X, Y) :- current(X, manager, Y).
+reports_to(X, Z) :- current(X, manager, Y), reports_to(Y, Z).
+
+% --------------------------------------------------------- constraints
+% Two current values for a one-value relation.  Supersession cannot
+% pick one when both were stated the same day, so the memory must ask;
+% a later statement settles it, and nothing has to be deleted.
+:- current(E, R, O1), current(E, R, O2), functional(R), O1 < O2.
+
+% Nobody manages themselves, however indirectly.
+:- reports_to(X, X).
+
+% ------------------------------------------------- exercise 2: tie-break
+% Episodes in the order they happened.  On the same day, the later
+% episode's statement supersedes the earlier one, from that day.
+episode(e1, 1). episode(e2, 2). episode(e3, 3).
+episode(e4, 4). episode(e5, 5). episode(e6, 6).
+
+superseded(E, R, O, F, F) :- said(E, R, O, F, Ep1), functional(R),
+                             said(E, R, O2, F, Ep2), O != O2,
+                             episode(Ep1, N1), episode(Ep2, N2), N1 < N2.
+
+% --------------------------------------- exercise 4: a safety constraint
+contains(satay, peanuts).   contains(pad_thai, peanuts).
+contains(pho, beef).        contains(laksa, prawns).
+
+recommended(user, pho).     % what the assistant suggested this week
+recommended(user, satay).
+
+% Never recommend a dish with something the user is allergic to.
+:- recommended(U, D), contains(D, I), current(U, allergy, I).

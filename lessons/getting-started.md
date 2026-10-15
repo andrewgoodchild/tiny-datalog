@@ -6,7 +6,7 @@ beyond Python 3.9+.
 ```sh
 git clone https://github.com/andrewgoodchild/tiny-datalog
 cd tiny-datalog
-python3 tests.py                     # 326 tests, should all pass
+python3 tests.py                     # 362 tests, should all pass
 python3 datalog.py programs/reachability.dl
 ```
 
@@ -24,7 +24,7 @@ Everything lives in `tiny_datalog/`, in three tiers:
   `engines.py` lists them and states the interface they share.
 - **the extensions**: modules that ask a program a different question —
   `semantics.py`, `semiring.py`, `incremental.py`, `prolog.py`,
-  `subsumption.py`, `containment.py`, `defeasible.py`.
+  `subsumption.py`, `containment.py`, `defeasible.py`, `chase.py`.
 
 The `.py` files at the repo root are three-line launchers so that every
 command in these lessons runs straight from a checkout. When a lesson
@@ -52,7 +52,7 @@ ancestor(X, Z) :- parent(X, Y), ancestor(Y, Z).
 Save that as `family.dl` and run it:
 
 ```sh
-python3 datalog.py 01-family.dl
+python3 datalog.py family.dl
 ```
 
 The engine prints every *derived* relation (add `--all` to also print the
@@ -67,6 +67,7 @@ input facts). The other modes:
 | `python3 datalog.py --models prog.dl` | stable models + well-founded model (small programs) |
 | `python3 datalog.py --naive --trace prog.dl` | naive evaluation with per-round derivation counts |
 | `python3 datalog.py --explain 'path(a, d)' prog.dl` | print a derivation tree — *why* is this fact true? |
+| `python3 datalog.py --assume 'edge(a, z).' prog.dl` | what if? evaluate as though facts were added (or, with `fact~.`, removed) |
 | `python3 datalog.py --engine tabling -q '...' prog.dl` | answer with any of the four engines: `seminaive` (the default), `naive`, `magic`, `tabling` |
 | `python3 tabling.py prog.dl -q 'goal(X)' -t` | tabled top-down evaluation (handles left recursion) |
 | `python3 incremental.py prog.dl -u 'f(a)~. f(b).'` | apply retractions/insertions to a live materialisation (`--strategy bf` checks before deleting) |
@@ -85,11 +86,18 @@ input facts). The other modes:
 - **Variables**: start with an uppercase letter (`X`, `Cook`); `_` is an
   anonymous variable.
 - **Facts** end with `.` and must be ground (no variables).
-- **Rules**: `head :- literal, literal, ... .` Every literal is an atom or
-  `not atom`. `not` is the negation keyword (and is reserved).
-- **Safety**: every variable in a rule's head, and every variable under
-  `not`, must also appear in a positive body literal.
+- **Rules**: `head :- literal, literal, ... .` Every literal is an atom,
+  `not atom`, or a comparison (`X < Y`, with `<`, `<=`, `>`, `>=`, `=`,
+  `!=`). `not` is the negation keyword (and is reserved).
+- **Constraints**: `:- literal, ... .` — a rule with no head, whose body
+  must never hold. Each match is reported as a counterexample, and the
+  exit status is 3.
+- **Safety**: every variable in a rule's head, under `not`, or in a
+  comparison must also appear in a positive body literal.
 - Zero-arity atoms are fine: `rainy.` and `wet :- rainy.`
+- **Warnings** on stderr flag legal mistakes: a predicate nothing
+  defines (with the nearest name), a missing base case, and
+  comparisons that contradict each other.
 
 ## Using it from Python
 
@@ -153,6 +161,7 @@ and the lesson that builds the machinery:
 | Can it say "for all"? | `python3 datalog.py -q 'sub(rich, stream)' programs/record-subtyping.dl` | [6](06-for-all.md) |
 | Why did you *not* conclude that? | `python3 datalog.py --explain 'may_borrow(kim)' programs/lending.dl` | [17](17-writing-rules.md) |
 | How do I write rules someone else can sign off? | `python3 datalog.py --explain 'may_borrow(iris)' programs/lending.dl` | [17](17-writing-rules.md) |
+| Do the rules break the policy, stated another way? | `python3 datalog.py programs/lending-draft2-checked.dl` | [17](17-writing-rules.md) |
 | What holds when rules have exceptions, and exceptions to those? | `python3 defeasible.py programs/birds.dfl` | [18](18-defeasible.md) |
 | Which conflicts did the policy forget to rank? | `python3 defeasible.py -q 'may_borrow(P)' programs/lending-defeasible-draft.dfl` | [18](18-defeasible.md) |
 | Who can see this document, and through which group? | `python3 datalog.py --explain 'can(bob, view, roadmap)' programs/access.dl` | [20](20-authorization.md) |
@@ -160,6 +169,9 @@ and the lesson that builds the machinery:
 | Can user input reach a database query? | `python3 datalog.py --explain 'finding(sink1, t)' programs/taint.dl` | [21](21-program-analysis.md) |
 | What does a knowledge graph's schema imply about its data? | `python3 datalog.py -q 'clash(X, C, D)' programs/kg.dl` | [22](22-knowledge-graphs.md) |
 | What must exist, though nobody recorded it? | `python3 chase.py -q 'works_in(alice, D)' programs/org-chart.dl` | [22](22-knowledge-graphs.md) |
+| What was true on a given date? Who overlapped with whom? | `python3 datalog.py -q 'colleagues(X, Y, C)' programs/employment.dl` | [23](23-time.md) |
+| What did we know then, as against now? | `python3 datalog.py -q 'holds_at(bob, works_at, C, "2021-09-30", K)' programs/employment-bitemporal.dl` | [23](23-time.md) |
+| What does the assistant remember, and from which conversation? | `python3 datalog.py --explain 'reports_to(user, marco)' programs/memory.dl` | [24](24-memory.md) |
 
 Provenance, in full:
 
@@ -195,6 +207,8 @@ a given purpose.
 | decide who may do what | 4, 17, then 20 (authorization) |
 | analyse code | 2, 3, 7, then 21 (program analysis) |
 | reason over a knowledge graph | 4, 12, then 22 (knowledge graphs and the chase) |
+| reason about time and history | 3, 13, 14, then 23 (time) |
+| give an agent a memory it can explain | 8, 17, 23, then 24 (memory) |
 
 **The full list:**
 
@@ -221,6 +235,8 @@ a given purpose.
 20. [Authorization: who may do what, and the proof](20-authorization.md)
 21. [Program analysis: when the database is a program](21-program-analysis.md)
 22. [Knowledge graphs: ontologies over data, and the chase](22-knowledge-graphs.md)
+23. [Time: facts that stop being true](23-time.md)
+24. [Memory: the model writes the facts, the rules decide](24-memory.md)
 
 Four groupings worth knowing about, because each is a single idea told
 across several lessons: **3, 6 and 13** share one thesis (finish a

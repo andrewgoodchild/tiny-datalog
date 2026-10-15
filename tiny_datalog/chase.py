@@ -73,7 +73,8 @@ from dataclasses import dataclass
 
 from tiny_datalog.core import (
     _format_value, aggregate_of, Atom, cli, Const, DatalogError, Literal,
-    match, parse, parse_query_atom, read_program, Rule, Var, validate)
+    match, parse, parse_query_atom, read_program, refuse_extras, Rule, Var,
+    validate)
 from tiny_datalog.datalog import Engine, Program
 
 
@@ -133,6 +134,9 @@ def check(clauses):
     The core's checks apply to a *skeleton* of each rule in which the
     existential variables are replaced by a placeholder constant: that
     is exactly "safe, except for the variables we mean to invent"."""
+    # an invented value has no order to compare, and denial
+    # constraints over nulls are a theory of their own
+    refuse_extras(clauses, "the chase")
     for c in clauses:
         if c.retract:
             raise DatalogError("a retraction is an update, not a statement:"

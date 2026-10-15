@@ -25,6 +25,10 @@ Three ingredients:
 * Every specialised rule is **guarded** by its magic predicate, so it can
   only fire for demanded bindings.
 
+A comparison is a filter, so it travels with the bindings: it joins
+the prefix as soon as both its sides are bound, which narrows the
+demand passed to every subgoal after it.
+
 Negation gets the simple sound treatment: a negated subgoal is never
 specialised — its predicate (and everything it depends on) is included
 untransformed and computed in full.  Since negative edges then point only
@@ -38,7 +42,7 @@ from collections import defaultdict
 
 from tiny_datalog.core import (
     Atom, Const, Literal, Rule, Var, aggregate_of, check_query_atom,
-    match_answers, validate)
+    is_comparison, match_answers, validate)
 from tiny_datalog.datalog import Engine, Program
 
 
@@ -103,7 +107,20 @@ def magic_transform(clauses, query):
             # these bindings are being asked for."
             prefix = [Literal(Atom(_magic_name(pred, adorn), magic_args))]
             negatives = []
+            # comparisons wait here until their variables are bound
+            pending = [lit for lit in clause.body if is_comparison(lit)]
+
+            def flush():
+                for c in list(pending):
+                    if all(isinstance(a, Const) or a.name in bound_vars
+                           for a in c.atom.args):
+                        prefix.append(c)
+                        pending.remove(c)
+
+            flush()
             for lit in clause.body:
+                if is_comparison(lit):
+                    continue
                 if lit.negated:
                     negatives.append(lit)  # untouched; defined in full
                     if lit.atom.pred in idb:
@@ -136,6 +153,7 @@ def magic_transform(clauses, query):
                 # for everything to its right — the evaluator's own order.
                 bound_vars |= {a.name for a in lit.atom.args
                                if isinstance(a, Var)}
+                flush()
             # The specialised rule: original head under its adorned name,
             # guarded by magic, negatives at the end (they only filter).
             out.append(Rule(Atom(_adorned_name(pred, adorn), head.args),

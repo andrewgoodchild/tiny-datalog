@@ -27,6 +27,9 @@ The interface, which every entry of ENGINES follows:
     ENGINES[name].handles(clauses)    # -> False if this strategy cannot
                                       #    run the program at all
 
+Integrity constraints change no answer, so Magic and Tabling set them
+aside; checking them takes the full materialisation (Engine.violations).
+
 Every engine requires a *stratified* program — that is what makes their
 answers comparable — and refuses another one with StratificationError.
 `handles` is for the narrower, per-engine gaps: tabling has no
@@ -47,7 +50,8 @@ not their contract.
 
 from __future__ import annotations
 
-from tiny_datalog.core import aggregate_of, stratify, validate
+from tiny_datalog.core import (
+    aggregate_of, split_constraints, stratify, validate)
 from tiny_datalog.datalog import Engine, Program
 from tiny_datalog.magic import magic_query
 from tiny_datalog.tabling import TabledEngine
@@ -91,6 +95,7 @@ class Magic:
         # check up front what the other engines check on construction:
         # the rewriting itself would quietly run an unstratified program
         # whose unstratified part a particular query never reaches
+        clauses = split_constraints(clauses)[0]
         validate(clauses)
         stratify(clauses)
         self.clauses = list(clauses)
@@ -110,7 +115,7 @@ class Tabling:
         return not any(c.body and aggregate_of(c.head) for c in clauses)
 
     def __init__(self, clauses):
-        self.engine = TabledEngine(clauses)
+        self.engine = TabledEngine(split_constraints(clauses)[0])
 
     def answers(self, atom):
         return self.engine.query(atom)

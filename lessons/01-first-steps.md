@@ -43,9 +43,9 @@ Two things to notice:
    match the body against the data. This is a join: `grandparent` is the
    relational join of `parent` with itself.
 2. **`sibling` has a bug**; it derives `sibling(bob, bob)`, because
-   nothing stops X and Y being the same person. Datalog has no `X != Y`
-   built-in in this engine; the standard fix is to model the data so the
-   issue can't arise, or filter afterwards. Sit with this example — being
+   nothing stops X and Y being the same person. The fix is a comparison,
+   `X != Y` at the end of the body, which [lesson 23](23-time.md)
+   introduces properly; until then, sit with this example — being
    forced to notice what a rule *really* says is most of learning Datalog.
 
 ## Queries
@@ -122,14 +122,14 @@ mutates behind your back.
 
 **The tokenizer is a single regex** of named alternatives — whichever
 group matched *is* the token kind. The parser is textbook recursive
-descent, one method per grammar rule; the whole grammar is seven lines
+descent, one method per grammar rule; the whole grammar is six lines
 in `_Parser`'s docstring.
 
-**Safety is range restriction** (`validate`): every head variable and
-every variable under `not` must be bound by a positive body literal.
-This is what keeps every relation finite. The same function enforces the
-function-symbol ban: the Datalog boundary from Lesson 11 is four lines
-of `isinstance(a, Struct)`.
+**Safety is range restriction** (`validate`): every head variable,
+every variable under `not`, and every variable in a comparison must be
+bound by a positive body literal. This is what keeps every relation
+finite. The same function enforces the function-symbol ban: the
+Datalog boundary from Lesson 11 is four lines of `isinstance(a, Struct)`.
 
 ## Exercises
 
@@ -137,9 +137,11 @@ of `isinstance(a, Struct)`.
    rule accidentally make people their own cousins? Why?
 2. Add `aunt_or_uncle(X, Y)`. You'll need a body with three literals.
 3. Predict the output of `-q 'parent(X, carl)'` before running it.
-4. Add a comparison built-in (`X != Y`) to rule bodies: parser, safety
-   rule (both operands must be bound — why?), and evaluation. Note how
-   this lesson's `sibling` bug becomes fixable.
+4. Design a comparison built-in (`X != Y`) for rule bodies: parser,
+   safety rule (both operands must be bound — why?), and evaluation.
+   The engine has one now, so write yours down first and then compare
+   it with `core.py` (`body_order`, `holds`, and the comparison case in
+   `validate`). Note how this lesson's `sibling` bug becomes fixable.
 
 Next: [recursion](02-recursion.md), where rules refer to themselves and
 Datalog earns its keep.

@@ -1123,6 +1123,7 @@ class DifferentialFuzzTests(unittest.TestCase):
 
     DOMAIN = ["a", "b", "c", "d"]
     VARS = ["X", "Y", "Z"]
+    COMPARE = ["<", "<=", ">", ">=", "=", "!="]
     EDB = [("p", 2), ("q", 2), ("r", 1)]
 
     @staticmethod
@@ -1138,8 +1139,8 @@ class DifferentialFuzzTests(unittest.TestCase):
         return out
 
     def _rule(self, rng, head, arity, positive_pool, negative_pool):
-        """A safe rule: head and negated variables are always bound by a
-        positive literal, which is what validate() demands."""
+        """A safe rule: head, compared and negated variables are always
+        bound by a positive literal, which is what validate() demands."""
         body, bound = [], []
         for _ in range(rng.randint(1, 2)):
             name, ar = rng.choice(positive_pool)
@@ -1153,6 +1154,13 @@ class DifferentialFuzzTests(unittest.TestCase):
                     bound.append(v)
             body.append("%s(%s)" % (name, ", ".join(args)))
         bound = sorted(set(bound))
+        if bound and rng.random() < 0.35:
+            # a comparison, at any position: written before the literal
+            # that binds it, it tests every engine's evaluation order
+            right = (rng.choice(bound) if rng.random() < 0.6
+                     else rng.choice(self.DOMAIN))
+            body.insert(rng.randint(0, len(body)), "%s %s %s" % (
+                rng.choice(bound), rng.choice(self.COMPARE), right))
         if negative_pool and bound and rng.random() < 0.4:
             name, ar = rng.choice(negative_pool)
             args = [rng.choice(bound) for _ in range(ar)]
@@ -1653,7 +1661,7 @@ class ExerciseTests(unittest.TestCase):
 
 
 class FieldLessonExerciseTests(unittest.TestCase):
-    """The runnable answers of lessons 20-22, and the numbers their
+    """The runnable answers of lessons 20-24, and the numbers their
     answer files quote."""
 
     @staticmethod
@@ -1691,6 +1699,50 @@ class FieldLessonExerciseTests(unittest.TestCase):
                         " heap_type(h6, robot). vcall(s3, d, speak, z).")
         self.assertIn(("s3", "robot_speak"), e.rels["calls"])
         self.assertEqual({h for v, h in e.rels["pt"] if v == "z"}, {"h5"})
+
+    def test_lesson23_interval_constraints_and_withdrawals(self):
+        e = run_program(self.ex("23-answers.dl"))
+        found = {str(c): [s["P"] for s in f] for c, f in e.violations()}
+        self.assertEqual(sorted(found.values()), [["ann"], ["ben"]])
+        w = run_program(self.ex("23-withdrawn.dl"))
+        self.assertEqual(
+            {(c, k) for c, k in ((r["C"], r["K"]) for r in w.query(
+                'holds_at(carol, works_at, C, "2021-09-30", K)'))},
+            {("initech", "2021-10-01"), ("globex", "2024-01-01")})
+
+    def test_lesson23_programs(self):
+        e = run_program(load("employment.dl"))
+        self.assertEqual(e.query("colleagues(X, Y, C)"),
+                         [{"X": "alice", "Y": "bob", "C": "acme"},
+                          {"X": "alice", "Y": "carol", "C": "globex"}])
+        b = run_program(load("employment-bitemporal.dl"))
+        self.assertEqual(
+            [r["C"] for r in b.query(
+                'holds_at(bob, works_at, C, "2021-09-30", K)')],
+            ["acme", "initech"])
+
+    def test_lesson24_memory_and_answers(self):
+        m = run_program(load("memory.dl"))
+        [(c, found)] = m.violations()
+        self.assertEqual(found, [{"E": "user", "R": "manager",
+                                  "O1": "dana", "O2": "sam"}])
+        e = run_program(self.ex("24-answers.dl"))
+        self.assertEqual(e.query("current(user, manager, M)"),
+                         [{"M": "dana"}])
+        [(c, found)] = e.violations()
+        self.assertEqual(found[0]["D"], "satay")
+
+    def test_lesson24_product_semiring_script(self):
+        r = subprocess.run(
+            [sys.executable, os.path.join(HERE, "exercises",
+                                          "24-product-semiring.py")],
+            capture_output=True, text=True, cwd=HERE)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        product, best = r.stdout.splitlines()
+        self.assertIn("0.72", product)
+        self.assertIn("manager(user, dana)", product)
+        self.assertIn("0.72", best)
+        self.assertNotIn("dana", best)
 
     def test_lesson22_answers(self):
         c = chase.Chase(parse(self.ex("22-answers.dl")))
@@ -1992,7 +2044,7 @@ class ParseErrorTests(unittest.TestCase):
         ("p(X) :- .",       "expected ident"),    # empty body
         ("p(X) :- q(X),.",  "expected ident"),    # trailing comma
         (".",               "expected ident"),
-        (":- q(X).",        "expected ident"),
+        (":- .",            "expected ident"),    # empty constraint
         ("42(a).",          "expected ident"),    # number as predicate
     ]
 
@@ -3600,6 +3652,281 @@ class ClassifierReviewFixTests(unittest.TestCase):
             self.assertTrue(out.getvalue().startswith(
                 "usage: tiny-datalog-x"), out.getvalue())
 
+
+# ---------------------------------------------------------------------------
+# Comparisons, integrity constraints, lint, and value safety (lessons 17,
+# 23 and 24): the features promoted from the omissions list together.
+# ---------------------------------------------------------------------------
+
+def _run_datalog_cli(case, text, *args):
+    """Run datalog.main on a program text; (exit code, stdout, stderr)."""
+    import contextlib, io
+    from tiny_datalog.datalog import main
+    fh = tempfile.NamedTemporaryFile("w", suffix=".dl", delete=False)
+    fh.write(text)
+    fh.close()
+    case.addCleanup(os.unlink, fh.name)
+    out, err = io.StringIO(), io.StringIO()
+    with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+        code = main(list(args) + [fh.name])
+    return code, out.getvalue(), err.getvalue()
+
+
+class ComparisonTests(unittest.TestCase):
+    NUMS = "n(1). n(2). n(3). n(4)."
+
+    def test_parse_and_print_round_trip(self):
+        text = 'p(X) :- q(X, Y), X < Y, Y != 3, 2 <= X, X >= "a", X = b.'
+        rule = parse(text)[0]
+        self.assertEqual(str(rule), text.replace('"a"', "a"))
+        self.assertEqual(parse(str(rule)), [rule])
+
+    def test_comparisons_filter(self):
+        e = run_program(self.NUMS + "lt(X, Y) :- n(X), n(Y), X < Y."
+                        "ne(X, Y) :- n(X), n(Y), X != Y, Y = 4.")
+        self.assertEqual(len(e.rels["lt"]), 6)
+        self.assertEqual(e.rels["ne"], {(1, 4), (2, 4), (3, 4)})
+
+    def test_iso_dates_compare_as_text(self):
+        e = run_program('d("2024-01-31"). d("2024-12-01"). d("2023-06-30").'
+                        'after(D) :- d(D), D > "2024-01-01".')
+        self.assertEqual(e.rels["after"], {("2024-01-31",), ("2024-12-01",)})
+
+    def test_ordering_a_number_against_a_string_is_an_error(self):
+        with self.assertRaisesRegex(DatalogError, "a number and the other a string"):
+            run_program('v(1). v(a). p(X) :- v(X), X < 5.')
+        # equality across kinds is merely false, not an error
+        e = run_program('v(1). v(a). p(X) :- v(X), X != 1.')
+        self.assertEqual(e.rels["p"], {("a",)})
+
+    def test_comparison_variables_must_be_bound(self):
+        with self.assertRaisesRegex(SafetyError, "variable Y of comparison X < Y"):
+            run_program("n(1). p(X) :- n(X), X < Y.")
+
+    def test_comparisons_cannot_be_negated(self):
+        with self.assertRaisesRegex(ParseError, "flipping it"):
+            parse("p(X) :- n(X), not X < 3.")
+
+    def test_comparisons_stay_out_of_the_signature(self):
+        e = run_program(self.NUMS + "p(X) :- n(X), X > 2.")
+        self.assertEqual(set(e.program.arity), {"n", "p"})
+
+    def test_every_engine_agrees_including_comparison_before_binder(self):
+        text = (chain(6) + "path(X, Y) :- edge(X, Y)."
+                "path(X, Z) :- edge(X, Y), path(Y, Z)."
+                "far(X, Z) :- X < Z, Z != n3, path(X, Z).")
+        clauses = parse(text)
+        reference = run_program(text)
+        for q in ("far(n1, Z)", "far(X, n5)", "far(X, Z)"):
+            atom = query_atom(q)
+            expected = set(match_answers(atom, reference.rels["far"]))
+            for name, strategy in ENGINES.items():
+                with self.subTest(engine=name, query=q):
+                    self.assertEqual(strategy(clauses).answers(atom), expected)
+
+    def test_semiring_comparisons_filter_without_weight(self):
+        r = run_semiring("e(a, b) @ 2. e(b, c) @ 3. e(c, a) @ 1."
+                         "p(X, Y) :- e(X, Y), X < Y."
+                         "p(X, Z) :- e(X, Y), p(Y, Z), X < Z.", "minplus")
+        self.assertEqual(r.value("p", ("a", "c")), 5)
+        self.assertNotIn(("c", "a"), r.rels["p"])
+
+    def test_incremental_with_comparisons_matches_recompute(self):
+        text = (self.NUMS + "lt(X, Y) :- X < Y, n(X), n(Y)."
+                "lt2(X, Z) :- lt(X, Y), lt(Y, Z).")
+        for strategy in ("dred", "bf"):
+            inc = IncrementalEngine(text)
+            inc.insert("n(5).")
+            inc.delete("n(2).", strategy=strategy)
+            fresh = run_program(text.replace("n(2).", "") + "n(5).")
+            self.assertEqual(inc.rels["lt2"], fresh.rels["lt2"], strategy)
+
+    def test_stable_models_ground_comparisons_away(self):
+        models = stable_models(parse(
+            self.NUMS + "big(X) :- n(X), X > 2, not small(X)."
+                        "small(X) :- n(X), X < 4, not big(X)."))
+        self.assertEqual(len(models), 2)    # n(3) can go either way
+
+    def test_explain_and_whynot_show_the_comparison(self):
+        e = run_program(self.NUMS + "p(X) :- n(X), X > 2.")
+        self.assertIn("3 > 2   (comparison)",
+                      "\n".join(explain(e, "p", (3,))))
+        from tiny_datalog.datalog import whynot
+        self.assertIn("blocked at: 1 > 2 -- the comparison is false",
+                      "\n".join(whynot(e, "p", (1,))))
+
+    def test_modules_without_comparisons_refuse_them(self):
+        text = "n(1). p(X) :- n(X), X > 0."
+        with self.assertRaisesRegex(DatalogError, "prolog.py does not support"):
+            prolog.load(text)
+        with self.assertRaisesRegex(DatalogError, "chase does not support"):
+            chase.Chase(parse(text))
+        with self.assertRaisesRegex(DatalogError, "comparisons need different"):
+            containment.minimise(parse("q(X) :- n(X), X > 0.")[0])
+
+
+class ConstraintTests(unittest.TestCase):
+    TEXT = ("manages(ann, bob). manages(bob, cat). manages(cat, ann)."
+            "reports(X, Y) :- manages(Y, X)."
+            "reports(X, Z) :- manages(Y, X), reports(Y, Z).")
+
+    def test_parse_and_print(self):
+        c = parse(":- p(X), not q(X), X != a.")[0]
+        self.assertTrue(c.constraint)
+        self.assertEqual(str(c), ":- p(X), not q(X), X != a.")
+        self.assertEqual(parse(str(c)), [c])
+
+    def test_violations_are_counterexamples(self):
+        e = run_program(self.TEXT + ":- reports(X, X).")
+        [(c, found)] = e.violations()
+        self.assertEqual([s["X"] for s in found], ["ann", "bob", "cat"])
+        self.assertNotIn("#constraint", e.rels)       # derives nothing
+        self.assertEqual(run_program(self.TEXT.replace("manages(cat, ann).", "")
+                                     + ":- reports(X, X).").violations(), [])
+
+    def test_constraints_with_negation_and_comparisons(self):
+        e = run_program("age(ann, 15). age(bob, 40). signed(bob)."
+                        ":- age(P, A), A < 18, not guardian(P)."
+                        ":- age(P, A), A >= 18, not signed(P).")
+        self.assertEqual([[s["P"] for s in f] for _c, f in e.violations()],
+                         [["ann"]])
+
+    def test_constraint_safety(self):
+        with self.assertRaisesRegex(SafetyError, "variable X of negated"):
+            run_program("p(a). :- not p(X).")
+        # a ground negation is fine: "p must hold"
+        self.assertEqual(len(run_program("q(a). :- not p.").violations()), 1)
+
+    def test_anonymous_variables_are_not_reported(self):
+        # like query(): the parser's names for `_` stay internal
+        e = run_program("p(1). p(2). q(1, a). q(1, b). :- p(_). :- q(X, _).")
+        self.assertEqual([f for _c, f in e.violations()], [[{}], [{"X": 1}]])
+
+    def test_modules_that_would_ignore_constraints_refuse_them(self):
+        clauses = parse(self.TEXT + ":- reports(X, X).")
+        with self.assertRaisesRegex(SafetyError, "integrity constraints"):
+            validate(clauses)
+        with self.assertRaisesRegex(SafetyError, "integrity constraints"):
+            TabledEngine(clauses)
+        with self.assertRaisesRegex(SafetyError, "integrity constraints"):
+            stable_models(clauses)
+        # the registry's goal-directed engines set them aside: no answer
+        # depends on a constraint
+        atom = query_atom("reports(ann, Y)")
+        for name in ("magic", "tabling"):
+            self.assertEqual(ENGINES[name](clauses).answers(atom),
+                             ENGINES["seminaive"](clauses).answers(atom))
+
+    def test_cli_reports_and_exits_3(self):
+        code, out, _ = _run_datalog_cli(self, self.TEXT + ":- reports(X, X).")
+        self.assertEqual(code, 3)
+        self.assertIn("constraint violated: :- reports(X, X).", out)
+        self.assertIn("   reports(ann, ann)\n", out)
+        self.assertIn("(3 counterexamples)", out)
+        code, out, _ = _run_datalog_cli(
+            self, self.TEXT + ":- manages(X, X).", "-q", "reports(ann, Y)")
+        self.assertEqual(code, 0)
+        self.assertIn("1 integrity constraint checked: none violated", out)
+
+    def test_cli_goal_directed_engines_say_constraints_were_skipped(self):
+        code, _out, err = _run_datalog_cli(
+            self, self.TEXT + ":- reports(X, X).", "--magic", "-q", "reports(ann, Y)")
+        self.assertEqual(code, 0)
+        self.assertIn("1 integrity constraint not checked", err)
+
+    def test_incremental_checks_the_repaired_state(self):
+        inc = IncrementalEngine(self.TEXT + ":- reports(X, X).")
+        self.assertEqual(len(inc.violations()[0][1]), 3)
+        inc.delete("manages(cat, ann).")
+        self.assertEqual(inc.violations(), [])
+        inc.insert("manages(cat, cat).")
+        self.assertEqual([s["X"] for s in inc.violations()[0][1]], ["cat"])
+
+
+class AssumeTests(unittest.TestCase):
+    TEXT = "edge(a, b). edge(b, c). path(X, Y) :- edge(X, Y)." \
+           "path(X, Z) :- edge(X, Y), path(Y, Z). :- path(X, X)."
+
+    def test_assume_adds_and_removes_facts(self):
+        code, out, _ = _run_datalog_cli(self, self.TEXT, "--assume",
+                                        "edge(c, d). edge(a, b)~.",
+                                        "-q", "path(X, d)")
+        self.assertEqual(code, 0)
+        self.assertIn("path(b, d).", out)
+        self.assertNotIn("path(a, d).", out)
+
+    def test_assumption_that_breaks_a_constraint(self):
+        code, out, _ = _run_datalog_cli(self, self.TEXT,
+                                        "--assume", "edge(c, a).")
+        self.assertEqual(code, 3)
+        self.assertIn("(3 counterexamples)", out)
+
+    def test_assume_refuses_rules_and_unstated_retractions(self):
+        for script, msg in (("p(X) :- edge(X, Y).", "not rules"),
+                            ("edge(z, z)~.", "does not state it")):
+            code, _out, err = _run_datalog_cli(self, self.TEXT,
+                                               "--assume", script)
+            self.assertEqual(code, 1)
+            self.assertIn(msg, err)
+
+
+class LintTests(unittest.TestCase):
+    def lint(self, text):
+        from tiny_datalog.core import lint
+        return lint(parse(text))
+
+    def test_clean_program_is_quiet(self):
+        self.assertEqual(self.lint(load("lending.dl")), [])
+
+    def test_undefined_predicate_suggests_the_near_name(self):
+        [w] = self.lint("suspended(kim). member(kim)."
+                        "ok(P) :- member(P), not suspened(P).")
+        self.assertIn("no fact or rule defines suspened/1", w)
+        self.assertIn("did you mean suspended?", w)
+
+    def test_missing_base_case_names_the_cycle(self):
+        [w] = self.lint("par(a, b). anc(X, Y) :- par(X, Z), anc(Z, Y).")
+        self.assertIn("anc can never hold", w)
+        # a downstream casualty of a typo gets no second warning
+        self.assertEqual(len(self.lint("p(a). q(X) :- r(X). s(X) :- q(X).")), 1)
+
+    def test_contradictory_comparisons(self):
+        for body in ("X > 10, X < 5", "X < Y, Y < X", "X = 1, X = 2",
+                     "X != X", "X = Y, Y = Z, X != Z", 'X = 1, X = "a"',
+                     "X <= Y, Y <= X, X < Y"):
+            with self.subTest(body=body):
+                [w] = self.lint("n(1, 2). p(X) :- n(X, Y), n(Z, Z), %s." % body)
+                self.assertIn("so this rule can never fire", w)
+        for body in ("X > 1, X < 5", "X <= Y, Y <= X", "X != Y, Y < 3"):
+            with self.subTest(body=body):
+                self.assertEqual(
+                    self.lint("n(1, 2). p(X) :- n(X, Y), %s." % body), [])
+        self.assertIn("constraint can never be violated",
+                      self.lint("n(1, 2). :- n(X, Y), X < Y, Y < X.")[0])
+
+    def test_cli_prints_warnings_to_stderr(self):
+        code, out, err = _run_datalog_cli(self, "p(a). q(X) :- pp(X).")
+        self.assertEqual(code, 0)
+        self.assertIn("warning: no fact or rule defines pp/1", err)
+        self.assertNotIn("warning", out)
+
+
+class ValueSafetyTests(unittest.TestCase):
+    """Values print as one quoted token each, whatever wrote them."""
+
+    def test_python_facts_refuse_line_breaks_and_invisible_characters(self):
+        for bad in ("two\nlines", "a\rb", "tab\there", "rtl‮override",
+                    "zero​width", "both \"and' quotes"):
+            with self.subTest(value=bad):
+                with self.assertRaises(DatalogError):
+                    run_program("", facts={"said": [(bad,)]})
+        e = run_program("", facts={"said": [("It's fine",), ('say "hi"',),
+                                            ("café ✓",)]})
+        self.assertEqual(len(e.rels["said"]), 3)
+
+    def test_program_strings_are_checked_with_a_line_number(self):
+        with self.assertRaisesRegex(ParseError, "line 2: string contains U\\+202E"):
+            parse('p(a).\np("x‮y").')
 
 
 if __name__ == "__main__":
