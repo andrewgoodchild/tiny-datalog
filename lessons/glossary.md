@@ -395,6 +395,11 @@ miniature ones. *(Lessons 4, 19, 22)*
 meet and a join; here, all possible fact-sets ordered by ⊆. The stage
 on which Knaster–Tarski performs. *(Lesson 2)*
 
+**Local scheduling.** In SLG resolution, running the newest table's
+work first and completing a group of tables as soon as its own work
+runs out, rather than when all work has. XSB's default; `slg.py` uses
+it. *(Lesson 15)*
+
 **Literal.** An atom, a negated atom (`not p(X)`), or a **comparison**
 (`X < Y`). *(Lessons 3, 23)*
 
@@ -574,6 +579,11 @@ matching a rule body. *(Lesson 1)*
 **Subsumption.** C ⊑ D: every possible instance of C must be an
 instance of D, in every world consistent with the definitions. A
 statement about definitions, not data. *(Lesson 12)*
+
+**Subsumptive tabling.** Answering a call from a complete table whose
+call pattern is more general, by filtering it, instead of starting a
+table for the call's own pattern (*variant tabling*). `slg.py -s`.
+Not to be confused with **subsumption** between concepts. *(Lesson 15)*
 
 **Superiority relation.** An acyclic order on rules, written `r1 > r2`:
 when r1 and r2 support complementary conclusions, r1 wins. Defeasible

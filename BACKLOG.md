@@ -7,6 +7,8 @@ updating that lesson's argument as well as the code.
 
 ## Tooling
 
+Parked for now: the REPL and both debuggers below.
+
 - **A REPL (interactive prompt).** The README lists it as a deliberate
   omission: "Run a file, or call it from Python." Nothing reads
   interactive input today. It could load a program, accept facts, rules
@@ -15,6 +17,10 @@ updating that lesson's argument as well as the code.
   ("The other reason top-down survives") says that turning
   `tabling.py` into a stepper "is an exercise in attaching a prompt to
   `_prove`." It shares most of its machinery with the REPL.
+- **Mutation testing in CI.** `benchmarks/mutate.py` takes hours for
+  the whole package, so it runs by hand, not in CI. At 0.7.0 it caught
+  91%; most survivors are equivalent mutants or CLI printing. Running
+  it on just the modules a pull request touches would fit in CI.
 - **Indexes and join planning.** Every join is a nested loop and runs
   strictly left to right (README, [lesson 17](lessons/17-writing-rules.md)).
   This is also why the magic-sets timing in the README comes out the
@@ -22,34 +28,26 @@ updating that lesson's argument as well as the code.
 
 ## Tabling
 
-SLG resolution is done: `slg.py` (lesson 15) has suspend and resume,
-completion detection, delay and simplify, and answer completion, and is
-checked against `semantics.py`'s well-founded model on random
-unstratified programs. It is also the fifth engine in `engines.py`
-(`datalog.py --engine slg`), held to stratified programs, so the
-conformance suite and the external corpus run through it. `slg.py` is
-about 460 lines of its 500, so most items below need room made first.
-Still open:
+Done: `slg.py` (lesson 15) has suspend and resume, completion by
+stack, local scheduling (a group completes as soon as its own work is
+done), delay and simplify, and answer completion. It is checked
+against `semantics.py`'s well-founded model on random unstratified
+programs, and it is the fifth engine in `engines.py`
+(`datalog.py --engine slg`). Both tabled engines table aggregation,
+through an auxiliary table per aggregate rule, and `slg.py -s` adds
+subsumptive tabling from complete tables. `slg.py` has a 600-line
+limit (every other module has 500) and is at about 550. Still open:
 
-- **Tabled aggregation**, in both `tabling.py` and `slg.py`. Refused:
-  "tabled aggregation is not implemented here — use datalog.py".
 - **A table space shared across queries.** Tables reset on every query
   (exercise 3).
 - **Integrity constraints.** Refused by both: only the base engine
   checks them.
-- **Local scheduling in `slg.py`.** It has XSB's completion stack,
-  but a single global work queue, so a group can only complete once
-  *all* work has run out. XSB schedules one subgoal's work at a time and
-  completes groups as soon as their own work is done, which also frees
-  memory earlier. (Facts-only tables already complete at once.)
-- **A step-through debugger** on `slg.py`: its parked frames are
-  already plain data, so stepping them may be easier than on
-  `tabling.py`'s generators.
-- **Subsumptive tabling.** Both engines start a table for every
-  distinct call pattern (variant tabling), so `path(a, X)` gets its own
-  table even when `path(X, Y)` is already complete. XSB can answer the
-  specific call from the general table instead. Lesson 15's queens
-  table count is where the saving would show.
+- **Subsumption from incomplete tables, and answer indexing.**
+  `-s` reads only complete tables, and only a ground call gets a
+  direct lookup; any other served call scans the general table, which
+  is why `-s` makes eight queens slower. XSB's answer tries index
+  every pattern and let a call consume from an incomplete general
+  table (lesson 15, exercise 6).
 - **Incremental tabling.** Tables are thrown away when facts change.
   Keeping them, and invalidating only the tables that depend on the
   changed facts, is what `incremental.py` does for bottom-up
@@ -66,6 +64,9 @@ Still open:
   nothing grows. Indexing answers by the delayed literals they mention
   would make both linear. No program in the course is slow enough here
   to show it.
+- **A step-through debugger** on `slg.py` (parked, with the REPL):
+  its suspended frames are already plain data, so stepping them may be
+  easier than on `tabling.py`'s generators.
 
 ## Negation, aggregation and constraints in the other engines
 
@@ -113,3 +114,37 @@ Still missing:
   come from enumerating every possible world
   (`exercises/09-exact-prob.py`). There is no knowledge compilation and
   no sampling ([lesson 9](lessons/09-probabilistic.md)).
+
+## New terrain
+
+Where modern Datalog engines have gone that the course has not. The
+first two would each remove a limitation the course already admits.
+
+- **Worst-case optimal joins** (Leapfrog Triejoin, Generic Join). Any
+  plan of pairwise joins can be asymptotically worse than optimal on a
+  cyclic query such as a triangle; these join every relation at once,
+  one variable at a time. LogicBlox and RelationalAI are built on them.
+  This is the answer to the nested-loop joins under "Tooling", and a
+  small version fits in a few hundred lines.
+- **Datalog with lattices** (Flix, Ascent, Datafun). Recursion through
+  monotone aggregates such as shortest path, or interval analysis over
+  a lattice, which stratified aggregation ([lesson 13](lessons/13-aggregation.md))
+  refuses. It is semirings ([lesson 8](lessons/08-semirings.md)) in the
+  form program analysis uses.
+- **Egglog: Datalog and e-graphs.** Datalog combined with equality
+  saturation, for compiler optimisation and term rewriting. The most
+  active new area.
+- **Differential and streaming Datalog** (Differential Dataflow, DBSP,
+  Feldera). Incremental maintenance with negation and aggregation, the
+  item under "Negation, aggregation and constraints" above, done as
+  dataflow over changes with weights.
+- **Compiling Datalog** (Soufflé). Rules turned into specialised code
+  instead of interpreted; a lesson could generate Python for each rule
+  and measure the difference.
+- **Neural and differentiable Datalog** (Scallop, DeepProbLog).
+  Provenance semirings with gradients, next to lessons 8 and 9.
+- **Warded Datalog±** (Vadalog). The decidable frontier of the
+  existential rules that the chase ([lesson 22](lessons/22-knowledge-graphs.md))
+  starts on.
+- **Distributed and parallel evaluation** (BigDatalog, RecStep). Mostly
+  engineering, so the least suited to this course.
