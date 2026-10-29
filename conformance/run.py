@@ -7,8 +7,8 @@ Each core case is checked twice over: once through datalog-conformance's own run
 which compares our semi-naive answers with what Souffle / Nemo / Crepe
 produced, and then the same program through every other engine in
 tiny_datalog.engines.ENGINES that handles it (naive evaluation, magic
-sets, tabling), each of which must give the same answer.  An external corpus that agrees with one engine is a
-conformance test; one that must also agree across four is a
+sets, tabling, SLG), each of which must give the same answer.  An external corpus that agrees with one engine is a
+conformance test; one that must also agree across five is a
 differential test as well.
 
 Each defeasible theory goes through tiny_datalog.defeasible, under

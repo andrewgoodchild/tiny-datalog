@@ -94,7 +94,7 @@ Nothing to install:
 
 ```sh
 git clone https://github.com/andrewgoodchild/tiny-datalog && cd tiny-datalog
-python3 tests.py        # 362 tests, ~20s
+python3 tests.py        # 392 tests, ~20s
 ```
 
 ## Why the language choice decides what you can ask later
@@ -204,7 +204,7 @@ recomputation under random updates. 400 programs per run;
 Answers are also checked against engines this repository did not write.
 [`conformance/`](https://github.com/andrewgoodchild/tiny-datalog/tree/main/conformance)
 runs the [datalog-conformance](https://pypi.org/project/datalog-conformance/)
-corpus, harvested from Soufflé, Nemo and Crepe, through all four
+corpus, harvested from Soufflé, Nemo and Crepe, through all five
 strategies, and its defeasible theories, from SPINdle and the papers,
 through `defeasible.py`: 195 cases pass. Every skip is named with its
 reason: arithmetic and 10⁵-fact joins, which this course omits on
@@ -347,7 +347,7 @@ trusting, state properties as constraints); copy it into your agent's
 skills directory.
 
 The command-line interface installs too, as `tiny-datalog` (and
-`tiny-datalog-semiring`, `-tabling`, `-incremental`, `-subsumption`,
+`tiny-datalog-semiring`, `-tabling`, `-slg`, `-incremental`, `-subsumption`,
 `-containment`, `-defeasible`, `-prolog` for the other engines and the
 extensions):
 
@@ -365,15 +365,18 @@ tiny_datalog/   the code you read, in three tiers:
   core.py       the common core — the language every module shares:
                 AST, parser, safety checks, comparisons, stratification,
                 matching, formatting, query helpers, warnings
- engines — four strategies, one answer (engines.py lists them):
+ engines — five strategies, one answer (engines.py lists them):
   datalog.py    the base engine: semi-naive and naive bottom-up
                 evaluation, aggregation, integrity constraints,
                 --explain / why-not, --assume, the CLI
   magic.py      the magic-sets rewriting (a program-to-program pass)
   tabling.py    tabled top-down evaluation (iterative QSQR)
-  engines.py    the registry and the interface the four share
+  engines.py    the registry and the interface the five share (the
+                fifth is SLG, from slg.py below, held to stratified
+                programs)
  extensions — other questions asked of the same programs:
   semantics.py  grounding, stable models, the well-founded model
+  slg.py        SLG resolution: the well-founded model, top-down
   semiring.py   semiring-valued evaluation (costs, counts, provenance,
                 probabilities)
   incremental.py  insertions + DRed deletions over a live materialisation
@@ -395,7 +398,7 @@ conformance/    the external datalog-conformance corpus (Soufflé, Nemo,
                 Crepe, SPINdle), run against every evaluation strategy
 benchmarks/     scaled input generators (chain/tree/clique/grid, an EL
                 ontology, and the N-queens puzzle)
-tests.py        362 tests: every shipped program and exercise answer is
+tests.py        392 tests: every shipped program and exercise answer is
                 executed, a conformance suite runs every query through
                 every engine that handles it, and a seeded fuzzer checks
                 the same property on random programs
@@ -411,7 +414,7 @@ used.
 This project started as an attempt at a tiny implementation of
 Datalog, small enough to read in an afternoon. It grew with the
 course. Each lesson that taught a new technique — magic sets, stable models,
-semirings, incremental maintenance, tabling, subsumption, containment,
+semirings, incremental maintenance, tabling, SLG resolution, subsumption, containment,
 defeasible logic, the chase — brought a module to run it, and the repository is
 now several thousand lines. The core idea stayed small, and the code
 is laid out so you can still read just that: the common core and the
@@ -422,21 +425,21 @@ Measured in lines, comments, docstrings and blank lines included:
 
 | Tier | Lines |
 |---|---|
-| the common core (`core.py`: the language, evaluating nothing; about 270 of these lines arrived with comparisons, constraints, value checks and the warnings) | 1,056 |
+| the common core (`core.py`: the language, evaluating nothing; about 270 of these lines arrived with comparisons, constraints, value checks and the warnings) | 1,057 |
 | the base engine's evaluator (`datalog.py` up to its CLI section: the module docstring, the import list that re-exports the core, `Program`, `Engine`, aggregation folding, `run_program`) | 423 |
-| `--explain`, why-not, constraint reports, `--assume`, printing and the CLI (the rest of `datalog.py`) | 621 |
-| the other pluggable engines: magic sets (`magic.py`) and tabling (`tabling.py`), plus the `engines.py` registry (naive evaluation is a flag on the base engine) | 578 |
-| the eight extensions | 2,860 |
+| `--explain`, why-not, constraint reports, `--assume`, printing and the CLI (the rest of `datalog.py`) | 635 |
+| the other pluggable engines: magic sets (`magic.py`) and tabling (`tabling.py`), plus the `engines.py` registry (naive evaluation is a flag on the base engine; the fifth engine, SLG, is counted with the extensions) | 615 |
+| the nine extensions | 3,320 |
 
 So the smallest complete Datalog system here — parse, check, stratify,
 evaluate semi-naively — is the core plus the evaluator, about 1,500
-lines. All of it is 5.5k lines of toolkit (every module but the
+lines. All of it is 6.0k lines of toolkit (every module but the
 re-export list in `__init__.py`), roughly a quarter of it commentary,
-and 3.9k of tests.
+and 4.1k of tests.
 
 "Tiny" is a claim about that core and evaluator, and about each module
-built on them singly: none of the eleven (`magic.py`, `tabling.py`,
-`engines.py` and the eight extensions) exceeds 500 lines, which a test asserts. It is not a
+built on them singly: none of the twelve (`magic.py`, `tabling.py`,
+`engines.py` and the nine extensions) exceeds 500 lines, which a test asserts. It is not a
 claim about the repository, which is a dozen modules because it
 teaches a dozen things.
 

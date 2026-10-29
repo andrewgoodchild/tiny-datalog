@@ -10,8 +10,9 @@ The package is built in three tiers:
   what a Datalog program *is*, and evaluates nothing.
 * the **engines**: interchangeable evaluation strategies that give the
   same answers to the same stratified program — semi-naive and naive
-  bottom-up (datalog.py, the base engine), magic sets (magic.py) and
-  tabling (tabling.py).  engines.py names them and states their shared
+  bottom-up (datalog.py, the base engine), magic sets (magic.py),
+  tabling (tabling.py) and SLG resolution (slg.py, also an
+  extension).  engines.py names them and states their shared
   interface.
 * the **extensions**: modules that ask a *different* question of a
   program, and so give different answers on purpose — stable and

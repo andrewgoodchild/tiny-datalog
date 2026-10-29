@@ -64,7 +64,7 @@ jobs:
         run: tiny-datalog --help > /dev/null && echo "console script ok"
 
   # Answers checked against engines this repo did not write: the
-  # datalog-conformance corpus (Souffle, Nemo, Crepe), through all four
+  # datalog-conformance corpus (Souffle, Nemo, Crepe), through all five
   # evaluation strategies.  Pinned so a new corpus release is a
   # deliberate bump, not a surprise red build.  See conformance/README.md.
   conformance:

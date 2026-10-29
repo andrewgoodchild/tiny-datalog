@@ -13,9 +13,9 @@ python3 conformance/run.py
 
 Every core case runs twice over. First datalog-conformance's own
 runner compares our semi-naive answers with the source engine's. Then
-the same program goes through naive evaluation, magic sets and
-tabling, and each must agree. One external program
-thus tests four engines against each other as well as against the
+the same program goes through naive evaluation, magic sets, tabling
+and SLG, and each must agree. One external program
+thus tests five engines against each other as well as against the
 outside world.
 
 Every defeasible theory goes through `tiny_datalog/defeasible.py`

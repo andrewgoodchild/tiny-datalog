@@ -865,22 +865,29 @@ def _run_magic_query(q, clauses, trace):
                    suffix="   [magic]")
 
 
-def _run_tabled_queries(queries, clauses, trace):
-    """-q under --engine tabling, through the engines.py interface.  The
-    answers print exactly as every other engine's do; --trace adds the
-    size of the work, and tabling.py --tables lists the tables."""
+def _run_tabled_queries(queries, clauses, trace, name="tabling"):
+    """-q under --engine tabling or slg, through the engines.py
+    interface.  The answers print exactly as every other engine's do;
+    --trace adds the size of the work, and tabling.py --tables (or
+    slg.py --tables) lists the tables."""
     from tiny_datalog.engines import ENGINES
-    tabled = ENGINES["tabling"](clauses)
+    tabled = ENGINES[name](clauses)
     for q in queries:
         atom = parse_query_atom(q, tabled.engine.arity)
-        _print_answers(atom, tabled.answers(atom), suffix="   [tabled]")
+        _print_answers(atom, tabled.answers(atom),
+                       suffix="   [tabled]" if name == "tabling"
+                       else "   [slg]")
         if trace:
-            print("[tabling] %d subgoal table%s, filled in %d round%s "
-                  "(tabling.py --tables lists them)"
-                  % (len(tabled.engine.tables),
-                     "" if len(tabled.engine.tables) == 1 else "s",
-                     tabled.engine.rounds,
-                     "" if tabled.engine.rounds == 1 else "s"))
+            n = len(tabled.engine.tables)
+            if name == "tabling":
+                work = "filled in %d round%s" % (
+                    tabled.engine.rounds,
+                    "" if tabled.engine.rounds == 1 else "s")
+            else:
+                done = tabled.engine.stats["completions"]
+                work = "%d completion%s" % (done, "" if done == 1 else "s")
+            print("[%s] %d subgoal table%s, %s (%s.py --tables lists them)"
+                  % (name, n, "" if n == 1 else "s", work, name))
             print()
 
 
@@ -888,7 +895,7 @@ def _run_tabled_queries(queries, clauses, trace):
 # imported: engines.py imports this module, so this module can only
 # import it lazily, inside a function — and a test pins the two lists
 # together.
-ENGINE_NAMES = ["seminaive", "naive", "magic", "tabling"]
+ENGINE_NAMES = ["seminaive", "naive", "magic", "tabling", "slg"]
 
 
 def _engine_choice(args):
@@ -941,11 +948,11 @@ def main(argv=None):
                          "'edge(a, z). edge(a, b)~.' (repeatable)")
     ap.add_argument("--engine", choices=ENGINE_NAMES, default=None,
                     help="evaluation strategy (default seminaive; see "
-                         "engines.py).  All four give the same answers.  "
+                         "engines.py).  All five give the same answers.  "
                          "seminaive and naive materialise every relation, "
                          "so they also print whole relations and support "
-                         "--explain; magic and tabling are goal-directed: "
-                         "they answer -q queries only and refuse "
+                         "--explain; magic, tabling and slg are "
+                         "goal-directed: they answer -q queries only and refuse "
                          "--explain, which reads a derivation tree off a "
                          "full materialisation.  --trace shows each "
                          "engine's own work: rounds and deltas, the "
@@ -967,7 +974,8 @@ def main(argv=None):
         print(warning, file=sys.stderr)
 
     rules, constraints = split_constraints(clauses)
-    if constraints and (args.models or engine_name in ("magic", "tabling")):
+    goal_directed = engine_name in ("magic", "tabling", "slg")
+    if constraints and (args.models or goal_directed):
         # constraints change no answer, so these modes may set them
         # aside -- but say so, rather than imply they were checked
         print("note: %d integrity constraint%s not checked: that needs "
@@ -979,7 +987,7 @@ def main(argv=None):
     if args.models:
         return _print_models(clauses)
 
-    if engine_name in ("magic", "tabling"):
+    if goal_directed:
         flag = "--magic" if args.magic else "--engine %s" % engine_name
         if not args.query:
             print("error: %s requires at least one -q/--query" % flag,
@@ -996,9 +1004,15 @@ def main(argv=None):
                 for q in args.query:
                     _run_magic_query(q, clauses, args.trace)
             else:
-                _run_tabled_queries(args.query, clauses, args.trace)
+                _run_tabled_queries(args.query, clauses, args.trace,
+                                    engine_name)
         except StratificationError as exc:
             print("REJECTED: %s" % exc, file=sys.stderr)
+            if engine_name == "slg":
+                print("(--engine slg keeps to stratified programs, as every "
+                      "engine does.  slg.py runs this one: true and "
+                      "undefined answers, the well-founded model.)",
+                      file=sys.stderr)
             return 2
         return 0
 

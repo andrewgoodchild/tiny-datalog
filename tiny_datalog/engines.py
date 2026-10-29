@@ -2,7 +2,7 @@
 engines.py — the pluggable evaluation strategies, behind one interface.
 
 The package has three tiers (core.py's docstring describes them).  This
-file is the middle one made explicit: four algorithms that answer the
+file is the middle one made explicit: five algorithms that answer the
 *same* question — what follows from a stratified program? — and must
 therefore give identical answers.  They differ only in how much work
 they do and in which order:
@@ -15,6 +15,8 @@ they do and in which order:
                 bottom-up (magic.py — Lesson 7)
     tabling     top-down with a table of answers per subgoal
                 (tabling.py — Lesson 15)
+    slg         top-down with suspension and completion: SLG
+                resolution (slg.py — Lesson 15)
 
 The interface, which every entry of ENGINES follows:
 
@@ -32,8 +34,14 @@ aside; checking them takes the full materialisation (Engine.violations).
 
 Every engine requires a *stratified* program — that is what makes their
 answers comparable — and refuses another one with StratificationError.
-`handles` is for the narrower, per-engine gaps: tabling has no
-aggregation, so it says False to a program with an aggregate rule.
+`handles` is for the narrower, per-engine gaps: tabling and slg have
+no aggregation, so they say False to a program with an aggregate rule.
+
+SLG is the one engine that could run more: it computes the
+well-founded model, so it has answers for unstratified programs too.
+Here it is held to the registry's contract, where that model has no
+undefined atoms and equals the stratified one; slg.py's own CLI runs
+the rest.
 
 Because the answers must agree, the registry doubles as a test oracle:
 tests.py (ConformanceTests, DifferentialFuzzTests) and
@@ -54,6 +62,7 @@ from tiny_datalog.core import (
     aggregate_of, split_constraints, stratify, validate)
 from tiny_datalog.datalog import Engine, Program
 from tiny_datalog.magic import magic_query
+from tiny_datalog.slg import SLGEngine
 from tiny_datalog.tabling import TabledEngine
 
 
@@ -121,6 +130,23 @@ class Tabling:
         return self.engine.query(atom)
 
 
+class SLG(Tabling):
+    """SLG resolution: tabling that suspends a call on an incomplete
+    table instead of re-running it, and completes groups of tables off
+    a stack.  On a stratified program every answer is true."""
+
+    def __init__(self, clauses):
+        # SLGEngine would run an unstratified program; the registry
+        # promises to refuse one, as every other engine does
+        clauses = split_constraints(clauses)[0]
+        stratify(clauses)
+        self.engine = SLGEngine(clauses)
+
+    def answers(self, atom):
+        true, _undefined = self.engine.query(atom)
+        return true
+
+
 # name -> engine class; insertion order is the order tests and the CLI
 # list them, reference first
 ENGINES = {
@@ -128,4 +154,5 @@ ENGINES = {
     "naive": Naive,
     "magic": Magic,
     "tabling": Tabling,
+    "slg": SLG,
 }
