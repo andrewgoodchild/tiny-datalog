@@ -177,7 +177,7 @@ much larger territory than the one science fiction warned us about.
 | 1979 → today | the chase; RDFS and OWL 2 RL; existential rules (Datalog±) | Lesson 22 · `chase.py` |
 | 1986 | magic sets | Lesson 7 · `magic.py` |
 | 1988–1991 | stratification; stable models; well-founded | Lessons 3 & 5 · `semantics.py` |
-| 1990s → today | recursive aggregation; SLG tabling, the resolution strategy XSB implements | Lessons 13 & 15 · `tabling.py` |
+| 1990s → today | recursive aggregation; SLG tabling, the resolution strategy XSB implements | Lessons 13 & 15 · `tabling.py`, `slg.py` |
 | 1993 → 2023 | DRed → differential dataflow → DBSP | Lesson 10 · `incremental.py` |
 | 2007– | provenance semirings, recursive aggregation | Lesson 8 · `semiring.py` |
 | 2020s | probabilistic / neurosymbolic | Lesson 9 |

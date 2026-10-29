@@ -154,11 +154,12 @@ $ python3 tabling.py programs/queens.dl -q 'queens8(r0, X1, X2, X3, X4, X5, X6, 
 ```
 
 Four solutions start with a queen in row 0. Unpin the first queen and
-you get all 92. Now ask the same question three ways:
+you get all 92. Now ask the same question four ways:
 
 | Strategy | All 92 solutions | Why |
 |---|---|---|
 | tabling | 0.4s, 2,844 tables | `nextK` is only asked about valid partial boards |
+| SLG (`slg.py`, below) | 0.07s, 2,844 tables | the same tables, and no table re-solved |
 | magic sets | 1.9s | the same demand, compiled into the program |
 | bottom-up | did not finish in 10 minutes | must build all of `nextK` first |
 
@@ -188,37 +189,55 @@ Negation *through* recursion is where the simple rule breaks:
 
 ```
 $ python3 tabling.py programs/win.dl -q 'win(X)'
-error: program is not stratifiable — negation occurs inside a recursive cycle: win --not--> win.  No stratum assignment exists, so the program has no stratified model.  Tabling under unstratified negation is full SLG resolution, which computes the well-founded semantics (Lesson 15); datalog.py --models computes it bottom-up.
+error: program is not stratifiable — negation occurs inside a recursive cycle: win --not--> win.  No stratum assignment exists, so the program has no stratified model.  Tabling under unstratified negation is full SLG resolution, which computes the well-founded semantics (Lesson 15); slg.py runs it top-down, datalog.py --models bottom-up.
 ```
 
 To know whether `win(a)` holds, you need `win(b)` finished first, and
 to finish `win(b)` you need `win(a)`. No table can be completed before
 the other. **SLG resolution** (Chen & Warren 1996), the engine inside
-XSB Prolog, answers such programs with three ideas this module does
-without:
+XSB Prolog, answers such programs with three ideas that `tabling.py`
+does without and `slg.py` implements:
 
-1. **Suspend and resume.** When a call meets a variant of itself, SLG
-   does not re-run everything in rounds. It *suspends* the consumer
-   and *resumes* it each time the producer's table gains an answer.
-   No work is repeated, which is the difference exercise 2 below
-   measures. Tamaki and Sato's OLDT resolution (1986) introduced this
-   for positive programs.
-2. **Detect completion.** SLG tracks which calls depend on which, and
-   declares a whole group of mutually dependent tables complete the
-   moment none of them can grow. That is a strongly connected
-   component check, run during evaluation, and it is what licenses
-   negation without strata.
-3. **Delay, then simplify.** When a negative literal depends on a
-   table that cannot complete first, as `win` does, SLG *delays* it:
-   it records the answer as conditional on the delayed literal and
-   carries on. Later, when the delayed literal is resolved, the
-   condition is *simplified* away, or the answer is dropped. Answers
-   whose conditions never resolve are reported as *undefined*.
+1. **Suspend and resume.** When a call meets a subgoal that already
+   has a table, SLG does not re-run anything in rounds. The call
+   becomes a *consumer*: the rest of its rule body, parked on that
+   table. Each answer the table gains is pushed to each consumer
+   exactly once. Tamaki and Sato's OLDT resolution (1986) introduced
+   this for positive programs. Python cannot pause a function and
+   resume it twice, so `slg.py` stores a parked call as plain data:
+   the calling subgoal, the rule head, the body literals still to
+   prove, and the substitution so far.
+2. **Detect completion.** When no work is left, the incomplete tables
+   and the calls between them form a graph. A strongly connected
+   component with no call out to another incomplete table can never
+   grow again, so the whole component is complete. It is what lets
+   `not q(a)` be decided without strata: wait until q(a)'s component
+   completes, then look. Finding components is Tarjan's algorithm
+   again, the one `stratify` uses, but running it over every table
+   each time the work runs out costs time quadratic in the number of
+   tables. `slg.py` does what XSB does instead, below.
+3. **Delay, then simplify.** A component can be stuck: every call
+   still waiting inside it is a `not` on a table in the same
+   component, and each waits for the others, as `win` does. SLG
+   *delays* those literals. It carries on as if they had succeeded and
+   records them on the answer as a *condition*. Once the component
+   completes, conditions are *simplified* against the finished tables:
+   a literal now known true is struck out, a literal known false
+   kills its condition, and an answer whose condition empties is true.
+   Answers whose conditions never resolve are reported as *undefined*.
 
 Those undefined answers are exactly the well-founded model of Lesson 5,
-computed top-down and only for what the query needs. On `win.dl`, SLG
-would report `win(a)` and `win(b)` as undefined, matching what the
-bottom-up route says:
+computed top-down and only for what the query needs:
+
+```
+$ python3 slg.py programs/win.dl -q 'win(X)'
+?- win(X)   [SLG]
+   win(a).   undefined: if not win(b)
+   win(b).   undefined: if not win(a)
+   (0 true, 2 undefined; 6 subgoal tables, 2 completions, 2 delays)
+```
+
+The bottom-up route agrees:
 
 ```
 $ python3 datalog.py --models programs/win.dl
@@ -227,17 +246,108 @@ Well-founded model (three-valued):
   undefined: win(a).  win(b).
 ```
 
-The extra precision has a price. Each of the three ideas needs
-bookkeeping that iterative QSQR avoids: consumer continuations,
-dependency stacks, and conditional answers. Together they make up
-several hundred lines of the hardest code in any tabling engine. This
-course already computes the well-founded model bottom-up
-(`semantics.py`, Lesson 5), so SLG here would teach the same semantics
-a second time at a high cost in readability. It is the right design for
-a Prolog system that must run arbitrary programs top-down. For a course
-that wants every module readable in a sitting, stratified negation is
-the stopping point.
+The leftover condition is the explanation: `win(a)` is undefined
+because it hangs on `not win(b)`, which hangs on `not win(a)`. Lesson
+5's café paradox reads the same way. Carol's answer is settled and
+Bob's is named, along with the one literal his answer turns on:
 
+```
+$ python3 slg.py programs/cafe-paradox.dl -q 'eats_in_cafe(X)'
+?- eats_in_cafe(X)   [SLG]
+   eats_in_cafe(carol).
+   eats_in_cafe(bob).   undefined: if not household_cooks(cafe_house)
+   (1 true, 1 undefined; 23 subgoal tables, 4 completions, 2 delays)
+```
+
+### The fourth idea nobody mentions: answer completion
+
+Simplification alone is not enough. Delaying lets answers be derived
+from conditional answers, and an answer can end up resting on
+nothing but itself:
+
+```prolog
+p(a, a).
+s1(Y) :- p(Y, a), not s2(Y, Y).
+s1(d) :- s1(X), not s1(X).
+s2(X, X) :- s1(Y), t1(X, Y), X != X, not s2(X, Y).
+```
+
+While `not s2(a, a)` is delayed, `s1(a)` is conditional. The second
+rule derives `s1(d)` from it, and then derives `s1(d)` again from
+`s1(d)` itself. When the component completes, `s2(a, a)` has no
+answers, so `s1(a)` is true and the first route to `s1(d)` dies (it
+needed `not s1(a)`). The second route survives simplification: its
+condition is `s1(d)` and `not s1(d)`, both still undecided. But `s1(d)`
+is holding itself up, with nothing outside the loop supporting it.
+That is an *unfounded set* in the well-founded semantics' own
+definition, and it is false, not undefined. `slg.py`'s
+`_drop_unfounded` finds such answers: everything not reachable from
+answers with outside support is dropped, and simplification runs
+again. Chen and Warren call this step answer completion.
+
+This program was not written by hand. The test suite's fuzzer, which
+holds `slg.py` to `semantics.py`'s well-founded model on random
+unstratified programs, found it when answer completion was switched
+off. That is how this module earns its claim. Every answer, true or
+undefined, matches the bottom-up computation of the same semantics.
+
+### Completion without Tarjan: the completion stack
+
+A first version of `slg.py` reran Tarjan's algorithm over every
+incomplete table whenever its work ran out. On all 92 eight-queens
+solutions that took 1.6 seconds, 97% of it spent finding components.
+Three economies, all standard in XSB, brought the query to 0.04
+seconds (0.07 for the whole command, start-up included):
+
+- **A completion stack.** Tables go on a stack as they are created,
+  newest on top. When the work runs out, scan down from the top,
+  tracking the oldest incomplete table called so far. The first table
+  reached that is no younger than that oldest call marks a segment that
+  calls nothing below itself, so it can be completed whole. The scan
+  only touches tables that are about to complete. The segment may hold
+  several components at once, so XSB calls it an *approximate SCC*.
+  That is safe: no table in it can grow.
+- **Tarjan only when it buys precision.** Completing a segment whole
+  is blunt in one case: when it is stuck on a `not` inside itself.
+  Delaying everything in it would be sound, but a `not` that the
+  completion of one smaller component would decide should be decided,
+  not delayed. Only then does Tarjan run, on that segment alone.
+- **Facts complete at once.** A predicate defined only by facts calls
+  nothing, so its table is complete the moment it is filled, and a
+  `not` on it never waits. Without this, a fact table made while a
+  large segment was open sat buried in the stack, and every `not` on
+  it looked stuck. In eight queens that is every `not attacks(...)`.
+
+Conditions are kept minimal too. An answer true under condition A
+needs no second condition "A and B", so that one is absorbed.
+
+### What it costs, and why both modules stay
+
+`slg.py` is about 460 lines to `tabling.py`'s 260, and it borrows
+that module's front end: the clause index, the call pattern and the
+head match. The extra lines are the bookkeeping iterative QSQR
+avoids: parked consumers, the completion stack, conditions on
+answers, and the simplification loop.
+In exchange it never repeats work, and it accepts every function-free
+program, stratified or not. The repeated work is what you feel. On a
+300-node chain (`python3 benchmarks/generate.py chain 300`),
+`path(n1, X)` takes `tabling.py` 32 seconds, in 1,196 rounds, and
+`slg.py` 0.1 seconds.
+
+`tabling.py` stays because it is the shorter path to the main idea.
+A table per subgoal, read instead of re-derived, is the whole of
+tabling, and its fixpoint loop shows that in one screen. `slg.py` is
+the same idea with a scheduler. Read `tabling.py` first, then this
+section, then `slg.py`. On stratified programs the two must agree, and
+the tests check that their tables are the same sets.
+
+SLG is also the fifth engine in `engines.py`, so
+`datalog.py --engine slg -q ...` works, and the conformance suite and
+the differential fuzzer run every stratified program through it. There
+it refuses unstratified programs like the other four do: the engine
+interface returns one set of answers, and only on stratified programs
+is the undefined set guaranteed empty. For the three-valued answers,
+run `slg.py` itself.
 
 ## The other reason top-down survives: debugging
 
@@ -262,6 +372,21 @@ of descending, and an outer loop that re-runs everything until no table
 grows. Compare its `_pattern` function with magic.py's adornments —
 same idea, computed at run time instead of compile time.
 
+**`slg.py` replaces the outer loop with a work queue.** `_step` proves
+one literal of one frame. A positive call parks the frame in
+`consumers` and catches it up on the table's answers so far, and
+`_answer` pushes each new answer to every consumer. A negative call
+parks in `waiting` until its table completes. When the queue runs dry,
+`_evaluate` asks `_closed_segment` for the top of the completion
+stack that can no longer grow, and either completes it (`_complete`,
+then `_simplify`) or, if it is stuck on a `not`, asks
+`_bottom_component` for its exact bottom component and completes or
+delays that. Run any query with `-t` to see
+the work counters: on the left-recursive ancestor query, 10 steps in
+total, where `tabling.py` reports 11 rounds, each of which re-solves
+every table. (`parent` is all facts, so its tables are filled when
+called and add no steps.)
+
 ## Exercises
 
 1. Compare `tabling.py -t` and `--magic --trace` on
@@ -269,7 +394,9 @@ same idea, computed at run time instead of compile time.
    a magic fact.
 2. The rounds count for the left-recursive query is larger than the
    answer count. Why does iterative QSQR pay extra rounds, and what do
-   real SLG engines do instead? (One sentence each.)
+   real SLG engines do instead? (One sentence each.) Then run the
+   query under `slg.py -t` and say which of its work counters
+   corresponds to a round's re-solving.
 3. Add a second bound query to the same engine object. Why do the
    tables reset, and what would it take to share them across queries
    (the real systems' "table space")?
@@ -282,7 +409,12 @@ same idea, computed at run time instead of compile time.
    order of the two literals in the `queensK` rules, so `nextK` comes
    first. What happens to the table count, and why?
 
-That closes the evaluation arc: four strategies, one semantics, and
+6. Write the smallest program you can on which `slg.py` reports an
+   answer undefined *and* the answer has two conditions (the CLI
+   joins them with "or if"). What does each condition say about how
+   the answer could have been true?
+
+That closes the evaluation arc: five strategies, one semantics, and
 every pair of them checkable against each other by the conformance
 suite in `tests.py`. The remaining lessons step outside evaluation —
 [16](16-containment.md) asks what a query means on *every* database,

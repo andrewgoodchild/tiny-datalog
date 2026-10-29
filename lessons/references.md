@@ -140,7 +140,7 @@ be defended.
 - W. Chen and D. S. Warren, *Tabled Evaluation with Delaying for
   General Logic Programs*, JACM 43(1), 1996 — SLG resolution: suspend,
   complete, delay; the well-founded semantics top-down. XSB Prolog is
-  its implementation.
+  its implementation, and `slg.py` a lesson-sized one.
 
 ## Lesson 16 — containment and views
 

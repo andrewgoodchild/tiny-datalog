@@ -1,0 +1,13 @@
+% Lesson 15, exercise 6: an undefined answer with two conditions.
+% From a, either move leads to a position that can only move back, so
+% win(a) waits on win(b) and on win(c), and they each wait on win(a).
+% Loaded and checked by ExerciseTests.
+%
+%   python3 slg.py exercises/15-answers.dl -q 'win(a)'
+
+move(a, b).
+move(a, c).
+move(b, a).
+move(c, a).
+
+win(X) :- move(X, Y), not win(Y).

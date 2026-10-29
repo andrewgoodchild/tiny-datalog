@@ -9,10 +9,12 @@ are their public surface, re-exported here so that library use reads as
 
 `tiny_datalog.engines` lists the pluggable engines, which all give the
 same answers: semi-naive and naive (`datalog`), `magic` (goal-directed
-rewriting) and `tabling` (top-down with memoing).
+rewriting), `tabling` (top-down with memoing) and `slg` (SLG
+resolution, held to stratified programs).
 
 Everything else is an extension built on the core, asking a different
 question of a program: `semantics` (stable and well-founded models),
+`slg` (the well-founded model top-down, by SLG resolution),
 `semiring` (provenance-weighted evaluation), `incremental` (maintenance
 under updates), `subsumption` (KL-ONE style classification),
 `containment` (query containment), `defeasible` (rules with exceptions

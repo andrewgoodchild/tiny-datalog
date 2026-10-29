@@ -6,7 +6,7 @@ beyond Python 3.9+.
 ```sh
 git clone https://github.com/andrewgoodchild/tiny-datalog
 cd tiny-datalog
-python3 tests.py                     # 362 tests, should all pass
+python3 tests.py                     # 392 tests, should all pass
 python3 datalog.py programs/reachability.dl
 ```
 
@@ -17,13 +17,13 @@ Everything lives in `tiny_datalog/`, in three tiers:
 - **the core**, `core.py`: the language itself — the AST, the parser,
   the safety check, stratification, matching and formatting. Every
   other module imports it, and it imports none of them.
-- **the engines**: four interchangeable ways to evaluate a stratified
+- **the engines**: five interchangeable ways to evaluate a stratified
   program, which must all give the same answers — semi-naive and naive
   (`datalog.py`, the base engine, which also holds `--explain` and the
-  command line), magic sets (`magic.py`) and tabling (`tabling.py`).
-  `engines.py` lists them and states the interface they share.
+  command line), magic sets (`magic.py`), tabling (`tabling.py`) and SLG
+  resolution (`slg.py`, which is also an extension). `engines.py` lists them and states the interface they share.
 - **the extensions**: modules that ask a program a different question —
-  `semantics.py`, `semiring.py`, `incremental.py`, `prolog.py`,
+  `semantics.py`, `slg.py`, `semiring.py`, `incremental.py`, `prolog.py`,
   `subsumption.py`, `containment.py`, `defeasible.py`, `chase.py`.
 
 The `.py` files at the repo root are three-line launchers so that every
@@ -68,8 +68,9 @@ input facts). The other modes:
 | `python3 datalog.py --naive --trace prog.dl` | naive evaluation with per-round derivation counts |
 | `python3 datalog.py --explain 'path(a, d)' prog.dl` | print a derivation tree — *why* is this fact true? |
 | `python3 datalog.py --assume 'edge(a, z).' prog.dl` | what if? evaluate as though facts were added (or, with `fact~.`, removed) |
-| `python3 datalog.py --engine tabling -q '...' prog.dl` | answer with any of the four engines: `seminaive` (the default), `naive`, `magic`, `tabling` |
+| `python3 datalog.py --engine tabling -q '...' prog.dl` | answer with any of the five engines: `seminaive` (the default), `naive`, `magic`, `tabling`, `slg` |
 | `python3 tabling.py prog.dl -q 'goal(X)' -t` | tabled top-down evaluation (handles left recursion) |
+| `python3 slg.py prog.dl -q 'goal(X)' -t` | SLG resolution: tabling with negation through recursion, undefined answers named |
 | `python3 incremental.py prog.dl -u 'f(a)~. f(b).'` | apply retractions/insertions to a live materialisation (`--strategy bf` checks before deleting) |
 | `python3 semiring.py --semiring minplus prog.dl` | evaluate over a semiring (costs, counts, provenance, probabilities) |
 | `python3 incremental.py` | demo: repair derived facts on insert/delete instead of recomputing |
@@ -128,7 +129,7 @@ engine — the AST classes, `parse`, `validate`, `stratify`, `Program`,
 `from tiny_datalog import Engine, parse` works whichever of the two
 files a name lives in, as does the older `from tiny_datalog.datalog
 import parse`. The other engines and the extensions keep their own
-modules: `from tiny_datalog import semiring, tabling, incremental`.
+modules: `from tiny_datalog import semiring, tabling, slg, incremental`.
 
 ## Where to go next
 
@@ -152,6 +153,7 @@ and the lesson that builds the machinery:
 | The data changed — what changed in the answers? | `python3 incremental.py programs/dred-graph.dl -u 'edge(n3, n4)~.'` | [10](10-incremental.md) |
 | How many, how much, largest? | `python3 datalog.py programs/spending.dl` | [13](13-aggregation.md) |
 | Answer a goal top-down, even left-recursive | `python3 tabling.py programs/left-recursive.dl -q 'ancestor(abe, X)'` | [15](15-tabling.md) |
+| Ask an unstratified program top-down, and see why an answer is undefined | `python3 slg.py programs/win.dl -q 'win(X)'` | [15](15-tabling.md) |
 | Search a finite space — where can eight queens go? | `python3 tabling.py programs/queens.dl -q 'queens8(r0, X1, X2, X3, X4, X5, X6, X7)'` | [15](15-tabling.md) |
 | What if I allow function symbols, and lose termination? | `python3 prolog.py programs/peano.pl -q 'add(X, Y, s(s(zero)))'` | [11](11-horn-clauses.md) |
 | What do these definitions entail about each other? | `python3 subsumption.py programs/family-ontology.dl` | [12](12-kl-one-subsumption.md) |

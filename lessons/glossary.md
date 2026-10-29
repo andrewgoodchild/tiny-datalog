@@ -541,7 +541,9 @@ recursion (Chen & Warren 1996; XSB Prolog). It suspends and resumes
 calls instead of re-running them, detects when a group of tables is
 complete, and *delays* negative literals it cannot yet decide.
 Answers whose delays never resolve come out *undefined*: the
-**well-founded semantics**, computed top-down. *(Lesson 15)*
+**well-founded semantics**, computed top-down. A fourth step,
+*answer completion*, drops answers held up only by a positive loop
+through themselves. `slg.py` implements all four. *(Lesson 15)*
 
 **Source / sink / sanitizer.** The vocabulary of **taint analysis**: a
 source introduces untrusted data, a sink must not receive it, and a

@@ -28,6 +28,7 @@ from tiny_datalog import containment
 from tiny_datalog import defeasible
 from tiny_datalog import chase
 from tiny_datalog.tabling import TabledEngine
+from tiny_datalog.slg import SLGEngine
 from tiny_datalog.engines import ENGINES
 from tiny_datalog.datalog import (
     match_answers, format_fact, _sort_key, explain)
@@ -431,6 +432,12 @@ class SemanticsTests(unittest.TestCase):
     """Stratifiability is syntactic; these tests check the semantic layer
     (stable models, well-founded model) and that the two are not conflated."""
 
+    def test_retractions_are_refused(self):
+        for solve in (stable_models, well_founded):
+            with self.subTest(solve=solve.__name__):
+                with self.assertRaisesRegex(SafetyError, "is an update"):
+                    solve(parse("p(a). p(a)~."))
+
     def test_unstratifiable_program_can_still_have_stable_models(self):
         # The standard example: unstratifiable, yet two stable models.
         clauses = parse(load("win.dl"))
@@ -512,6 +519,15 @@ ROUTES = load("routes.dl")
 
 
 class SemiringTests(unittest.TestCase):
+    def test_viterbi_weights_may_be_exactly_zero_or_one(self):
+        eng = run_semiring("e(a, b) @ 0. e(b, c) @ 1. p(X, Y) :- e(X, Y).",
+                           "viterbi")
+        self.assertEqual(eng.rels["p"], {("b", "c"): 1.0})   # 0 is no path
+        for w in ("1.5", "-0.1"):
+            with self.subTest(weight=w):
+                with self.assertRaisesRegex(DatalogError, "must lie in"):
+                    run_semiring("e(a, b) @ %s." % w, "viterbi")
+
     def test_minplus_shortest_paths(self):
         eng = run_semiring(ROUTES, "minplus")
         self.assertEqual(eng.value("path", ("a", "d")), 4)  # a-c-d / a-b-c-d
@@ -709,6 +725,22 @@ class PrologTests(unittest.TestCase):
                                         max_solutions=100)
         self.assertTrue(answers)          # found some naturals
         self.assertTrue(truncated)        # but the search was cut off
+
+    def test_depth_bound_is_exact(self):
+        # each resolution step costs one level, and so does the
+        # sub-proof of a negation
+        engine = prolog.load("r(a). p(X) :- q(X). q(X) :- r(X)."
+                             "s(b). t(X) :- s(X), not r(X)."
+                             "w(X) :- s(X), not r(X), u(X)."
+                             "u(X) :- v(X). v(X) :- s(X).")
+        for goal, need, answer in (("p(X)", 3, "a"), ("t(X)", 4, "b"),
+                                   ("w(X)", 6, "b")):
+            with self.subTest(goal=goal):
+                answers, truncated = self.query(engine, goal, depth=need)
+                self.assertEqual(([str(a["X"]) for a in answers], truncated),
+                                 ([answer], False))
+                self.assertEqual(self.query(engine, goal, depth=need - 1),
+                                 ([], True))
 
     def test_occurs_check(self):
         engine = prolog.load("eq(X, X).")
@@ -1005,6 +1037,147 @@ class TablingTests(unittest.TestCase):
         self.assertEqual(engine.query(query_atom("flies(X)")), {("tweety",)})
 
 
+class SLGTests(unittest.TestCase):
+    """SLG resolution: the well-founded model, top-down.  Each test pins
+    one of the three ideas Lesson 15 names."""
+
+    @staticmethod
+    def wfs(text, atom):
+        """The well-founded answers to a query, from semantics.py."""
+        true, undefined = well_founded(parse(text))
+        pick = lambda atoms: set(match_answers(
+            atom, {a for p, a in atoms if p == atom.pred}))
+        return pick(true), pick(undefined)
+
+    def test_win_is_undefined_with_its_condition(self):
+        engine = SLGEngine(parse(load("win.dl")))
+        q = query_atom("win(X)")
+        self.assertEqual(engine.query(q), (set(), {("a",), ("b",)}))
+        # the residual condition says why: each waits on the other
+        self.assertEqual(engine.tables[("win", ("a",))][("a",)],
+                         {frozenset({("-", ("win", ("b",)))})})
+        self.assertGreater(engine.stats["delays"], 0)
+
+    def test_cafe_paradox_matches_the_well_founded_model(self):
+        text = load("cafe-paradox.dl")
+        engine = SLGEngine(parse(text))
+        for q in ("eats_in_cafe(X)", "eats_at_home(X)",
+                  "household_cooks(X)", "eats_in_cafe(bob)"):
+            with self.subTest(query=q):
+                atom = query_atom(q)
+                self.assertEqual(engine.query(atom), self.wfs(text, atom))
+
+    def test_left_recursion_without_rounds(self):
+        # suspend and resume: each answer reaches each consumer once,
+        # so no table is re-solved the way tabling.py's rounds do
+        engine = SLGEngine(parse(load("left-recursive.dl")))
+        true, undefined = engine.query(query_atom("ancestor(abe, X)"))
+        self.assertEqual({a[1] for a in true}, {"ann", "bob", "carl", "dee"})
+        self.assertEqual(undefined, set())
+        self.assertEqual(engine.stats["delays"], 0)
+
+    def test_tables_match_tabling_on_stratified_programs(self):
+        for name, q in (("reachability.dl", "path(n5, X)"),
+                        ("tweety.dl", "flies(X)"),
+                        ("family.dl", "ancestor(abe, X)")):
+            with self.subTest(program=name):
+                clauses = parse(load(name))
+                tabled = TabledEngine(clauses)
+                slg = SLGEngine(clauses)
+                atom = query_atom(q)
+                self.assertEqual(slg.query(atom), (tabled.query(atom), set()))
+                self.assertEqual(set(slg.tables), set(tabled.tables))
+
+    def test_queens_counts(self):
+        for n, count in ((4, 2), (5, 10)):
+            with self.subTest(n=n):
+                q = query_atom("queens%d(%s)" % (
+                    n, ", ".join("X%d" % i for i in range(n))))
+                true, undefined = SLGEngine(parse(
+                    TablingTests.queens(n))).query(q)
+                self.assertEqual((len(true), undefined), (count, set()))
+
+    def test_a_true_answer_settles_not_without_waiting(self):
+        # t(a) is proved while its component is still open; `not t(a)`
+        # fails on the spot rather than being delayed
+        engine = SLGEngine(parse("b(a). t(a) :- b(a). t(a) :- s(a). "
+                                 "s(a) :- not t(a). s(a) :- s(a)."))
+        self.assertEqual(engine.query(query_atom("s(a)")), (set(), set()))
+        self.assertEqual(engine.stats["delays"], 0)
+
+    def test_simplification_settles_a_delayed_negation(self):
+        # not q(a) is delayed (p and q call each other), then struck out
+        # when the component completes with no answer for q(a): q needs
+        # an f fact, and there is none
+        text = ("e(a). f(b). p(X) :- e(X), not q(X). "
+                "q(X) :- p(X), f(X).")
+        engine = SLGEngine(parse(text))
+        atom = query_atom("p(X)")
+        self.assertEqual(engine.query(atom), ({("a",)}, set()))
+        self.assertGreater(engine.stats["delays"], 0)
+        self.assertEqual(engine.query(atom), self.wfs(text, atom))
+
+    def test_answer_completion_drops_a_self_supporting_answer(self):
+        # s1(a) is conditional while not s2(a, a) is delayed, and the
+        # second rule derives s1(d) from it; then s1(d) props itself
+        # up.  Once s1(a) is true, s1(d)'s only support is s1(d): an
+        # unfounded set, so false — not undefined.  (Found by fuzzing.)
+        text = ("p(a, a). "
+                "s1(Y) :- p(Y, a), not s2(Y, Y). "
+                "s1(d) :- s1(X), not s1(X). "
+                "s2(X, X) :- s1(Y), t1(X, Y), X != X, not s2(X, Y).")
+        engine = SLGEngine(parse(text))
+        atom = query_atom("s1(X)")
+        self.assertEqual(engine.query(atom), ({("a",)}, set()))
+        self.assertEqual(engine.query(atom), self.wfs(text, atom))
+        self.assertGreater(engine.stats["unfounded answers"], 0)
+
+    def test_a_bottom_component_completes_before_anything_is_delayed(self):
+        # s(b, b) waits on not s(b, b), itself, and on not s(b, d), a
+        # table with no answers.  Both waits sit in one closed segment
+        # of the completion stack.  Completing s(b, d)'s component on
+        # its own decides the second wait, which proves s(b, b) and
+        # fails the first; delaying the whole segment would delay both.
+        # (Found by fuzzing a version without Tarjan's algorithm.)
+        engine = SLGEngine(parse(
+            "e(d, b). e(b, b). s(b, X) :- e(Z, X), not s(X, Z)."))
+        self.assertEqual(engine.query(query_atom("s(b, X)")),
+                         ({("b", "b")}, set()))
+        self.assertEqual(engine.stats["delays"], 0)
+
+    def test_conditions_stay_minimal_after_simplification(self):
+        # p(a) is first undefined under {not q(a), not u(a)} and
+        # {not u(a), not w(a)}.  q(a) turns out false, which shrinks
+        # the first to {not u(a)}, and that makes the second redundant.
+        text = ("e(a). f(b). "
+                "u(X) :- e(X), not u(X). "
+                "w(X) :- e(X), not w(X). "
+                "p(X) :- e(X), not q(X), not u(X). "
+                "p(X) :- e(X), not u(X), not w(X). "
+                "q(X) :- p(X), f(X).")
+        engine = SLGEngine(parse(text))
+        self.assertEqual(engine.query(query_atom("p(a)")), (set(), {("a",)}))
+        self.assertEqual(engine.tables[engine.root][("a",)],
+                         {frozenset({("-", ("u", ("a",)))})})
+
+    def test_refuses_aggregation_retraction_and_constraints(self):
+        for text, needle in (("p(a, 1). t(sum(X)) :- p(K, X).", "aggregation"),
+                             ("p(a). p(a)~.", "incremental.py"),
+                             ("p(a). :- p(X).", "integrity constraints")):
+            with self.subTest(program=text):
+                with self.assertRaises(DatalogError) as cm:
+                    SLGEngine(parse(text))
+                self.assertIn(needle, str(cm.exception))
+
+    def test_cli_names_undefined_answers_and_their_conditions(self):
+        r = subprocess.run(
+            [sys.executable, os.path.join(HERE, "slg.py"),
+             os.path.join(HERE, "programs", "win.dl"), "-q", "win(X)"],
+            capture_output=True, text=True, check=True)
+        self.assertIn("win(a).   undefined: if not win(b)", r.stdout)
+        self.assertIn("(0 true, 2 undefined;", r.stdout)
+
+
 class ConformanceTests(unittest.TestCase):
     """One semantics, many algorithms: every applicable strategy must
     return identical answers.  (AbcDatalog's shared-suite pattern.)"""
@@ -1036,6 +1209,10 @@ class ContainmentTests(unittest.TestCase):
     @staticmethod
     def rule(text):
         return containment._parse_query_rule(text)
+
+    def test_minimise_keeps_dropping_until_nothing_more_goes(self):
+        rule = self.rule("q(X) :- e(X, Y), e(X, Z), e(X, W).")
+        self.assertEqual(len(containment.minimise(rule)), 1)
 
     def test_containment_direction(self):
         broad = self.rule("q(X) :- e(X, Y).")
@@ -1219,6 +1396,44 @@ class DifferentialFuzzTests(unittest.TestCase):
                                 atom, reference.rels.get(atom.pred, ()))),
                             "query %s" % atom)
 
+    def test_slg_matches_the_well_founded_model_on_random_programs(self):
+        # negation anywhere, recursion through it included: most of
+        # these programs are unstratified, and some have undefined
+        # answers.  SLG must return semantics.py's model, true and
+        # undefined alike, for every query.
+        rng = random.Random(20261029)
+        for i in range(self.iterations(300)):
+            idb = [(name, rng.choice([1, 2])) for name in ("s1", "s2", "t1")]
+            rules = [self._rule(rng, name, arity, self.EDB + idb,
+                                self.EDB + idb)
+                     for name, arity in idb for _ in range(rng.randint(1, 3))]
+            text = "\n".join(self._facts(rng) + rules)
+            clauses = parse(text)
+            true, undefined = well_founded(clauses)
+            engine = SLGEngine(clauses)
+            for atom in [self._query(rng, idb)] + [
+                    Atom(name, tuple(Var("X%d" % j) for j in range(arity)))
+                    for name, arity in idb]:
+                with self.subTest(iteration=i, program=text, query=str(atom)):
+                    self.assertEqual(engine.query(atom), (
+                        set(match_answers(atom, {a for p, a in true
+                                                 if p == atom.pred})),
+                        set(match_answers(atom, {a for p, a in undefined
+                                                 if p == atom.pred}))))
+                    self.assert_tables_settled(engine)
+
+    def assert_tables_settled(self, engine):
+        """What simplification promises of every finished table, beyond
+        the answers: no condition contains another, and every literal
+        left in one is still undecided."""
+        for key, answers in engine.tables.items():
+            for tup, conds in answers.items():
+                for cond in conds:
+                    self.assertFalse(any(c < cond for c in conds),
+                                     (key, tup, conds))
+                    self.assertTrue(all(engine._value(lit) is None
+                                        for lit in cond), (key, tup, cond))
+
     def test_incremental_matches_recompute_under_random_updates(self):
         rng = random.Random(20260824)
         for i in range(self.iterations(40)):
@@ -1351,9 +1566,10 @@ class LessonOutputTests(unittest.TestCase):
                         for q in quoted:
                             qs = " ".join(q.split())
                             qs = re.sub(r"\s+in \d+\.\d+s$", "", qs)
+                            qs = re.sub(r"\s*\d+\.\d+s\)$", "", qs)
                             qs = re.sub(r"\s+#.*$", "", qs)
                             if (not qs or "..." in qs
-                                    or qs.startswith(("#", "%", "("))):
+                                    or qs.startswith(("#", "%"))):
                                 continue
                             self.assertIn(
                                 qs, live,
@@ -1392,6 +1608,29 @@ class WhyNotTests(unittest.TestCase):
         out = self.lines("p(a). q(X) :- p(X).", "p", ("z",))
         self.assertIn("not a stated fact", out)
 
+    def test_explain_indents_each_premise_under_its_conclusion(self):
+        e = run_program("a(x). b(X) :- a(X). c(X) :- b(X)."
+                        "d(X) :- c(X), a(X).")
+        self.assertEqual(explain(e, "d", ("x",)), [
+            "d(x)   [via d(X) :- c(X), a(X).]",
+            "  c(x)   [via c(X) :- b(X).]",
+            "    b(x)   [via b(X) :- a(X).]",
+            "      a(x)   (base fact)",
+            "  a(x)   (base fact)"])
+
+    def test_whynot_names_each_rule_before_its_blocker(self):
+        self.assertEqual(
+            self.lines("a(x). b(y). c(X) :- a(X), b(X).", "c", ("x",)),
+            "c(x) is not derived.  Per rule:\n"
+            "  via c(X) :- a(X), b(X).\n"
+            "    blocked at: b(x) -- no matching fact")
+        self.assertEqual(
+            self.lines("e(a, 1). e(a, 2). t(X, sum(V)) :- e(X, V).",
+                       "t", ("a", 5)),
+            "t(a, 5) is not derived.  Per rule:\n"
+            "  via t(X, sum(V)) :- e(X, V).\n"
+            "    blocked: the group exists, but its sum is 3, not 5")
+
     def test_trace_reports_sizes_and_hottest_rules(self):
         r = subprocess.run(
             [sys.executable, os.path.join(HERE, "datalog.py"), "--trace",
@@ -1422,7 +1661,7 @@ class RepositoryClaimTests(unittest.TestCase):
     # the three pluggable engines beyond the base one, their registry,
     # and the extensions; core.py and datalog.py are the two larger
     # files the README sizes separately
-    SATELLITES = ["engines.py", "magic.py", "tabling.py",
+    SATELLITES = ["engines.py", "magic.py", "tabling.py", "slg.py",
                   "semantics.py", "semiring.py", "defeasible.py",
                   "incremental.py", "prolog.py",
                   "subsumption.py", "containment.py", "chase.py"]
@@ -1533,6 +1772,23 @@ class ExerciseTests(unittest.TestCase):
         self.assertIn("garnished", supers["house_special"])
         self.assertNotIn("smoothie", supers["house_special"])
         self.assertIn("dish", supers["garnished"])
+
+    def test_lesson15_undefined_with_two_conditions(self):
+        text = self.ex("15-answers.dl")
+        engine = SLGEngine(parse(text))
+        self.assertEqual(engine.query(query_atom("win(a)")),
+                         (set(), {("a",)}))
+        self.assertEqual(engine.tables[("win", ("a",))][("a",)],
+                         {frozenset({("-", ("win", ("b",)))}),
+                          frozenset({("-", ("win", ("c",)))})})
+        self.assertEqual(well_founded(parse(text))[1],
+                         {("win", ("a",)), ("win", ("b",)), ("win", ("c",))})
+        # exercise 2's counters
+        engine = SLGEngine(parse(load("left-recursive.dl")))
+        engine.query(query_atom("ancestor(abe, X)"))
+        self.assertEqual((engine.stats["answers returned"],
+                          engine.stats["clause resolutions"],
+                          engine.stats["steps"]), (8, 6, 10))
 
     def test_lesson13_bounded_arithmetic_answers(self):
         engine = run_program(self.ex("14-answers.dl"))
@@ -1850,6 +2106,10 @@ class ChaseTests(unittest.TestCase):
         c.run()
         return c
 
+    def test_unknown_variant_is_refused(self):
+        with self.assertRaisesRegex(DatalogError, "unknown chase variant"):
+            chase.Chase(parse("p(a)."), variant="skolem")
+
     def test_restricted_chase_reuses_known_witnesses(self):
         c = self.run_chase(load("org-chart.dl"))
         self.assertEqual(c.nulls, 4)
@@ -2019,6 +2279,11 @@ class SubsumptionTests(unittest.TestCase):
             subsumption.load("isa(X, Y) :- other(X, Y).")
         with self.assertRaises(DatalogError):
             subsumption.load("frame(man).")
+        with self.assertRaisesRegex(DatalogError, "unknown ontology statement"):
+            subsumption.load("likes(ann, bob).")      # two args, not disjoint
+
+    def test_declared_roles_are_recorded(self):
+        self.assertEqual(subsumption.load("role(keeps).").roles, {"keeps"})
 
 
 # ---------------------------------------------------------------------------
@@ -2189,6 +2454,14 @@ class StratificationMessageTests(unittest.TestCase):
         self.assertIn("not", msg)
         for pred in ("p", "q"):
             self.assertIn(pred, msg)
+
+    def test_cycle_through_three_predicates_reads_in_order(self):
+        with self.assertRaises(StratificationError) as cm:
+            run_program("base(a). p(X) :- base(X), not q(X)."
+                        "q(X) :- r(X). r(X) :- p(X).")
+        self.assertIn("p --not--> q --> r --> p.", str(cm.exception))
+        self.assertEqual(cm.exception.cycle, [
+            ("p", "q", "not"), ("q", "r", "+"), ("r", "p", "+")])
 
     def test_cycle_is_available_as_structured_data(self):
         # the message is for humans; `cycle` is for callers that want to
@@ -2366,7 +2639,8 @@ class CLIErrorReportingTests(unittest.TestCase):
     input must leave by the front door: a one-line message on stderr and
     a non-zero exit code, never a traceback."""
 
-    SCRIPTS = ["datalog.py", "semiring.py", "tabling.py", "incremental.py",
+    SCRIPTS = ["datalog.py", "semiring.py", "tabling.py", "slg.py",
+               "incremental.py",
                "containment.py", "prolog.py", "subsumption.py",
                "defeasible.py"]
 
@@ -2717,10 +2991,21 @@ class EngineRegistryTests(unittest.TestCase):
     --engine flag, and the re-exports that keep pre-split imports from
     tiny_datalog.datalog working."""
 
-    def test_registry_lists_the_four_engines_and_the_cli_offers_them(self):
+    def test_every_engine_checks_safety_up_front_and_sets_constraints_aside(self):
+        # constraints are the base engine's to check; the others must
+        # answer the rest of the program rather than refuse it
+        for name, strategy in ENGINES.items():
+            with self.subTest(engine=name):
+                with self.assertRaises(SafetyError):
+                    strategy(parse("p(a). q(X, Y) :- p(X)."))
+                engine = strategy(parse("p(a). p(b). q(X) :- p(X). :- q(c)."))
+                self.assertEqual(engine.answers(query_atom("q(X)")),
+                                 {("a",), ("b",)})
+
+    def test_registry_lists_the_five_engines_and_the_cli_offers_them(self):
         from tiny_datalog import datalog
         self.assertEqual(list(ENGINES),
-                         ["seminaive", "naive", "magic", "tabling"])
+                         ["seminaive", "naive", "magic", "tabling", "slg"])
         self.assertEqual(datalog.ENGINE_NAMES, list(ENGINES))
 
     def test_every_engine_answers_sets_of_ground_tuples(self):
@@ -2737,7 +3022,7 @@ class EngineRegistryTests(unittest.TestCase):
                 with self.assertRaises(SafetyError):   # wrong arity
                     run.answers(query_atom("ancestor(abe)"))
 
-    def test_tabling_does_not_handle_aggregates(self):
+    def test_tabling_and_slg_do_not_handle_aggregates(self):
         clauses = parse("p(a, 1). p(b, 2). t(sum(X)) :- p(K, X).")
         handled = [n for n, e in ENGINES.items() if e.handles(clauses)]
         self.assertEqual(handled, ["seminaive", "naive", "magic"])
@@ -2746,8 +3031,10 @@ class EngineRegistryTests(unittest.TestCase):
                 self.assertEqual(
                     ENGINES[name](clauses).answers(query_atom("t(X)")),
                     {(3,)})
-        with self.assertRaises(DatalogError):
-            ENGINES["tabling"](clauses)
+        for name in ("tabling", "slg"):
+            with self.subTest(engine=name):
+                with self.assertRaises(DatalogError):
+                    ENGINES[name](clauses)
 
     def test_every_engine_refuses_an_unstratified_program(self):
         clauses = parse("p(a). q(X) :- p(X), not q(X).")
@@ -2837,6 +3124,18 @@ class EngineRegistryTests(unittest.TestCase):
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertIn("?- ancestor(abe, X)   [tabled]", r.stdout)
         self.assertRegex(r.stdout, r"\[tabling\] \d+ subgoal tables")
+
+    def test_slg_engine_answers_and_traces(self):
+        r = self.cli("--engine", "slg", "--trace", "-q",
+                     "ancestor(abe, X)", "programs/family.dl")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("?- ancestor(abe, X)   [slg]", r.stdout)
+        self.assertRegex(r.stdout,
+                         r"\[slg\] \d+ subgoal tables, \d+ completions")
+        r = self.cli("--engine", "slg", "-q", "win(X)",
+                     "exercises/15-answers.dl")
+        self.assertEqual(r.returncode, 2)
+        self.assertIn("slg.py runs this one", r.stderr)
 
 
 class CoverageGapTests(unittest.TestCase):
@@ -3687,6 +3986,27 @@ class ComparisonTests(unittest.TestCase):
         self.assertEqual(len(e.rels["lt"]), 6)
         self.assertEqual(e.rels["ne"], {(1, 4), (2, 4), (3, 4)})
 
+    def test_inclusive_bounds_hold_at_equal_values(self):
+        # every engine shares compare(), so the differential fuzzer
+        # cannot see an off-by-one here: only known answers can
+        e = run_program(self.NUMS + "w(a). w(b). w(c)."
+                        "le(X) :- n(X), X <= 2. ge(X) :- n(X), X >= 3."
+                        "lt(X) :- n(X), X < 2. gt(X) :- n(X), X > 3."
+                        "sle(X) :- w(X), X <= b. sge(X) :- w(X), X >= b.")
+        self.assertEqual(e.rels["le"], {(1,), (2,)})
+        self.assertEqual(e.rels["ge"], {(3,), (4,)})
+        self.assertEqual(e.rels["lt"], {(1,)})
+        self.assertEqual(e.rels["gt"], {(4,)})
+        self.assertEqual(e.rels["sle"], {("a",), ("b",)})
+        self.assertEqual(e.rels["sge"], {("b",), ("c",)})
+
+    def test_a_comparison_may_start_with_a_constant(self):
+        # `b < X` is told from an atom `b(...)` by the token after `b`
+        e = run_program("w(a). w(b). w(c). later(X) :- w(X), b < X."
+                        "two(X) :- n(X), 2 = X. n(1). n(2).")
+        self.assertEqual(e.rels["later"], {("c",)})
+        self.assertEqual(e.rels["two"], {(2,)})
+
     def test_iso_dates_compare_as_text(self):
         e = run_program('d("2024-01-31"). d("2024-12-01"). d("2023-06-30").'
                         'after(D) :- d(D), D > "2024-01-01".')
@@ -3890,14 +4210,37 @@ class LintTests(unittest.TestCase):
         # a downstream casualty of a typo gets no second warning
         self.assertEqual(len(self.lint("p(a). q(X) :- r(X). s(X) :- q(X).")), 1)
 
+    def test_recursion_with_a_base_case_is_quiet(self):
+        # what can hold must spread through mutual recursion, whatever
+        # order the rules are written in
+        self.assertEqual(self.lint(
+            "e(a). q(X) :- p(X). p(X) :- q(X). p(X) :- e(X)."), [])
+
+    def test_negations_and_comparisons_cannot_make_a_rule_impossible(self):
+        [w] = self.lint("e(a). p(X) :- q(X). q(X) :- p(X)."
+                        "q(X) :- e(X), not z(X), X != b.")
+        self.assertIn("no fact or rule defines z/1", w)
+
+    def test_missing_base_case_names_the_whole_cycle(self):
+        msg = ("warning: %s can never hold: every rule for it needs p or q "
+               "first (no base case?)")
+        self.assertEqual(
+            self.lint("e(a). p(X) :- q(X). q(X) :- p(X), e(X)."),
+            [msg % "p", msg % "q"])
+        # p's negated call does not put p in q's cycle
+        [w] = self.lint("e(a). p(X) :- e(X), not q(X). q(X) :- p(X), q(X).")
+        self.assertTrue(w.endswith("needs q first (no base case?)"), w)
+
     def test_contradictory_comparisons(self):
         for body in ("X > 10, X < 5", "X < Y, Y < X", "X = 1, X = 2",
+                     "X > Y, Y > X", 'X > "b", X < "a"',
                      "X != X", "X = Y, Y = Z, X != Z", 'X = 1, X = "a"',
                      "X <= Y, Y <= X, X < Y"):
             with self.subTest(body=body):
                 [w] = self.lint("n(1, 2). p(X) :- n(X, Y), n(Z, Z), %s." % body)
                 self.assertIn("so this rule can never fire", w)
-        for body in ("X > 1, X < 5", "X <= Y, Y <= X", "X != Y, Y < 3"):
+        for body in ("X > 1, X < 5", "X <= Y, Y <= X", "X != Y, Y < 3",
+                     "X >= Y, Y >= X", "X = Y, Y < 3"):
             with self.subTest(body=body):
                 self.assertEqual(
                     self.lint("n(1, 2). p(X) :- n(X, Y), %s." % body), [])

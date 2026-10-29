@@ -38,7 +38,7 @@ rule asking — and then looked up.  Negation through recursion needs
 full SLG resolution (Chen & Warren 1996), which suspends calls instead
 of re-running them, detects when a group of tables is complete, and
 *delays* negative literals it cannot yet decide; it computes the
-well-founded semantics, and Lesson 15 says why it is not here.
+well-founded semantics.  That is slg.py, the sequel to this module.
 
 CLI
 ---
@@ -58,6 +58,51 @@ from tiny_datalog.core import (
     validate, aggregate_of, body_order, holds, is_comparison)
 
 
+# -- shared with slg.py: what a subgoal is, and how a clause meets one ------
+
+def index_clauses(clauses, who):
+    """Validate a program for a tabled engine and index it: returns
+    (arity, by_pred), by_pred mapping (pred, arity) to (head, body)
+    pairs.  `who` names the engine in the refusal of aggregation."""
+    arity = validate(clauses)
+    by_pred = defaultdict(list)
+    for c in clauses:
+        if c.retract:
+            raise DatalogError("retraction is incremental.py's job: %s" % c)
+        if c.body and aggregate_of(c.head):
+            raise DatalogError(
+                "%s aggregation is not implemented here — use "
+                "datalog.py: %s" % (who, c))
+        # positive literals first: they bind; comparisons and negations
+        # then test ground atoms (safety guarantees they are ground by
+        # then)
+        body = tuple(c.body[i] for i in body_order(c.body))
+        by_pred[(c.head.pred, len(c.head.args))].append((c.head, body))
+    return arity, by_pred
+
+
+def call_pattern(atom, subst):
+    """The call pattern of an atom under a substitution: the bound
+    arguments' values, None where still free."""
+    out = []
+    for a in atom.args:
+        if isinstance(a, Const):
+            out.append(a.value)
+        elif a.name in subst:
+            out.append(subst[a.name])
+        else:
+            out.append(None)
+    return tuple(out)
+
+
+def head_seed(head, pattern):
+    """Unify a clause head with a call pattern: one-way matching, as
+    in a join, over the bound positions only (a free position, None,
+    constrains nothing).  The substitution, or None if they clash."""
+    bound = [(a, v) for a, v in zip(head.args, pattern) if v is not None]
+    return match([a for a, _v in bound], [v for _a, v in bound], {})
+
+
 class TabledEngine:
     """Iterative QSQR: tables keyed by call pattern, filled to fixpoint;
     a negated subgoal's tables are completed first, one stratum down.
@@ -67,51 +112,21 @@ class TabledEngine:
     tuples for that subgoal, and `rounds` records the outer iterations."""
 
     def __init__(self, clauses):
-        self.arity = validate(clauses)
-        for c in clauses:
-            if c.retract:
-                raise DatalogError("retraction is incremental.py's job: %s" % c)
-            if c.body and aggregate_of(c.head):
-                raise DatalogError(
-                    "tabled aggregation is not implemented here — use "
-                    "datalog.py: %s" % c)
+        self.arity, self.by_pred = index_clauses(clauses, "tabled")
         try:
             self.strata = stratify(clauses)
         except StratificationError as exc:
             raise StratificationError(
                 "%s.  Tabling under unstratified negation is full SLG "
                 "resolution, which computes the well-founded semantics "
-                "(Lesson 15); datalog.py --models computes it bottom-up."
+                "(Lesson 15); slg.py runs it top-down, datalog.py "
+                "--models bottom-up."
                 % str(exc).rstrip("."), exc.cycle) from exc
-        self.by_pred = defaultdict(list)   # (pred, arity) -> clauses
-        for c in clauses:
-            # positive literals first: they bind; comparisons and
-            # negations then test ground atoms (safety guarantees they
-            # are ground by then)
-            body = tuple(c.body[i] for i in body_order(c.body))
-            self.by_pred[(c.head.pred, len(c.head.args))].append(
-                (c.head, body))
         self.tables = {}
         self.complete = set()   # tables known to hold every answer
         self.open = {}          # ...and the rest, in creation order (a
                                 # dict: a set's order would vary per run)
         self.rounds = 0
-
-    # -- call patterns ------------------------------------------------------
-
-    @staticmethod
-    def _pattern(atom, subst):
-        """The call pattern of an atom under a substitution: the bound
-        arguments' values, None where still free."""
-        out = []
-        for a in atom.args:
-            if isinstance(a, Const):
-                out.append(a.value)
-            elif a.name in subst:
-                out.append(subst[a.name])
-            else:
-                out.append(None)
-        return tuple(out)
 
     def _table(self, pred, pattern):
         key = (pred, pattern)
@@ -134,7 +149,7 @@ class TabledEngine:
             if holds(lit.atom, subst):
                 yield from self._prove(rest, subst)
             return
-        key = (lit.atom.pred, self._pattern(lit.atom, subst))
+        key = (lit.atom.pred, call_pattern(lit.atom, subst))
         table = self._table(*key)
         if lit.negated:
             # `not q(a)` may only read a finished table.  q sits in a
@@ -154,12 +169,7 @@ class TabledEngine:
         head unification plus a tabled body proof."""
         pred, pattern = key
         for head, body in self.by_pred.get((pred, len(pattern)), ()):
-            # unify the head with the call pattern: one-way matching,
-            # exactly as in a join, over the bound positions only (a
-            # free position, None, constrains nothing)
-            bound = [(a, v) for a, v in zip(head.args, pattern)
-                     if v is not None]
-            seed = match([a for a, _v in bound], [v for _a, v in bound], {})
+            seed = head_seed(head, pattern)
             if seed is None:
                 continue
             for s in self._prove(body, seed):
@@ -172,7 +182,7 @@ class TabledEngine:
         """All answers to `atom`, computed by tabled top-down evaluation.
         Also populates self.tables / self.rounds for inspection."""
         check_query_atom(atom, self.arity)
-        root = (atom.pred, self._pattern(atom, {}))
+        root = (atom.pred, call_pattern(atom, {}))
         self.tables = {root: set()}
         self.complete = set()
         self.open = {root: None}

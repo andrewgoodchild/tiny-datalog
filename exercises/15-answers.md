@@ -25,6 +25,12 @@ count. Real SLG engines suspend a consumer exactly where it blocked and
 resume it when its table gains an answer, doing each piece of work
 once.
 
+Under `slg.py -t` the same query reports `answers returned 8,
+clause resolutions 6, ... steps 10`. Each clause is resolved once and
+each answer reaches each consumer once. The counter with no
+counterpart is the one that is missing: nothing is re-solved, so the
+work a round repeats in `tabling.py` simply does not happen.
+
 **3. Why do tables reset per query?**
 
 `query()` rebuilds `self.tables` because answers are *per call
@@ -68,3 +74,22 @@ same relation that sinks plain bottom-up evaluation. Literal order is
 the *sideways information passing* of Lesson 7. It never changes the
 answer, but in a goal-directed engine it decides how much work there
 is.
+
+**6. An undefined answer with two conditions.**
+
+`exercises/15-answers.dl` gives position a two moves, to b and to c,
+and each of those can only move back:
+
+```
+$ python3 slg.py exercises/15-answers.dl -q 'win(a)'
+?- win(a)   [SLG]
+   win(a).   undefined: if not win(b); or if not win(c)
+```
+
+Each condition is one rule instance that could have made `win(a)`
+true: moving to b wins if b is a losing position, and moving to c wins
+if c is. Either would do, which is why the conditions are joined by
+"or". Neither can be settled, because b and c are losing exactly when a
+is winning, so both stay open and `win(a)` is undefined. The
+well-founded model agrees: `datalog.py --models` puts `win(a)`,
+`win(b)` and `win(c)` all in its undefined zone.
