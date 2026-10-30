@@ -14,3 +14,6 @@ dist/
 # coverage data
 .coverage
 .coverage.*
+
+# mutation testing results (benchmarks/mutate.py)
+mutation-results.jsonl

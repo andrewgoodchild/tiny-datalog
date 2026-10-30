@@ -40,6 +40,11 @@ of re-running them, detects when a group of tables is complete, and
 *delays* negative literals it cannot yet decide; it computes the
 well-founded semantics.  That is slg.py, the sequel to this module.
 
+Aggregation is stratified the same way.  split_aggregates gives an
+aggregate rule's body a table of its own, one answer per distinct
+body solution; the aggregate completes that table first, a stratum
+down, then folds it.  slg.py shares the split and the fold.
+
 CLI
 ---
     python3 tabling.py programs/reachability.dl -q 'path(n5, X)'
@@ -53,32 +58,96 @@ import sys
 from collections import defaultdict
 
 from tiny_datalog.core import (
-    check_query_atom, cli, Const, DatalogError, StratificationError,
-    format_fact, match, parse, parse_goal, read_program, sort_key, stratify,
-    validate, aggregate_of, body_order, holds, is_comparison)
+    check_query_atom, cli, Atom, Const, DatalogError, Literal, Rule,
+    StratificationError, Var, format_fact, match, parse, parse_goal,
+    read_program, sort_key, stratify, validate, aggregate_of, body_order,
+    holds, is_comparison)
+from tiny_datalog.datalog import _fold
 
 
 # -- shared with slg.py: what a subgoal is, and how a clause meets one ------
 
-def index_clauses(clauses, who):
+def split_aggregates(clauses):
+    """Rewrite each aggregate rule so a tabled engine can evaluate it:
+    `h(G, sum(V)) :- body.` becomes an auxiliary rule with one answer
+    per distinct body solution, `h#1(G, V, ...) :- body.` (every body
+    variable in its head), and the aggregate rule now reads that table,
+    `h(G, sum(V)) :- h#1(G, V, ...).`  A name with `#` cannot clash
+    with a predicate of the program.  Returns (clauses, {auxiliary
+    predicate: the original rule}), the original for error messages."""
+    out, sources = [], {}
+    for c in clauses:
+        if not (c.body and aggregate_of(c.head)):
+            out.append(c)
+            continue
+        idx = aggregate_of(c.head)[0]
+        names = []
+        for lit in c.body:
+            if not lit.negated and not is_comparison(lit):
+                names += [a.name for a in lit.atom.args
+                          if isinstance(a, Var) and a.name not in names]
+        aux = Atom("%s#%d" % (c.head.pred, len(sources) + 1),
+                   tuple(a for j, a in enumerate(c.head.args) if j != idx)
+                   + tuple(Var(n) for n in names))
+        sources[aux.pred] = c
+        out += [Rule(aux, c.body), Rule(c.head, (Literal(aux),))]
+    return out, sources
+
+
+def index_clauses(clauses):
     """Validate a program for a tabled engine and index it: returns
-    (arity, by_pred), by_pred mapping (pred, arity) to (head, body)
-    pairs.  `who` names the engine in the refusal of aggregation."""
+    (arity, by_pred, sources), by_pred mapping (pred, arity) to (head,
+    body) pairs, with aggregate rules split as split_aggregates does."""
     arity = validate(clauses)
-    by_pred = defaultdict(list)
     for c in clauses:
         if c.retract:
             raise DatalogError("retraction is incremental.py's job: %s" % c)
-        if c.body and aggregate_of(c.head):
-            raise DatalogError(
-                "%s aggregation is not implemented here — use "
-                "datalog.py: %s" % (who, c))
+    clauses, sources = split_aggregates(clauses)
+    by_pred = defaultdict(list)
+    for c in clauses:
         # positive literals first: they bind; comparisons and negations
         # then test ground atoms (safety guarantees they are ground by
         # then)
         body = tuple(c.body[i] for i in body_order(c.body))
-        by_pred[(c.head.pred, len(c.head.args))].append((c.head, body))
-    return arity, by_pred
+        head = c.head
+        if c.body and aggregate_of(head):
+            # head_seed matches values against variables, not `sum(V)`:
+            # the aggregate's own position constrains nothing until the
+            # fold, which filters on it (sources keeps the real head)
+            idx = aggregate_of(head)[0]
+            head = Atom(head.pred, head.args[:idx] + (Var("_#fold"),)
+                        + head.args[idx + 1:])
+        by_pred[(head.pred, len(head.args))].append((head, body))
+    return arity, by_pred, sources
+
+
+def fold_answers(rule, aux, tuples, pattern):
+    """The answers an aggregate rule gives a call with this pattern,
+    from its finished auxiliary table (the tuples of call `aux`): one
+    fold per group, as datalog.py computes it."""
+    idx, func, var = aggregate_of(rule.head)
+    k, at = len(rule.head.args) - 1, aux.args.index(var)
+    groups = defaultdict(list)
+    for t in tuples:
+        groups[t[:k]].append(t[at])
+    for key, values in groups.items():
+        out = key[:idx] + (_fold(func, values, rule),) + key[idx:]
+        if all(p is None or p == v for p, v in zip(pattern, out)):
+            yield out
+
+
+def subsuming(finished, key):
+    """A complete table whose call pattern is more general than key's
+    (free wherever key is free, and agreeing where both are bound),
+    or None; `finished` maps a predicate to its complete patterns.
+    Its answers, filtered, are key's answers: subsumptive tabling,
+    where each new call pattern otherwise gets its own table (variant
+    tabling).  slg.py uses it; here tables complete too late to help."""
+    pred, pattern = key
+    for other in finished.get(pred, ()):
+        if all(g is None or g == v for g, v in zip(other, pattern)):
+            return (pred, other)
+    return None
 
 
 def call_pattern(atom, subst):
@@ -112,9 +181,12 @@ class TabledEngine:
     tuples for that subgoal, and `rounds` records the outer iterations."""
 
     def __init__(self, clauses):
-        self.arity, self.by_pred = index_clauses(clauses, "tabled")
+        self.arity, self.by_pred, self.sources = index_clauses(clauses)
         try:
-            self.strata = stratify(clauses)
+            stratify(clauses)           # refuses with the program's names
+            # ...and the strata of the split program, where an
+            # aggregate's auxiliary table sits below the aggregate
+            self.strata = stratify(split_aggregates(clauses)[0])
         except StratificationError as exc:
             raise StratificationError(
                 "%s.  Tabling under unstratified negation is full SLG "
@@ -151,6 +223,13 @@ class TabledEngine:
             return
         key = (lit.atom.pred, call_pattern(lit.atom, subst))
         table = self._table(*key)
+        if lit.atom.pred in self.sources:
+            # an aggregate reads its auxiliary table only once complete:
+            # it sits a stratum below, so completing it cannot need us
+            if key not in self.complete:
+                self._fixpoint(below=self.strata[lit.atom.pred])
+            yield subst, table
+            return
         if lit.negated:
             # `not q(a)` may only read a finished table.  q sits in a
             # lower stratum, so finishing it cannot need this rule.
@@ -171,6 +250,11 @@ class TabledEngine:
         for head, body in self.by_pred.get((pred, len(pattern)), ()):
             seed = head_seed(head, pattern)
             if seed is None:
+                continue
+            if body and body[0].atom.pred in self.sources:
+                for _s, table in self._prove(body, seed):
+                    yield from fold_answers(self.sources[body[0].atom.pred],
+                                            body[0].atom, table, pattern)
                 continue
             for s in self._prove(body, seed):
                 yield tuple(a.value if isinstance(a, Const) else s[a.name]

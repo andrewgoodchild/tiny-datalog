@@ -17,10 +17,9 @@ three ideas Lesson 15 names:
    plain data: (the calling subgoal, its rule head, the body literals
    still to prove, the substitution so far, the delays so far).
 
-2. **Detect completion.**  When there is no work left, the incomplete
-   tables and the calls between them form a graph.  A group of tables
-   with no call out to another incomplete table can never grow again:
-   complete it.  That is what lets `not q` be decided without strata —
+2. **Detect completion.**  The incomplete tables and the calls between
+   them form a graph.  A group of tables with no work left and no call
+   out to another incomplete table can never grow again: complete it.  That is what lets `not q` be decided without strata —
    wait until q's group completes, then look.  The groups are found the
    way XSB finds them, on a *completion stack*: tables in the order
    they were created, the newest on top.  Scanning down from the top,
@@ -28,9 +27,11 @@ three ideas Lesson 15 names:
    that can complete.  That group may hold several strongly connected
    components (XSB calls it an approximate SCC); only when it is stuck
    on negation does the precise answer matter, and only then does
-   Tarjan's algorithm run, on that group alone.  A table of facts never
-   goes on the stack at all: it calls nothing, so it is complete the
-   moment it is filled.
+   Tarjan's algorithm run, on that group alone.  Scheduling is *local*,
+   as in XSB: the newest table's work runs first, and a group is
+   completed the moment its own work runs out, not when all work has.
+   A table of facts never goes on the stack at all: it calls nothing,
+   so it is complete the moment it is filled.
 
 3. **Delay, then simplify.**  A component can be stuck: every remaining
    call inside it is a `not` on a table of the same component, so each
@@ -48,28 +49,39 @@ The result is the well-founded model of Lesson 5 (semantics.py),
 computed top-down and only for the subgoals the query reaches.  The
 test suite checks exactly that, on random unstratified programs.
 
-What this leaves out, compared with XSB: aggregation, integrity
-constraints, and the machine-level engineering (an abstract machine,
-answer tries, scheduling one subgoal's work locally).  The two
-algorithmic economies are here: completion by stack, and conditions
-kept minimal (an answer true under A needs no second condition A and B).
+Aggregation is tabled too: tabling.py splits each aggregate rule so
+its body has a table of its own, folded once that table is complete
+(a cycle through an aggregate is refused, as is folding undefined
+answers).  `subsumptive=True` (CLI `-s`) answers a positive call from
+a complete, more general table instead of starting a new one.
+
+What this leaves out, compared with XSB: integrity constraints,
+subsumption from incomplete tables, and the machine-level engineering
+(an abstract machine, answer tries).  The algorithmic economies are
+here: completion by stack, local scheduling, and conditions kept
+minimal (an answer true under A needs no second condition A and B).
 
 CLI
 ---
     python3 slg.py programs/win.dl -q 'win(X)'
     python3 slg.py programs/left-recursive.dl -q 'ancestor(abe, X)' -t
+    python3 slg.py programs/from-start.dl -q 'from_start(Y)' -s
 """
 
 from __future__ import annotations
 
 import argparse
+import heapq
 import sys
 from collections import Counter, defaultdict, deque
+from itertools import chain
 
 from tiny_datalog.core import (
-    _tarjan, check_query_atom, cli, Const, format_atom, format_fact,
-    match, parse, parse_goal, read_program, sort_key, holds, is_comparison)
-from tiny_datalog.tabling import call_pattern, head_seed, index_clauses
+    _tarjan, check_query_atom, cli, Const, DatalogError, format_atom,
+    format_fact, match, parse, parse_goal, read_program, sort_key, holds,
+    is_comparison)
+from tiny_datalog.tabling import (
+    call_pattern, fold_answers, head_seed, index_clauses, subsuming)
 
 UNCONDITIONAL = frozenset()   # the empty condition: the answer is true
 
@@ -84,12 +96,14 @@ class SLGEngine:
     answer with only non-empty conditions is undefined.  A delayed
     literal is ("+", subgoal, answer) — "that answer of that table" —
     or ("-", subgoal) for `not` of a ground subgoal.  `stats` counts
-    the work done."""
+    the work done.  With subsumptive=True, a positive call answered from
+    a complete, more general table gets no table of its own."""
 
-    def __init__(self, clauses):
+    def __init__(self, clauses, subsumptive=False):
         # the same front end as tabling.py: positive literals first, so
         # by the time a negation is reached its subgoal is ground
-        self.arity, self.by_pred = index_clauses(clauses, "SLG")
+        self.arity, self.by_pred, self.sources = index_clauses(clauses)
+        self.subsumptive = subsumptive
         self.root = None                   # the last query's subgoal
         self._reset()
 
@@ -97,22 +111,37 @@ class SLGEngine:
         self.tables = {}
         self.order = {}                    # subgoal -> creation number
         self.complete = set()
+        self.finished = defaultdict(list)  # pred -> complete patterns
+        self.served = {}                   # call -> (tables seen, general)
         self.stack = []                    # incomplete subgoals, oldest first
         self.consumers = defaultdict(list) # subgoal -> waiting `p(...)`
         self.waiting = defaultdict(list)   # subgoal -> waiting `not p(...)`
+        self.folds = defaultdict(list)     # subgoal -> aggregates over it
         self.calls = defaultdict(set)      # subgoal -> subgoals it called
-        self.work = deque()                # frames ready to run
+        self.work = defaultdict(deque)     # subgoal -> its frames to run
+        self.ready = []                    # heap: newest subgoal with work
         self.stats = Counter()
 
     # -- subgoals ------------------------------------------------------------
 
-    def _call(self, caller, key):
+    def _call(self, caller, key, subsume=False):
         """Note that `caller` depends on `key`; on a first call, make
-        its table and schedule its clauses (program clause resolution)."""
+        its table and schedule its clauses (program clause resolution).
+        Returns the subgoal whose table answers the call: key's own, or
+        with `subsume`, a complete more general one."""
+        if key not in self.tables and subsume and self.subsumptive:
+            # look again only once more tables of key's predicate finish
+            done = len(self.finished[key[0]])
+            if self.served.get(key, (-1,))[0] != done:
+                self.served[key] = (done, subsuming(self.finished, key))
+            general = self.served[key][1]
+            if general is not None:
+                self.stats["subsumed calls"] += 1
+                return general          # complete: no dependency to note
         if caller is not None:
             self.calls[caller].add(key)
         if key in self.tables:
-            return
+            return key
         self.tables[key] = {}
         self.order[key] = len(self.order)
         pred, pattern = key
@@ -129,11 +158,21 @@ class SLGEngine:
                 self._answer(key, tuple(a.value for a in head.args),
                              UNCONDITIONAL)
             else:
-                self.work.append((key, head, body, seed, UNCONDITIONAL))
+                self._push((key, head, body, seed, UNCONDITIONAL))
         if facts_only:
             # a table of facts calls nothing, so it is complete the
             # moment it is filled: `not` on it never waits
             self.complete.add(key)
+            self.finished[pred].append(pattern)
+        return key
+
+    def _push(self, frame):
+        """Queue a frame on its own subgoal; the scheduler runs the
+        newest subgoal's frames first."""
+        queue = self.work[frame[0]]
+        if not queue:
+            heapq.heappush(self.ready, (-self.order[frame[0]], frame[0]))
+        queue.append(frame)
 
     # -- running frames ------------------------------------------------------
 
@@ -149,10 +188,18 @@ class SLGEngine:
         lit, rest = body[0], body[1:]
         if is_comparison(lit):          # a test, never a subgoal
             if holds(lit.atom, subst):
-                self.work.append((key, head, rest, subst, cond))
+                self._push((key, head, rest, subst, cond))
             return
-        callee = (lit.atom.pred, call_pattern(lit.atom, subst))
-        self._call(key, callee)
+        wanted = (lit.atom.pred, call_pattern(lit.atom, subst))
+        callee = self._call(key, wanted, subsume=not lit.negated)
+        if lit.atom.pred in self.sources:
+            # an aggregate's body table, split off by index_clauses: fold
+            # it once, when it is complete
+            if callee in self.complete:
+                self._fold(key, lit.atom, callee)
+            else:
+                self.folds[callee].append((key, lit.atom))
+            return
         waiter = (key, head, rest, subst, cond, lit)
         if lit.negated:
             if callee in self.complete:
@@ -160,10 +207,27 @@ class SLGEngine:
             elif not self._proved(callee):  # else `not` fails at once
                 self.waiting[callee].append(waiter)
             return
-        # suspend as a consumer, then catch up on the answers so far
-        self.consumers[callee].append(waiter)
-        for tup in list(self.tables[callee]):
+        # suspend as a consumer (a complete table has nothing more to
+        # send), then catch up on the answers so far
+        if callee not in self.complete:
+            self.consumers[callee].append(waiter)
+        answers = self.tables[callee]
+        if callee != wanted and None not in wanted[1]:
+            # a ground call on a general table: one lookup, not a scan
+            answers = [wanted[1]] if wanted[1] in answers else ()
+        for tup in list(answers):
             self._positive_return(waiter, callee, tup)
+
+    def _fold(self, key, aux, callee):
+        """Answer an aggregate call from its complete body table."""
+        rule = self.sources[aux.pred]
+        answers = self.tables[callee]
+        if any(UNCONDITIONAL not in c for c in answers.values()):
+            raise DatalogError(
+                "cannot aggregate over undefined answers (the well-founded "
+                "semantics of aggregates is still debated): %s" % rule)
+        for tup in fold_answers(rule, aux, answers, key[1]):
+            self._answer(key, tup, UNCONDITIONAL)
 
     def _proved(self, key):
         """Whether a table already holds a true answer.  For a ground
@@ -198,7 +262,7 @@ class SLGEngine:
         self.stats["answers returned"] += 1
         if UNCONDITIONAL not in self.tables[key][tup]:
             cond = cond | {("+", key, tup)}
-        self.work.append((caller, head, rest, s, cond))
+        self._push((caller, head, rest, s, cond))
 
     def _negative_return(self, waiter, key):
         """Resume a `not` on a completed (and simplified) table."""
@@ -208,7 +272,7 @@ class SLGEngine:
             return
         if value is None:                # undefined: carry it along
             cond = cond | {("-", key)}
-        self.work.append((caller, head, rest, subst, cond))
+        self._push((caller, head, rest, subst, cond))
 
     # -- the scheduler -------------------------------------------------------
 
@@ -228,43 +292,61 @@ class SLGEngine:
         return true, undefined
 
     def _evaluate(self):
-        """Run frames until none are left, then complete the group of
-        tables on top of the completion stack, or delay the negations it
-        is stuck on; repeat until every table is complete."""
-        while True:
-            while self.work:
-                self.stats["steps"] += 1
-                self._step(self.work.popleft())
-            if not self.stack:
-                return
-            group = self._closed_segment()
-            if not any(w[0] in group for k in group
-                       for w in self.waiting.get(k, ())):
-                self._complete(group)   # the common case: no Tarjan
-                continue
-            # stuck on negation inside the group.  Delaying all of it
-            # would be sound but blunt; find its bottom SCC and settle
-            # that alone, so a `not` that one completion would decide is
-            # decided, not delayed
-            scc = self._bottom_component(group)
-            stuck = {}
-            for k in sorted(scc, key=self.order.get):
-                waiting = self.waiting.get(k, ())
-                inside = [w for w in waiting if w[0] in scc]
-                if inside:
-                    stuck[k] = inside
-                    self.waiting[k] = [w for w in waiting if w[0] not in scc]
-            if not stuck:
-                self._complete(scc)
-                continue
-            # every `not` here waits on its own component: delay
-            for k, waiters in stuck.items():
-                if self._proved(k):     # true since they suspended
+        """Local scheduling: run the newest subgoal's frames first.  When
+        the top of the completion stack has no work left, see whether it
+        is closed — calls nothing older — and settle it there and then,
+        before older work runs: complete it, or delay the negations it is
+        stuck on.  Repeat until every table is complete."""
+        checked = None
+        while self.stack:
+            while self.ready and not self.work[self.ready[0][1]]:
+                heapq.heappop(self.ready)          # drained since queued
+            newest = -self.ready[0][0] if self.ready else -1
+            # the answer only changes when the stack or the newest work
+            # does: the idle tables above it neither run nor call
+            if self.order[self.stack[-1]] > newest and \
+                    checked != (len(self.stack), newest):
+                checked = (len(self.stack), newest)
+                group = self._closed_segment()
+                if min(self.order[k] for k in group) > newest:
+                    self._settle(group)
+                    checked = None
                     continue
-                for caller, head, rest, subst, cond, _lit in waiters:
-                    self.stats["delays"] += 1
-                    self.work.append(
-                        (caller, head, rest, subst, cond | {("-", k)}))
+            self.stats["steps"] += 1
+            self._step(self.work[self.ready[0][1]].popleft())
+
+    def _settle(self, group):
+        """Complete a closed group with no work left, unless it is stuck
+        on negation inside itself.  Delaying all of it would be sound but
+        blunt; find its bottom SCC and settle that alone, so a `not` that
+        one completion would decide is decided, not delayed."""
+        if not any(w[0] in group for k in group for w in
+                   chain(self.waiting.get(k, ()), self.folds.get(k, ()))):
+            self._complete(group)   # the common case: no Tarjan
+            return
+        scc = self._bottom_component(group)
+        for k in scc:
+            if any(w[0] in scc for w in self.folds.get(k, ())):
+                raise DatalogError(
+                    "aggregation through recursion has no well-founded "
+                    "answer here: %s" % self.sources[k[0]])
+        stuck = {}
+        for k in sorted(scc, key=self.order.get):
+            waiting = self.waiting.get(k, ())
+            inside = [w for w in waiting if w[0] in scc]
+            if inside:
+                stuck[k] = inside
+                self.waiting[k] = [w for w in waiting if w[0] not in scc]
+        if not stuck:
+            self._complete(scc)
+            return
+        # every `not` here waits on its own component: delay
+        for k, waiters in stuck.items():
+            if self._proved(k):     # true since they suspended
+                continue
+            for caller, head, rest, subst, cond, _lit in waiters:
+                self.stats["delays"] += 1
+                self._push((caller, head, rest, subst, cond | {("-", k)}))
 
     def _closed_segment(self):
         """The smallest top segment of the completion stack that calls
@@ -306,12 +388,17 @@ class SLGEngine:
             del self.stack[-len(scc):]
         else:
             self.stack = [k for k in self.stack if k not in scc]
-        self._simplify(scc)
+        if any(conds != {UNCONDITIONAL} for k in scc     # else nothing
+               for conds in self.tables[k].values()):  # to settle
+            self._simplify(scc)
         for k in sorted(scc, key=self.order.get):
+            self.finished[k[0]].append(k[1])
             self.consumers.pop(k, None)      # these tables cannot grow
             self.calls.pop(k, None)          # ...nor be stuck on a call
             for waiter in self.waiting.pop(k, ()):
                 self._negative_return(waiter, k)
+            for caller, aux in self.folds.pop(k, ()):
+                self._fold(caller, aux, k)
 
     # -- simplification ------------------------------------------------------
 
@@ -421,9 +508,12 @@ def main(argv=None):
                     metavar="ATOM", help="goal to solve (repeatable)")
     ap.add_argument("-t", "--tables", action="store_true",
                     help="also print every table and the work counters")
+    ap.add_argument("-s", "--subsumptive", action="store_true",
+                    help="answer a call from a complete, more general table "
+                         "instead of starting one for its own pattern")
     args = ap.parse_args(argv)
 
-    engine = SLGEngine(parse(read_program(args.file)))
+    engine = SLGEngine(parse(read_program(args.file)), args.subsumptive)
     for q in args.query:
         atom = parse_goal(q)
         true, undefined = engine.query(atom)
@@ -437,11 +527,14 @@ def main(argv=None):
                              for c in root[tup])
             print("   %s   undefined: if %s"
                   % (format_fact(atom.pred, tup), "; or if ".join(reasons)))
-        print("   (%d true, %d undefined; %s, %s, %s)"
+        print("   (%d true, %d undefined; %s, %s, %s%s)"
               % (len(true), len(undefined),
                  _plural(len(engine.tables), "subgoal table"),
                  _plural(engine.stats["completions"], "completion"),
-                 _plural(engine.stats["delays"], "delay")))
+                 _plural(engine.stats["delays"], "delay"),
+                 ", %s" % _plural(engine.stats["subsumed calls"],
+                                  "subsumed call")
+                 if args.subsumptive else ""))
         if args.tables:
             for (pred, pattern), answers in sorted(
                     engine.tables.items(),

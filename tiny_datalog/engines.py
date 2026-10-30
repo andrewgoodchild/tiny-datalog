@@ -34,8 +34,10 @@ aside; checking them takes the full materialisation (Engine.violations).
 
 Every engine requires a *stratified* program — that is what makes their
 answers comparable — and refuses another one with StratificationError.
-`handles` is for the narrower, per-engine gaps: tabling and slg have
-no aggregation, so they say False to a program with an aggregate rule.
+`handles` is for the narrower, per-engine gaps.  There are none at
+present: tabling and slg once said False to an aggregate rule, until
+both learned to table aggregation.  The method stays, for the next
+engine with a gap.
 
 SLG is the one engine that could run more: it computes the
 well-founded model, so it has answers for unstratified programs too.
@@ -58,8 +60,7 @@ not their contract.
 
 from __future__ import annotations
 
-from tiny_datalog.core import (
-    aggregate_of, split_constraints, stratify, validate)
+from tiny_datalog.core import split_constraints, stratify, validate
 from tiny_datalog.datalog import Engine, Program
 from tiny_datalog.magic import magic_query
 from tiny_datalog.slg import SLGEngine
@@ -117,11 +118,11 @@ class Magic:
 
 class Tabling:
     """Tabled top-down evaluation (iterative QSQR): one table of answers
-    per subgoal, grown to fixpoint.  No aggregation."""
+    per subgoal, grown to fixpoint."""
 
     @staticmethod
     def handles(clauses):
-        return not any(c.body and aggregate_of(c.head) for c in clauses)
+        return True
 
     def __init__(self, clauses):
         self.engine = TabledEngine(split_constraints(clauses)[0])

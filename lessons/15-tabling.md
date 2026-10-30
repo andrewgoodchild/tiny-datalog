@@ -318,14 +318,95 @@ seconds (0.07 for the whole command, start-up included):
   large segment was open sat buried in the stack, and every `not` on
   it looked stuck. In eight queens that is every `not attacks(...)`.
 
+A fourth, *local scheduling*, came later. The first version had a
+single work queue for the whole query, so a segment was only examined
+once *all* the work had run out. XSB keeps work per table and runs the
+newest table's first, and so does `slg.py` now. When the top of the
+stack runs out of work, it is checked straight away, before any older
+table runs again, and completed if it calls nothing below it. On all 92
+solutions, the global queue completed 54 large groups. Local
+scheduling completes 2,400, one for every table that is not just
+facts:
+
+```
+$ python3 slg.py programs/queens.dl -q 'queens8(X0, X1, X2, X3, X4, X5, X6, X7)'
+...
+   (92 true, 0 undefined; 2844 subgoal tables, 2400 completions, 0 delays)
+```
+
+The time is the same, and the answers are too. What changes is when a
+table is finished. A finished table frees its consumers and its call
+edges, a `not` on it is decided instead of parked, and, as the next
+section shows, a finished table can answer other calls.
+
+### Subsumptive tabling
+
+Every engine so far starts a table for each new *variant* of a call:
+`path(n1, n5)` gets its own table even when `path(X, Y)` is complete
+and holds the answer. *Subsumptive* tabling answers a call from a
+complete table whose pattern is more general, filtering it, and starts
+no new table. `programs/from-start.dl` is built to need it: it fills
+`path(X, Y)` over a 60-node chain, then asks `path(n1, Y)` for each Y,
+every call ground:
+
+```
+$ python3 slg.py programs/from-start.dl -q 'from_start(Y)'
+...
+   (59 true, 0 undefined; 7202 subgoal tables, 3601 completions, 0 delays)
+$ python3 slg.py programs/from-start.dl -q 'from_start(Y)' -s
+...
+   (59 true, 0 undefined; 62 subgoal tables, 61 completions, 0 delays, 1888 subsumed calls)
+```
+
+Variant tabling makes 7,202 tables, because each ground `path(n1, nK)`
+calls `path(n2, nK)`, and so on down the chain. With `-s` there are
+62, and the run is about four times faster. Two details made that
+work. A ground call looks its one answer up in the general table
+instead of scanning it, which is the job XSB's answer tries do for
+every pattern. And subsumption can only read a *complete* table, which
+is why it comes after local scheduling: under the global queue,
+nothing completed until the end. (`tabling.py` has the same problem
+for good: its tables complete only when their stratum does, which is
+why it has no `-s`.)
+
+It is opt-in because it does not always pay. On eight queens, `-s`
+saves 8 tables of 2,844 and runs slower: the calls it serves are not
+ground, so each one scans a general table that is larger than the
+variant table it replaces. XSB also subsumes from *incomplete* tables,
+which takes the answer-trie machinery this module leaves out.
+
+### Aggregation, tabled
+
+Both tabled engines now accept aggregates, which they used to refuse.
+The front end they share (`split_aggregates` in `tabling.py`) gives
+each aggregate rule's body a table of its own, holding one answer per
+distinct body solution, which is the set Lesson 13 folds. The
+aggregate then waits for that table to complete, the way `not` does,
+and folds it once:
+
+```
+$ python3 slg.py programs/spending.dl -q 'total(P, T)'
+?- total(P, T)   [SLG]
+   total(alice, 180).
+   total(bob, 990).
+   (2 true, 0 undefined; 3 subgoal tables, 2 completions, 0 delays)
+```
+
+The two refusals left are principled. A cycle through an aggregate
+has no stratified answer, so both engines refuse it, and `slg.py`,
+which runs unstratified programs, refuses to fold answers that are
+undefined, for the reason `semantics.py` gives: what an aggregate over
+undefined facts should mean is still debated.
+
 Conditions are kept minimal too. An answer true under condition A
 needs no second condition "A and B", so that one is absorbed.
 
 ### What it costs, and why both modules stay
 
-`slg.py` is about 460 lines to `tabling.py`'s 260, and it borrows
-that module's front end: the clause index, the call pattern and the
-head match. The extra lines are the bookkeeping iterative QSQR
+`slg.py` is about 550 lines to `tabling.py`'s 350, and it borrows
+that module's front end: the clause index, the call pattern, the head
+match, and the aggregate split and fold. It is the one module allowed
+600 lines rather than 500. The extra lines are the bookkeeping iterative QSQR
 avoids: parked consumers, the completion stack, conditions on
 answers, and the simplification loop.
 In exchange it never repeats work, and it accepts every function-free
@@ -372,16 +453,17 @@ of descending, and an outer loop that re-runs everything until no table
 grows. Compare its `_pattern` function with magic.py's adornments —
 same idea, computed at run time instead of compile time.
 
-**`slg.py` replaces the outer loop with a work queue.** `_step` proves
+**`slg.py` replaces the outer loop with work queues, one per table.** `_step` proves
 one literal of one frame. A positive call parks the frame in
 `consumers` and catches it up on the table's answers so far, and
 `_answer` pushes each new answer to every consumer. A negative call
-parks in `waiting` until its table completes. When the queue runs dry,
-`_evaluate` asks `_closed_segment` for the top of the completion
-stack that can no longer grow, and either completes it (`_complete`,
-then `_simplify`) or, if it is stuck on a `not`, asks
-`_bottom_component` for its exact bottom component and completes or
-delays that. Run any query with `-t` to see
+parks in `waiting` until its table completes, and an aggregate parks
+in `folds`. `_evaluate` always runs the newest table's work. When the
+top of the stack has none left, it asks `_closed_segment` for a top
+segment that can no longer grow and hands it to `_settle`, which
+either completes it (`_complete`, then `_simplify`) or, if it is stuck
+on a `not`, asks `_bottom_component` for its exact bottom component
+and completes or delays that. Run any query with `-t` to see
 the work counters: on the left-recursive ancestor query, 10 steps in
 total, where `tabling.py` reports 11 rounds, each of which re-solves
 every table. (`parent` is all facts, so its tables are filled when
@@ -408,6 +490,9 @@ called and add no steps.)
    run it: for which N are there no solutions at all? Then swap the
    order of the two literals in the `queensK` rules, so `nextK` comes
    first. What happens to the table count, and why?
+6. `-s` makes eight queens slower. Find the calls it serves (count
+   them by predicate in `_call`), and say what index on the general
+   table would make serving them as cheap as a variant table.
 
 6. Write the smallest program you can on which `slg.py` reports an
    answer undefined *and* the answer has two conditions (the CLI
