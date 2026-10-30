@@ -37,11 +37,11 @@ programs, and it is the fifth engine in `engines.py`
 through an auxiliary table per aggregate rule, and `slg.py -s` adds
 subsumptive tabling from complete tables. Both keep their tables
 between queries (a table space), keep them through a change to the
-facts by throwing away only the tables that read it (`apply`, `-u`:
-incremental tabling), and check integrity constraints, each as one
-more query. `slg.py` has a 600-line limit (every other module has
-500) and is at about 590, so the next item here needs either a
-higher limit or code moved into `tabling.py` (about 490). Still open:
+facts by rebuilding only the tables that read it, stopping at one
+that comes out unchanged (`apply`, `-u`: incremental tabling), and check integrity constraints, each as one
+more query. The two tabled modules have higher line limits than the
+other modules' 500: 700 for `slg.py`, 600 for `tabling.py`. Still
+open:
 
 - **Subsumption from incomplete tables, and answer indexing.**
   `-s` reads only complete tables, and only a ground call gets a
@@ -49,12 +49,11 @@ higher limit or code moved into `tabling.py` (about 490). Still open:
   is why `-s` makes eight queens slower. XSB's answer tries index
   every pattern and let a call consume from an incomplete general
   table (lesson 15, exercise 6).
-- **Invalidation that stops early.** `apply` throws away every table
-  that reads a changed fact, directly or not, and rebuilds them on
-  demand. XSB marks them invalid instead, recomputes callee before
-  caller, and stops the walk at a table whose answers came out the
-  same (lesson 15, exercise 3). It also takes care under negation,
-  where the recomputation order matters.
+- **Lazy rebuilding.** `apply` rebuilds every reached table at once,
+  even one no later query asks for. XSB marks them invalid and rebuilds
+  one only when a query reaches it, which would also let a query read
+  a large table space after a small update without paying for the
+  rest.
 - **Re-pushing an answer that becomes true.** An answer returned to
   its consumers while still conditional is not sent again when it
   later turns true, so they keep a delayed reference to it until

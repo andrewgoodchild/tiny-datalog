@@ -31,29 +31,37 @@ each answer reaches each consumer once. The counter with no
 counterpart is the one that is missing: nothing is re-solved, so the
 work a round repeats in `tabling.py` simply does not happen.
 
-**3. Which tables does `edge(n8, n9).` throw away?**
+**3. Predict what `-u 'edge(n3, n9)~.'` rebuilds.**
 
 ```
-$ python3 slg.py programs/reachability.dl -q 'path(n3, X)' -u 'edge(n8, n9).' -q 'path(n3, X)'
+$ python3 slg.py programs/reachability.dl -q 'path(n1, X)' -u 'edge(n3, n9)~.' -q 'path(n1, X)'
 ...
-% update edge(n8, n9).   (7 tables thrown away, 9 kept)
+% update edge(n3, n9)~.   (4 tables rebuilt, 0 unchanged, 16 untouched)
 ```
 
-The new fact matches the `edge(n8, Y)` table. Walking back up the
-calls gives `path(n8, X)`, then `path(n7, X)` up to `path(n4, X)`,
-and `path(n3, X)`, seven tables in all. Every `path` table from `n8`
-up to `n4` gains `n9` and `n10`. `path(n3, X)` gains nothing, because
-it already reached them through `edge(n3, n9)`. Its rebuild was work
-that changed nothing.
+The retracted edge matches one table, `edge(n3, Y)`. Walking the calls
+back up gives `path(n3, X)`, `path(n2, X)` and `path(n1, X)`, so four
+tables are reached. Nothing stops the walk early, because each of the
+three loses `n9` and `n10`, and so each changes what its caller reads.
+The other 16 tables, among them `path(n9, X)`, which nothing calls
+now, are untouched. Compare lesson 15's `edge(n8, n9).`, where
+`path(n3, X)` came out the same and the two tables above it were kept.
 
-Keeping it means separating "may have changed" from "has changed".
-Mark the tables invalid instead of discarding them, and recompute
-them bottom-up, callee before caller. When a recomputed table has the
-same answers as before, its callers need nothing from it, so the walk
-stops there unless another changed table also reaches them. That is
-XSB's incremental tabling. Under negation it takes the same care as
-Lesson 10, because recomputing in the wrong order can read a stale
-table.
+For the second part, add `r(c)` and `q(c)` in one update:
+
+```
+r(a). r(b). q(b).
+p(X) :- r(X), not q(X).
+t(X) :- p(X).
+```
+
+Query `t(X)` (answer: `a`), then apply `r(c). q(c).`. The new `r(c)`
+reaches `r(X)`, so `p(X)` is rebuilt. But `q(c)` cancels it out, and
+`p(X)` comes out as `{a}` again. `t(X)` reads only `p(X)`, so it is put
+back without a rebuild: `apply` returns `(2, 1)`. The `q(c)` table did
+not exist before the update; the rebuilt `p(X)` calls it for the first
+time and builds it fresh. That is why every reached table is set aside
+before any is rebuilt.
 
 **4. Can tabling create fewer tables than magic creates magic facts?**
 

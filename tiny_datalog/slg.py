@@ -57,8 +57,8 @@ a complete, more general table instead of starting a new one.
 
 Tables survive a change to the facts (apply(), tabling.TableSpace).
 What this leaves out, compared with XSB: subsumption from incomplete
-tables, invalidation that stops at an unchanged table, and the machine
-(an abstract machine, answer tries).  The algorithmic economies are
+tables, rebuilding a changed table lazily, and the machine (an
+abstract machine, answer tries).  The algorithmic economies are
 here: completion by stack, local scheduling, and conditions kept
 minimal (an answer true under A needs no second condition A and B).
 
@@ -187,6 +187,12 @@ class SLGEngine(TableSpace):
         for k in keys:
             if k[1] in self.finished[k[0]]:
                 self.finished[k[0]].remove(k[1])
+
+    def _restore(self, key, answers):
+        super()._restore(key, answers)
+        self.order[key] = next(self.ids)
+        self.finished[key[0]].append(key[1])
+        self.served = {}
 
     def _push(self, frame):
         """Queue a frame on its own subgoal; the scheduler runs the

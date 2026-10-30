@@ -46,8 +46,9 @@ body solution; the aggregate completes that table first, a stratum
 down, then folds it.  slg.py shares the split and the fold.
 
 Both engines keep their tables from query to query, and TableSpace
-keeps them through a change to the facts: apply() throws away only
-the tables that read a changed fact (incremental tabling).
+keeps them through a change to the facts: apply() rebuilds only the
+tables that read a changed fact, and stops at one that comes out
+unchanged (incremental tabling).
 
 CLI
 ---
@@ -67,7 +68,7 @@ import sys
 from collections import defaultdict
 
 from tiny_datalog.core import (
-    check_query_atom, cli, Atom, Const, DatalogError, Literal, Rule,
+    _tarjan, check_query_atom, cli, Atom, Const, DatalogError, Literal, Rule,
     StratificationError, Var, format_fact, match, parse, parse_goal,
     read_program, sort_key, stratify, validate, aggregate_of, body_order,
     holds, is_comparison)
@@ -225,20 +226,24 @@ class TableSpace:
     """Incremental tabling, shared by both tabled engines: the table
     space survives a change to the facts.  Every call is recorded as an
     edge from caller to callee (`callers`), the dependency graph the
-    queries walked.  apply() changes the facts, then throws away each
-    table whose pattern matches a changed fact, and every table that
-    read one of those, directly or not.  The rest cannot see the change
-    and stay; the next query rebuilds only what was thrown away.
+    queries walked.  apply() changes the facts, then finds the tables
+    the change can reach: each one whose pattern matches a changed
+    fact, and every table that read one of those, directly or not.  The
+    rest cannot see the change and stay as they are.
 
-    Rebuilding from scratch is what makes it right under negation: a
-    new fact can *remove* an answer from a table that negates it, which
+    The reached tables are rebuilt from empty, callee before caller,
+    one strongly connected group at a time.  A group none of whose
+    callees came out different is put back as it was, unrebuilt, so
+    the walk stops at the first table an update leaves unchanged.
+    Rebuilding from empty is what makes it right under negation: a new
+    fact can *remove* an answer from a table that negates it, which
     adding answers alone would miss (Lesson 10's DRed meets the same
     problem bottom-up, and deletes before it re-derives)."""
 
     def apply(self, script):
-        """Insert facts and retract `fact~.` ones; returns the number of
-        tables thrown away.  The script is checked whole before anything
-        changes."""
+        """Insert facts and retract `fact~.` ones; returns (tables
+        rebuilt, tables the change reached but left as they were).  The
+        script is checked whole before anything changes."""
         clauses = parse(script)
         for c in clauses:
             if c.body or c.weight is not None:
@@ -258,19 +263,61 @@ class TableSpace:
         dead = [k for k in self.tables
                 for head in changed.get((k[0], len(k[1])), ())
                 if head_seed(head, k[1]) is not None]
-        gone = set()
-        while dead:                       # walk the calls back up
-            k = dead.pop()
-            if k not in gone:
-                gone.add(k)
-                dead.extend(self.callers.pop(k, ()))
-        self._forget(gone)
-        return len(gone)
+        hit, reached = set(dead), set()
+        reads = defaultdict(set)          # reached table -> the reached
+        while dead:                       # tables it reads: walk the
+            k = dead.pop()                # calls back up
+            if k not in reached:
+                reached.add(k)
+                for caller in self.callers.get(k, ()):
+                    # an edge outlives a caller a rebuild did not
+                    # remake (a later -s call may be served instead)
+                    if caller in self.tables:
+                        reads[caller].add(k)
+                        dead.append(caller)
+        return self._rebuild(reached, hit, reads)
+
+    def _rebuild(self, reached, hit, reads):
+        """Rebuild the reached tables callee first, and put back each
+        group whose inputs came out unchanged.  Every reached table is
+        forgotten first, so a rebuild that newly calls one not yet
+        settled builds it afresh instead of reading a stale copy."""
+        old = {k: self.tables[k] for k in reached}
+        self._forget(reached)
+        keys = sorted(reached, key=str)   # patterns mix None and values
+        num = {k: i for i, k in enumerate(keys)}
+        scc = _tarjan(range(len(keys)), [(num[u], num[v], False)
+                                         for u in keys for v in reads[u]])
+        groups = defaultdict(list)
+        for k in keys:
+            groups[scc[num[k]]].append(k)
+        changed, rebuilt = set(), 0
+        for i in sorted(groups):          # Tarjan numbers callees first
+            group = groups[i]
+            if not hit.intersection(group) and not any(
+                    v in changed for k in group for v in reads[k]):
+                for k in group:           # nothing it reads changed
+                    if k not in self.tables:
+                        self._restore(k, old[k])
+                continue
+            for k in group:
+                if k not in self.tables:
+                    self.query(Atom(k[0], tuple(
+                        Var("X%d" % j) if v is None else Const(v)
+                        for j, v in enumerate(k[1]))))
+                rebuilt += 1
+                if self.tables.get(k) != old[k]:
+                    changed.add(k)
+        return rebuilt, len(reached) - rebuilt
 
     def _forget(self, keys):
         for k in keys:
             self.tables.pop(k, None)
             self.complete.discard(k)
+
+    def _restore(self, key, answers):
+        self.tables[key] = answers
+        self.complete.add(key)
 
 
 class TabledEngine(TableSpace):
@@ -446,10 +493,11 @@ def run_steps(engine, steps):
         if kind == "q":
             yield parse_goal(text)
             continue
-        gone = engine.apply(text)
-        print("%% update %s   (%d table%s thrown away, %d kept)"
-              % (text.strip(), gone, "" if gone == 1 else "s",
-                 len(engine.tables)))
+        rebuilt, same = engine.apply(text)
+        print("%% update %s   (%d table%s rebuilt, %d unchanged, "
+              "%d untouched)"
+              % (text.strip(), rebuilt, "" if rebuilt == 1 else "s", same,
+                 len(engine.tables) - rebuilt - same))
 
 
 @cli

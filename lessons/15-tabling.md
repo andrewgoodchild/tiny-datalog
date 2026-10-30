@@ -459,42 +459,63 @@ engines keep those edges (`callers`). `apply(script)` takes facts to
 insert and `fact~.` ones to retract, as `incremental.py` does. It
 finds each table whose pattern matches a changed fact, then walks the
 edges back up to every table that read one of those, directly or not.
-Those tables are thrown away and the rest are kept. A kept table
-cannot see the change, so it is still right. `-u` does this between
-queries on the command line:
+Only those tables can see the change. The rest are untouched, and
+still right.
+
+The reached tables are rebuilt from empty, callee before caller, one
+strongly connected group at a time (Tarjan's algorithm, which Lesson
+3 used to stratify, gives that order). Before rebuilding a group,
+`apply` looks at what it reads. If nothing it reads came out
+different, the group is put back as it was, unrebuilt. So the walk
+stops at the first table an update leaves unchanged. `-u` does this
+between queries on the command line:
 
 ```
-$ python3 slg.py programs/reachability.dl -q 'path(n1, X)' -u 'edge(n3, n4)~.' -q 'path(n1, X)'
+$ python3 slg.py programs/reachability.dl -q 'path(n1, X)' -u 'edge(n8, n9).' -q 'path(n1, X)'
 ...
    (9 true, 0 undefined; 20 subgoal tables, 10 completions, 0 delays)
-% update edge(n3, n4)~.   (4 tables thrown away, 16 kept)
+% update edge(n8, n9).   (7 tables rebuilt, 2 unchanged, 11 untouched)
 ...
-   (4 true, 0 undefined; 20 subgoal tables, 13 completions, 0 delays)
+   (9 true, 0 undefined; 20 subgoal tables, 16 completions, 0 delays)
 ```
 
-Only `edge(n3, Y)` and the three `path` tables above it, `path(n3, X)`
-to `path(n1, X)`, are rebuilt, which takes three completions. The
-tables from `n4` down are kept, even though nothing reaches them now.
+The new edge changes `edge(n8, Y)`, and with it `path(n8, X)` up to
+`path(n4, X)`, which all gain `n9` and `n10`. `path(n3, X)` is rebuilt
+too, because it reads `path(n4, X)`, but it comes out the same: it
+already reached `n9` and `n10` through `edge(n3, n9)`. So
+`path(n2, X)` and `path(n1, X)` are put back without a rebuild, and
+the second query does no work at all. The rebuilding happens inside
+`apply`, which is why the completions go up before the query asks.
 
-Throwing a table away and rebuilding it is blunter than Lesson 10's
-counting and DRed, but it needs no special case for negation. A new
-fact can *remove* an answer from a table that negates it: insert
-`q(a)` under `p(X) :- r(X), not q(X)` and `p(a)` goes. A method that
-only added answers would miss that, which is why DRed deletes before
-it re-derives. A rebuilt table starts empty, so it cannot keep a stale
-answer. The fuzzer checks the result: random programs, random updates,
-and a fresh evaluation of the changed program to compare against,
-for both engines, and under the well-founded semantics for `slg.py`.
-XSB is finer. It marks the tables *invalid* instead of discarding
-them, and when one is recomputed with the answers it had before, it
-stops the walk there.
+Rebuilding a table from empty is blunter than Lesson 10's counting
+and DRed, but it needs no special case for negation. A new fact can
+*remove* an answer from a table that negates it: insert `q(a)` under
+`p(X) :- r(X), not q(X)` and `p(a)` goes. A method that only added
+answers would miss that, which is why DRed deletes before it
+re-derives. A rebuilt table starts empty, so it cannot keep a stale
+answer. Two details keep it honest:
+
+* Every reached table is set aside before any is rebuilt. A rebuild
+  that newly calls one not yet settled (an update can create calls
+  the old tables never made) builds it afresh instead of reading a
+  stale copy.
+* A whole group is rebuilt or put back together. Inside a recursive
+  group, one table's old answers may rest on another's, so it is
+  never safe to keep half.
+
+The fuzzer checks the result: random programs, random updates, and a
+fresh evaluation of the changed program to compare against, for both
+engines, and under the well-founded semantics for `slg.py`. This is
+the idea of XSB's incremental tabling, though XSB rebuilds a table
+lazily, when a query next needs it, and these engines do it eagerly.
 
 ### What it costs, and why both modules stay
 
-`slg.py` is about 590 lines to `tabling.py`'s 490, and it borrows
+`slg.py` is about 600 lines to `tabling.py`'s 540, and it borrows
 that module's front end: the clause index, the call pattern, the head
-match, and the aggregate split and fold. It is the one module allowed
-600 lines rather than 500. The extra lines are the bookkeeping iterative QSQR
+match, the aggregate split and fold, and the table space. The two are
+the modules allowed more than 500 lines: 700 for `slg.py`, 600 for
+`tabling.py`. The extra lines are the bookkeeping iterative QSQR
 avoids: parked consumers, the completion stack, conditions on
 answers, and the simplification loop.
 In exchange it never repeats work, and it accepts every function-free
@@ -567,11 +588,11 @@ called and add no steps.)
    real SLG engines do instead? (One sentence each.) Then run the
    query under `slg.py -t` and say which of its work counters
    corresponds to a round's re-solving.
-3. Run `path(n3, X)` on `programs/reachability.dl`, then
-   `-u 'edge(n8, n9).'`, then `path(n3, X)` again. Predict which
-   tables `apply` throws away before you look. One of them ends up
-   with exactly the answers it had before. Which one, and what would
-   it take to keep it, and stop the walk there, as XSB does?
+3. Run `path(n1, X)` on `programs/reachability.dl`, then
+   `-u 'edge(n3, n9)~.'`. Before you run it, predict the three counts
+   `apply` prints: rebuilt, unchanged, untouched. Then write an update
+   to `r` and `q` under `p(X) :- r(X), not q(X).  t(X) :- p(X).` that
+   rebuilds `p(X)` but leaves `t(X)` unchanged.
 4. Write a program + query where tabling creates *fewer* tables than
    magic sets creates magic facts, or argue from the construction that
    it can't happen.

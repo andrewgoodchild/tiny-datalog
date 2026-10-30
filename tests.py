@@ -1014,37 +1014,53 @@ class TablingTests(unittest.TestCase):
             engine.query(query_atom("t(X)"))
         self.assertEqual(engine.tables, {})
 
-    def test_apply_throws_away_what_reads_a_changed_fact(self):
+    def test_apply_rebuilds_what_reads_a_changed_fact(self):
         for make in (TabledEngine, SLGEngine):
             with self.subTest(engine=make.__name__):
                 engine = make(parse(
-                    "r(a). r(b). q(b). p(X) :- r(X), not q(X). s(X) :- r(X)."))
+                    "r(a). r(b). q(b). p(X) :- r(X), not q(X). s(X) :- r(X)."
+                    "t(X) :- p(X)."))
                 ask = lambda q: (lambda found: found[0] if make is SLGEngine
                                  else found)(engine.query(query_atom(q)))
-                self.assertEqual(ask("p(X)"), {("a",)})
+                self.assertEqual(ask("t(X)"), {("a",)})
                 ask("s(X)")
-                # a new fact removes an answer, through `not`
-                # ...so it throws away q(a)'s table and p(X), which read
-                # it, and keeps s(X), r(X) and q(b)
-                self.assertEqual(engine.apply("q(a)."), 2)
-                self.assertEqual(len(engine.tables), 3)
-                self.assertEqual(ask("p(X)"), set())
+                # a new fact removes an answer, through `not`: q(a)'s
+                # table and the two that read it, p(X) and t(X), are
+                # rebuilt; s(X), r(X) and q(b) are not reached
+                self.assertEqual(engine.apply("q(a)."), (3, 0))
+                self.assertEqual(ask("t(X)"), set())
                 self.assertEqual(ask("s(X)"), {("a",), ("b",)})
+                self.assertEqual(engine.apply("q(a)~."), (3, 0))
+                # r(c) and q(c) cancel out in p(X): r(X), s(X) and p(X)
+                # are rebuilt, p(X) comes out as it was, and t(X) above
+                # it is kept, not rebuilt
+                self.assertEqual(engine.apply("r(c). q(c)."), (3, 1))
+                self.assertEqual(ask("t(X)"), {("a",)})
+                self.assertEqual(ask("s(X)"), {("a",), ("b",), ("c",)})
                 # retracting what is not there, adding what is: no change
-                self.assertEqual(engine.apply("q(c)~. r(a)."), 0)
+                self.assertEqual(engine.apply("q(d)~. r(a)."), (0, 0))
                 with self.assertRaisesRegex(DatalogError, "facts"):
                     engine.apply("t(X) :- r(X).")
                 with self.assertRaisesRegex(SafetyError, "arity"):
                     engine.apply("r(d). r(d, e).")    # checked whole first
-                self.assertEqual(ask("r(X)"), {("a",), ("b",)})
+                self.assertEqual(ask("r(X)"), {("a",), ("b",), ("c",)})
+
+    def test_apply_stops_at_a_table_that_comes_out_unchanged(self):
+        # path(n3, X) already reached n9 and n10, so above it nothing is
+        # rebuilt: lesson 15's example
+        for make in (TabledEngine, SLGEngine):
+            with self.subTest(engine=make.__name__):
+                engine = make(parse(load("reachability.dl")))
+                engine.query(query_atom("path(n1, X)"))
+                self.assertEqual(engine.apply("edge(n8, n9)."), (7, 2))
 
     def test_cli_applies_updates_between_queries(self):
         code, out, _ = _run_datalog_cli(
             self, load("reachability.dl"), "-q", "path(n5, X)",
             "-u", "edge(n8, n9).", "-q", "path(n5, X)", tool="tabling")
         self.assertEqual(code, 0)
-        self.assertIn("% update edge(n8, n9).   (5 tables thrown away, "
-                      "3 kept)\n?- path(n5, X)", out)
+        self.assertIn("% update edge(n8, n9).   (5 tables rebuilt, "
+                      "0 unchanged, 7 untouched)\n?- path(n5, X)", out)
         self.assertIn("   path(n5, n10).", out)
 
     def test_cli_checks_constraints(self):
@@ -1908,9 +1924,11 @@ class RepositoryClaimTests(unittest.TestCase):
                   "incremental.py", "prolog.py",
                   "subsumption.py", "containment.py", "chase.py"]
 
-    # SLG is the one engine allowed more: it is tabling plus a
-    # scheduler, local completion and tabled aggregation (lesson 15)
-    LIMITS = {"slg.py": 600}
+    # the two tabled engines are allowed more: SLG is tabling plus a
+    # scheduler, local completion and tabled aggregation, and
+    # tabling.py holds the front end and the table space both share,
+    # incremental tabling included (lesson 15)
+    LIMITS = {"slg.py": 700, "tabling.py": 600}
 
     def test_no_satellite_module_exceeds_its_line_limit(self):
         # measured on the real module, not the root launcher shim
