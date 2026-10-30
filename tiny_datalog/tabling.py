@@ -49,6 +49,9 @@ CLI
 ---
     python3 tabling.py programs/reachability.dl -q 'path(n5, X)'
     python3 tabling.py programs/left-recursive.dl -q 'ancestor(abe, X)'
+
+Integrity constraints are checked after the queries, as datalog.py
+checks them, and a violation exits 3.
 """
 
 from __future__ import annotations
@@ -62,10 +65,55 @@ from tiny_datalog.core import (
     StratificationError, Var, format_fact, match, parse, parse_goal,
     read_program, sort_key, stratify, validate, aggregate_of, body_order,
     holds, is_comparison)
-from tiny_datalog.datalog import _fold
+from tiny_datalog.datalog import _fold, _print_violations
 
 
 # -- shared with slg.py: what a subgoal is, and how a clause meets one ------
+
+def _bound_names(body):
+    """The variables a body's positive literals bind, in order of first
+    occurrence: every variable a solution of the body gives a value."""
+    names = []
+    for lit in body:
+        if not lit.negated and not is_comparison(lit):
+            names += [a.name for a in lit.atom.args
+                      if isinstance(a, Var) and a.name not in names]
+    return names
+
+
+def constraint_goals(clauses):
+    """Give each integrity constraint `:- body.` a rule a tabled engine
+    can answer, `#constraint1(X, Y, ...) :- body.`, with every variable
+    the body binds in its head: each answer is a counterexample, and
+    checking the constraint is one query.  Nothing calls the new
+    predicate, so no answer to any other query changes.  Returns
+    (clauses, [(constraint, goal atom), ...])."""
+    validate(clauses, constraints=True)   # refuse with the program's text
+    out, goals = [], []
+    for c in clauses:
+        if not c.constraint:
+            out.append(c)
+            continue
+        goal = Atom("#constraint%d" % (len(goals) + 1),
+                    tuple(Var(n) for n in _bound_names(c.body)))
+        out.append(Rule(goal, c.body))
+        goals.append((c, goal))
+    return out, goals
+
+
+def counterexamples(goals, solve):
+    """[(constraint, every body solution)] for each constraint violated,
+    as Engine._counterexamples gives them, read off the answers that
+    solve(goal atom) returns."""
+    out = []
+    for c, goal in goals:
+        names = [a.name for a in goal.args]
+        found = [dict(zip(names, t)) for t in sorted(solve(goal),
+                                                     key=sort_key)]
+        if found:
+            out.append((c, found))
+    return out
+
 
 def split_aggregates(clauses):
     """Rewrite each aggregate rule so a tabled engine can evaluate it:
@@ -81,14 +129,9 @@ def split_aggregates(clauses):
             out.append(c)
             continue
         idx = aggregate_of(c.head)[0]
-        names = []
-        for lit in c.body:
-            if not lit.negated and not is_comparison(lit):
-                names += [a.name for a in lit.atom.args
-                          if isinstance(a, Var) and a.name not in names]
         aux = Atom("%s#%d" % (c.head.pred, len(sources) + 1),
                    tuple(a for j, a in enumerate(c.head.args) if j != idx)
-                   + tuple(Var(n) for n in names))
+                   + tuple(Var(n) for n in _bound_names(c.body)))
         sources[aux.pred] = c
         out += [Rule(aux, c.body), Rule(c.head, (Literal(aux),))]
     return out, sources
@@ -181,6 +224,7 @@ class TabledEngine:
     tuples for that subgoal, and `rounds` records the outer iterations."""
 
     def __init__(self, clauses):
+        clauses, self.goals = constraint_goals(clauses)
         self.arity, self.by_pred, self.sources = index_clauses(clauses)
         try:
             stratify(clauses)           # refuses with the program's names
@@ -194,6 +238,9 @@ class TabledEngine:
                 "(Lesson 15); slg.py runs it top-down, datalog.py "
                 "--models bottom-up."
                 % str(exc).rstrip("."), exc.cycle) from exc
+        self._reset()
+
+    def _reset(self):
         self.tables = {}
         self.complete = set()   # tables known to hold every answer
         self.open = {}          # ...and the rest, in creation order (a
@@ -264,16 +311,29 @@ class TabledEngine:
 
     def query(self, atom):
         """All answers to `atom`, computed by tabled top-down evaluation.
-        Also populates self.tables / self.rounds for inspection."""
+        Also populates self.tables / self.rounds for inspection.
+
+        The tables are a *table space*, kept from query to query: every
+        table is complete once a query returns, and the program cannot
+        change, so a later query reads them instead of re-solving them.
+        `rounds` counts the last query's rounds alone."""
         check_query_atom(atom, self.arity)
         root = (atom.pred, call_pattern(atom, {}))
-        self.tables = {root: set()}
-        self.complete = set()
-        self.open = {root: None}
         self.rounds = 0
-        self._fixpoint()
+        if root not in self.complete:
+            self._table(*root)
+            try:
+                self._fixpoint()
+            except DatalogError:
+                self._reset()       # half-filled tables are not complete
+                raise
         return {t for t in self.tables[root]
                 if match(atom.args, t, {}) is not None}
+
+    def counterexamples(self):
+        """The violated integrity constraints, with every body solution,
+        in the form Engine._counterexamples gives."""
+        return counterexamples(self.goals, self.query)
 
     def _fixpoint(self, below=None):
         """Re-solve tables until none grows and no new subgoal appears.
@@ -340,7 +400,10 @@ def main(argv=None):
                 print("   table %s(%s): %d answer%s"
                       % (pred, shown, len(tbl),
                          "" if len(tbl) == 1 else "s"))
-    return 0
+    # each constraint is one more query, read from the same tables
+    failed = engine.counterexamples()
+    return 3 if _print_violations([c for c, _g in engine.goals],
+                                  failed) else 0
 
 
 if __name__ == "__main__":

@@ -401,9 +401,58 @@ undefined facts should mean is still debated.
 Conditions are kept minimal too. An answer true under condition A
 needs no second condition "A and B", so that one is absorbed.
 
+### The table space, and constraints as queries
+
+When a query returns, every table it made is complete, and the
+program cannot change under the engine. So the tables can stay,
+ready for the next query to read. Real systems call this collection
+the **table space**. Both engines keep one:
+
+```
+$ python3 slg.py programs/reachability.dl -q 'path(n5, X)' -q 'path(n3, X)' -q 'path(n5, X)'
+...
+   (3 true, 0 undefined; 8 subgoal tables, 4 completions, 0 delays)
+...
+   (7 true, 0 undefined; 16 subgoal tables, 8 completions, 0 delays)
+...
+   (3 true, 0 undefined; 16 subgoal tables, 8 completions, 0 delays)
+```
+
+The counts are for the whole table space. The second query adds 8
+tables, because `path(n3, X)` reaches `path(n5, X)` and reads its
+finished table instead of building another. The third query adds
+nothing and does no work. An error halfway through a query (a `sum`
+over a name, say) empties the table space, because its tables are no
+longer known to be complete. The one thing that would make a kept
+table wrong is a change to the facts, and that is the backlog's
+incremental tabling.
+
+A kept table also answers a question the engines used to refuse: is
+an integrity constraint (Lesson 17) violated? A constraint `:- body.`
+is a query whose every answer is a counterexample. `constraint_goals`
+in `tabling.py` gives each one a rule, `#constraint1(P) :- body.`,
+whose head holds every variable the body binds. Nothing calls that
+predicate, so no other answer changes, and checking the constraint is
+one more query. It reads the tables the real queries left behind:
+
+```
+$ python3 slg.py programs/lending-draft2-checked.dl -q 'may_borrow(P)'
+...
+constraint violated: :- may_borrow(P), suspended(P).
+   may_borrow(kim), suspended(kim)
+   (1 counterexample)
+```
+
+Magic sets does the same, with one rewriting per constraint. So now
+every engine reports the counterexamples the base engine reports,
+with the same exit status 3, and the conformance tests check that.
+`slg.py` has a third verdict for an unstratified program: a
+constraint whose body is only *undefined* is neither violated nor
+satisfied, and the CLI says so (`constraint undefined: ...`).
+
 ### What it costs, and why both modules stay
 
-`slg.py` is about 550 lines to `tabling.py`'s 350, and it borrows
+`slg.py` is about 580 lines to `tabling.py`'s 410, and it borrows
 that module's front end: the clause index, the call pattern, the head
 match, and the aggregate split and fold. It is the one module allowed
 600 lines rather than 500. The extra lines are the bookkeeping iterative QSQR
@@ -479,9 +528,11 @@ called and add no steps.)
    real SLG engines do instead? (One sentence each.) Then run the
    query under `slg.py -t` and say which of its work counters
    corresponds to a round's re-solving.
-3. Add a second bound query to the same engine object. Why do the
-   tables reset, and what would it take to share them across queries
-   (the real systems' "table space")?
+3. The table space keeps every table between queries. Add a fact to
+   the program after the first query, as `incremental.py` would, and
+   name a kept table that is now wrong. Which tables would you have
+   to throw away, and which could stay? (This is XSB's incremental
+   tabling, and Lesson 10's DRed asks the same question bottom-up.)
 4. Write a program + query where tabling creates *fewer* tables than
    magic sets creates magic facts, or argue from the construction that
    it can't happen.

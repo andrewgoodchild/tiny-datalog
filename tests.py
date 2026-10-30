@@ -16,7 +16,7 @@ from tiny_datalog.datalog import (
     parse, run_program, stratify,
     Engine, Program, SafetyError, StratificationError, DatalogError,
     ParseError, Atom, Literal, Rule, Var, validate, parse_goal,
-    check_query_atom, read_program,
+    check_query_atom, read_program, violations,
 )
 from tiny_datalog.magic import magic_query
 from tiny_datalog.semantics import stable_models, well_founded
@@ -1001,6 +1001,28 @@ class RetractionTests(unittest.TestCase):
 
 
 class TablingTests(unittest.TestCase):
+    def test_the_table_space_is_kept_between_queries(self):
+        engine = TabledEngine(parse(load("reachability.dl")))
+        engine.query(query_atom("path(n5, X)"))
+        engine.query(query_atom("path(n3, X)"))
+        self.assertEqual(len(engine.tables), 16)
+        # a query its tables already answer takes no round at all
+        self.assertEqual(len(engine.query(query_atom("path(n5, X)"))), 3)
+        self.assertEqual(engine.rounds, 0)
+        engine = TabledEngine(parse("n(a). n(1). t(sum(X)) :- n(X)."))
+        with self.assertRaises(DatalogError):
+            engine.query(query_atom("t(X)"))
+        self.assertEqual(engine.tables, {})
+
+    def test_cli_checks_constraints(self):
+        code, out, _ = _run_datalog_cli(
+            self, "e(a, b). e(b, a). p(X, Y) :- e(X, Y)."
+            "p(X, Z) :- p(X, Y), e(Y, Z). :- p(X, X).",
+            "-q", "p(a, Y)", tool="tabling")
+        self.assertEqual(code, 3)
+        self.assertIn("constraint violated: :- p(X, X).\n   p(a, a)\n"
+                      "   p(b, b)\n   (2 counterexamples)", out)
+
     def test_left_recursion_terminates(self):
         engine = TabledEngine(parse(load("left-recursive.dl")))
         answers = engine.query(query_atom("ancestor(abe, X)"))
@@ -1171,13 +1193,47 @@ class SLGTests(unittest.TestCase):
         self.assertEqual(engine.tables[engine.root][("a",)],
                          {frozenset({("-", ("u", ("a",)))})})
 
-    def test_refuses_retraction_and_constraints(self):
-        for text, needle in (("p(a). p(a)~.", "incremental.py"),
-                             ("p(a). :- p(X).", "integrity constraints")):
-            with self.subTest(program=text):
-                with self.assertRaises(DatalogError) as cm:
-                    SLGEngine(parse(text))
-                self.assertIn(needle, str(cm.exception))
+    def test_the_table_space_is_kept_between_queries(self):
+        engine = SLGEngine(parse(load("reachability.dl")))
+        engine.query(query_atom("path(n5, X)"))
+        kept = dict(engine.tables)
+        engine.query(query_atom("path(n3, X)"))     # reads path(n5, X)
+        self.assertEqual(len(engine.tables), 16)
+        self.assertTrue(all(engine.tables[k] is v for k, v in kept.items()))
+        work = dict(engine.stats)
+        self.assertEqual(len(engine.query(query_atom("path(n5, X)"))[0]), 3)
+        self.assertEqual(engine.stats, work)          # nothing re-solved
+        # an error part way through leaves no half-built table behind
+        engine = SLGEngine(parse("n(a). n(1). t(sum(X)) :- n(X)."
+                                 "m(X) :- n(X)."))
+        engine.query(query_atom("m(X)"))
+        with self.assertRaises(DatalogError):
+            engine.query(query_atom("t(X)"))
+        self.assertEqual(engine.tables, {})
+        self.assertEqual(len(engine.query(query_atom("m(X)"))[0]), 2)
+
+    def test_refuses_retraction(self):
+        with self.assertRaisesRegex(DatalogError, "incremental.py"):
+            SLGEngine(parse("p(a). p(a)~."))
+
+    def test_constraints_true_false_and_undefined(self):
+        # win(a) is undefined (a loop through negation), win(b) true
+        engine = SLGEngine(parse(
+            "move(a, a). move(b, c). win(X) :- move(X, Y), not win(Y)."
+            ":- win(X). :- move(X, Y), not win(X). :- move(X, X), X != a."))
+        [(c, found)] = engine.counterexamples()
+        self.assertEqual((str(c), found), (":- win(X).", [{"X": "b"}]))
+        self.assertEqual(
+            [(str(c), f) for c, f in engine.counterexamples(undefined=True)],
+            [(":- win(X).", [{"X": "a"}]),
+             (":- move(X, Y), not win(X).", [{"X": "a", "Y": "a"}])])
+        code, out, _ = _run_datalog_cli(
+            self, "move(a, a). win(X) :- move(X, Y), not win(Y)."
+            ":- win(X).", "-q", "move(X, Y)", tool="slg")
+        self.assertEqual(code, 0)        # undefined is not violated
+        self.assertIn("% 1 integrity constraint checked: none violated\n"
+                      "constraint undefined: :- win(X).   "
+                      "(1 undefined counterexample)\n", out)
 
     def test_local_scheduling_completes_each_group_when_its_work_ends(self):
         # every component of eight queens is a single table, and each is
@@ -1445,6 +1501,12 @@ class DifferentialFuzzTests(unittest.TestCase):
                 top = [("a1", 1)]
                 rules.append("a1(%s(%s)) :- %s(%s)." % (
                     func, args[-1], name, ", ".join(args)))
+        if rng.random() < 0.5:
+            # an integrity constraint: a rule body with no head, which
+            # every engine checks and none may let change an answer
+            rule = self._rule(rng, "c", 1, self.EDB + s1 + s2,
+                              (self.EDB + s1 + s2) if negation else [])
+            rules.append(":-" + rule.split(":-", 1)[1])
         return "\n".join(self._facts(rng) + rules), s1 + s2 + top
 
     def _query(self, rng, idb):
@@ -1471,6 +1533,8 @@ class DifferentialFuzzTests(unittest.TestCase):
                 if not strategy.handles(clauses):
                     continue
                 with self.subTest(iteration=i, program=text, engine=engine):
+                    # one engine for every query: the tabled engines
+                    # answer the later ones from their table space
                     run = strategy(clauses)
                     for atom in atoms:
                         self.assertEqual(
@@ -1478,6 +1542,8 @@ class DifferentialFuzzTests(unittest.TestCase):
                             set(match_answers(
                                 atom, reference.rels.get(atom.pred, ()))),
                             "query %s" % atom)
+                    self.assertEqual(violations(run.counterexamples()),
+                                     reference.violations())
 
     def test_slg_matches_the_well_founded_model_on_random_programs(self):
         # negation anywhere, recursion through it included: most of
@@ -3165,16 +3231,39 @@ class EngineRegistryTests(unittest.TestCase):
     --engine flag, and the re-exports that keep pre-split imports from
     tiny_datalog.datalog working."""
 
-    def test_every_engine_checks_safety_up_front_and_sets_constraints_aside(self):
-        # constraints are the base engine's to check; the others must
-        # answer the rest of the program rather than refuse it
+    def test_every_engine_checks_safety_up_front_and_checks_constraints(self):
+        # a constraint changes no answer, and every engine reports the
+        # base engine's counterexamples, `_` included until reported
+        text = ("p(a). p(b). q(X) :- p(X). :- q(c). :- q(X), X != a."
+                ":- p(_). :- not r(a).")
+        reference = run_program(text)
         for name, strategy in ENGINES.items():
             with self.subTest(engine=name):
                 with self.assertRaises(SafetyError):
                     strategy(parse("p(a). q(X, Y) :- p(X)."))
-                engine = strategy(parse("p(a). p(b). q(X) :- p(X). :- q(c)."))
+                with self.assertRaisesRegex(SafetyError, "negated"):
+                    strategy(parse("p(a). :- not p(X)."))
+                engine = strategy(parse(text))
                 self.assertEqual(engine.answers(query_atom("q(X)")),
                                  {("a",), ("b",)})
+                # in any order: the base engine's raw form is a join's
+                as_sets = lambda found: [(c, {tuple(sorted(s.items()))
+                                              for s in subs})
+                                         for c, subs in found]
+                self.assertEqual(as_sets(engine.counterexamples()),
+                                 as_sets(reference._counterexamples()))
+
+    def test_a_constraint_that_fails_to_evaluate_fails_no_query(self):
+        # found by the fuzzer: magic answers an aggregate's query by
+        # evaluating everything, constraint rules once included
+        clauses = parse("q(c, b). s1(Z) :- q(Z, Y). a1(count(X)) :- s1(X)."
+                        ":- X > Z, s1(Z), a1(X).")
+        for name, strategy in ENGINES.items():
+            with self.subTest(engine=name):
+                engine = strategy(clauses)
+                self.assertEqual(engine.answers(query_atom("a1(X)")), {(1,)})
+                with self.assertRaisesRegex(DatalogError, "cannot order"):
+                    engine.counterexamples()
 
     def test_registry_lists_the_five_engines_and_the_cli_offers_them(self):
         from tiny_datalog import datalog
@@ -4125,10 +4214,11 @@ class ClassifierReviewFixTests(unittest.TestCase):
 # 23 and 24): the features promoted from the omissions list together.
 # ---------------------------------------------------------------------------
 
-def _run_datalog_cli(case, text, *args):
-    """Run datalog.main on a program text; (exit code, stdout, stderr)."""
-    import contextlib, io
-    from tiny_datalog.datalog import main
+def _run_datalog_cli(case, text, *args, tool="datalog"):
+    """Run datalog.main (or another module's, as tool=) on a program
+    text; (exit code, stdout, stderr)."""
+    import contextlib, importlib, io
+    main = importlib.import_module("tiny_datalog." + tool).main
     fh = tempfile.NamedTemporaryFile("w", suffix=".dl", delete=False)
     fh.write(text)
     fh.close()
@@ -4295,15 +4385,17 @@ class ConstraintTests(unittest.TestCase):
         with self.assertRaisesRegex(SafetyError, "integrity constraints"):
             validate(clauses)
         with self.assertRaisesRegex(SafetyError, "integrity constraints"):
-            TabledEngine(clauses)
-        with self.assertRaisesRegex(SafetyError, "integrity constraints"):
             stable_models(clauses)
-        # the registry's goal-directed engines set them aside: no answer
-        # depends on a constraint
+        # the goal-directed engines ask each constraint as a query of
+        # its own; no other answer depends on one
         atom = query_atom("reports(ann, Y)")
-        for name in ("magic", "tabling"):
-            self.assertEqual(ENGINES[name](clauses).answers(atom),
+        for name in ("magic", "tabling", "slg"):
+            engine = ENGINES[name](clauses)
+            self.assertEqual(engine.answers(atom),
                              ENGINES["seminaive"](clauses).answers(atom))
+            self.assertEqual(violations(engine.counterexamples()),
+                             run_program(self.TEXT + ":- reports(X, X).")
+                             .violations())
 
     def test_cli_reports_and_exits_3(self):
         code, out, _ = _run_datalog_cli(self, self.TEXT + ":- reports(X, X).")
@@ -4316,10 +4408,25 @@ class ConstraintTests(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertIn("1 integrity constraint checked: none violated", out)
 
-    def test_cli_goal_directed_engines_say_constraints_were_skipped(self):
-        code, _out, err = _run_datalog_cli(
-            self, self.TEXT + ":- reports(X, X).", "--magic", "-q", "reports(ann, Y)")
-        self.assertEqual(code, 0)
+    def test_cli_goal_directed_engines_check_constraints_too(self):
+        for flags in (["--magic"], ["--engine", "tabling"],
+                      ["--engine", "slg"]):
+            with self.subTest(flags=flags):
+                code, out, _err = _run_datalog_cli(
+                    self, self.TEXT + ":- reports(X, X).", *flags,
+                    "-q", "reports(ann, Y)")
+                self.assertEqual(code, 3)
+                self.assertIn("   reports(ann, ann)\n", out)
+                self.assertIn("(3 counterexamples)", out)
+                code, out, _err = _run_datalog_cli(
+                    self, self.TEXT + ":- manages(X, X).", *flags,
+                    "-q", "reports(ann, Y)")
+                self.assertEqual(code, 0)
+                self.assertIn("1 integrity constraint checked: none "
+                              "violated", out)
+        # --models still lists the models of the rules alone
+        _code, _out, err = _run_datalog_cli(
+            self, self.TEXT + ":- reports(X, X).", "--models")
         self.assertIn("1 integrity constraint not checked", err)
 
     def test_incremental_checks_the_repaired_state(self):

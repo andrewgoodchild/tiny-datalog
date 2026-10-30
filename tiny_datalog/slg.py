@@ -55,8 +55,8 @@ its body has a table of its own, folded once that table is complete
 answers).  `subsumptive=True` (CLI `-s`) answers a positive call from
 a complete, more general table instead of starting a new one.
 
-What this leaves out, compared with XSB: integrity constraints,
-subsumption from incomplete tables, and the machine-level engineering
+What this leaves out, compared with XSB: subsumption from incomplete
+tables, and the machine-level engineering
 (an abstract machine, answer tries).  The algorithmic economies are
 here: completion by stack, local scheduling, and conditions kept
 minimal (an answer true under A needs no second condition A and B).
@@ -66,6 +66,9 @@ CLI
     python3 slg.py programs/win.dl -q 'win(X)'
     python3 slg.py programs/left-recursive.dl -q 'ancestor(abe, X)' -t
     python3 slg.py programs/from-start.dl -q 'from_start(Y)' -s
+
+Integrity constraints are checked after the queries; one whose body
+is true exits 3, and one whose body is only undefined is named.
 """
 
 from __future__ import annotations
@@ -80,8 +83,10 @@ from tiny_datalog.core import (
     _tarjan, check_query_atom, cli, Const, DatalogError, format_atom,
     format_fact, match, parse, parse_goal, read_program, sort_key, holds,
     is_comparison)
+from tiny_datalog.datalog import _print_violations
 from tiny_datalog.tabling import (
-    call_pattern, fold_answers, head_seed, index_clauses, subsuming)
+    call_pattern, constraint_goals, counterexamples, fold_answers,
+    head_seed, index_clauses, subsuming)
 
 UNCONDITIONAL = frozenset()   # the empty condition: the answer is true
 
@@ -101,7 +106,9 @@ class SLGEngine:
 
     def __init__(self, clauses, subsumptive=False):
         # the same front end as tabling.py: positive literals first, so
-        # by the time a negation is reached its subgoal is ground
+        # by the time a negation is reached its subgoal is ground; each
+        # integrity constraint becomes a query
+        clauses, self.goals = constraint_goals(clauses)
         self.arity, self.by_pred, self.sources = index_clauses(clauses)
         self.subsumptive = subsumptive
         self.root = None                   # the last query's subgoal
@@ -279,17 +286,28 @@ class SLGEngine:
     def query(self, atom):
         """Answers to `atom` under the well-founded semantics, as
         (true, undefined): two sets of tuples.  Every other ground
-        instance is false."""
+        instance is false.  Tables are complete when a query returns,
+        so they stay, as a table space the next query reads from."""
         check_query_atom(atom, self.arity)
-        self._reset()
-        self.root = root = (atom.pred, call_pattern(atom, {}))
-        self._call(None, root)
-        self._evaluate()
+        self.root = root = self._call(
+            None, (atom.pred, call_pattern(atom, {})), subsume=True)
+        try:
+            self._evaluate()
+        except DatalogError:
+            self._reset()           # half-built tables are not complete
+            raise
         true, undefined = set(), set()
         for tup, conds in self.tables[root].items():
             if match(atom.args, tup, {}) is not None:
                 (true if UNCONDITIONAL in conds else undefined).add(tup)
         return true, undefined
+
+    def counterexamples(self, undefined=False):
+        """The integrity constraints violated in the well-founded model,
+        with every body solution, as Engine._counterexamples gives them;
+        with undefined=True, the counterexamples that are undefined."""
+        return counterexamples(self.goals,
+                               lambda goal: self.query(goal)[undefined])
 
     def _evaluate(self):
         """Local scheduling: run the newest subgoal's frames first.  When
@@ -546,7 +564,13 @@ def main(argv=None):
                       % (pred, shown, n_true, len(answers) - n_true))
             print("   work: " + ", ".join(
                 "%s %d" % (k, v) for k, v in sorted(engine.stats.items())))
-    return 0
+    failed = _print_violations([c for c, _g in engine.goals],
+                               engine.counterexamples())
+    for c, found in engine.counterexamples(undefined=True):
+        # neither violated nor satisfied: the model leaves it open
+        print("constraint undefined: %s   (%s)"
+              % (c, _plural(len(found), "undefined counterexample")))
+    return 3 if failed else 0
 
 
 if __name__ == "__main__":

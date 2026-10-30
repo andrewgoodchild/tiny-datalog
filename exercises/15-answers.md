@@ -31,14 +31,23 @@ each answer reaches each consumer once. The counter with no
 counterpart is the one that is missing: nothing is re-solved, so the
 work a round repeats in `tabling.py` simply does not happen.
 
-**3. Why do tables reset per query?**
+**3. Which kept tables does a new fact break?**
 
-`query()` rebuilds `self.tables` because answers are *per call
-pattern*, and a fresh query's patterns may overlap the old ones —
-keeping them would be correct (tables are monotone truths) but requires
-knowing when a table is *complete* versus still growing. Production
-systems keep a shared "table space" with completion tracking for
-exactly this reuse, and it is their central engineering artifact.
+Add `edge(n8, n9).` to `programs/reachability.dl` after
+`path(n5, X)` has run. The kept table `path(n5, X)` is now missing
+`path(n5, n9)` and `path(n5, n10)`, and so are the tables between it
+and the new fact (`path(n6, X)` to `path(n8, X)`, and `edge(n8, Y)`,
+whose pattern matches it). Every table that reads one of those,
+directly or not, has to be checked again: `path(n4, X)` gains the
+same two answers, and `path(n3, X)`, which already had them through
+`n9`, gains none, but no engine knows that without looking. A table
+that does not depend on `edge(n8, ...)` can stay. The answer
+is a dependency walk: from the changed fact's tables, follow the
+calls back to their callers and throw away everything reached. XSB
+records those call edges for exactly this (incremental tabling).
+Under negation the walk has to go further: a new fact can *remove*
+an answer from a table that negates one, which is why Lesson 10's DRed
+deletes and then re-derives instead of only adding.
 
 **4. Can tabling create fewer tables than magic creates magic facts?**
 

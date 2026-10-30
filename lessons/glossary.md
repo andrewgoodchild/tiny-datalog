@@ -599,6 +599,11 @@ in a **table**, so recursive calls read the table instead of
 descending. Gives Prolog-style goal direction with Datalog-style
 termination. *(Lesson 15)*
 
+**Table space.** The collection of a tabled engine's tables, kept from
+one query to the next: a complete table answers a later call without
+being solved again. It stays correct only while the facts do not
+change. *(Lesson 15)*
+
 **Taint analysis.** Tracking whether data from a **source** can reach
 a **sink**: reachability over value-flow edges. A finding's derivation
 is the path through the code. *(Lesson 21)*

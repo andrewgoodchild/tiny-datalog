@@ -35,13 +35,11 @@ against `semantics.py`'s well-founded model on random unstratified
 programs, and it is the fifth engine in `engines.py`
 (`datalog.py --engine slg`). Both tabled engines table aggregation,
 through an auxiliary table per aggregate rule, and `slg.py -s` adds
-subsumptive tabling from complete tables. `slg.py` has a 600-line
-limit (every other module has 500) and is at about 550. Still open:
+subsumptive tabling from complete tables. Both keep their tables
+between queries (a table space), and both check integrity
+constraints, each as one more query. `slg.py` has a 600-line limit
+(every other module has 500) and is at about 580. Still open:
 
-- **A table space shared across queries.** Tables reset on every query
-  (exercise 3).
-- **Integrity constraints.** Refused by both: only the base engine
-  checks them.
 - **Subsumption from incomplete tables, and answer indexing.**
   `-s` reads only complete tables, and only a ground call gets a
   direct lookup; any other served call scans the general table, which

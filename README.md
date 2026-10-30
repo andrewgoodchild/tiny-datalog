@@ -94,7 +94,7 @@ Nothing to install:
 
 ```sh
 git clone https://github.com/andrewgoodchild/tiny-datalog && cd tiny-datalog
-python3 tests.py        # 402 tests, ~20s
+python3 tests.py        # 407 tests, ~20s
 ```
 
 ## Why the language choice decides what you can ask later
@@ -196,8 +196,11 @@ is the whole relation the guards are pure overhead.
 [Lesson 7](https://github.com/andrewgoodchild/tiny-datalog/blob/main/lessons/07-magic-sets.md) works through why.
 
 Correctness is checked by a seeded differential fuzzer that generates
-stratified programs, aggregates included, and demands that all five
-engines agree; that SLG matches the well-founded model on unstratified
+stratified programs, aggregates and integrity constraints included,
+and demands that all five engines agree, on the answers and on the
+counterexamples, with every query of a program sent to one engine (so
+the tabled engines answer later queries from their table space); that
+SLG matches the well-founded model on unstratified
 ones, with and without subsumptive tabling; and that incremental
 maintenance matches recomputation under random updates. 400 programs
 per run;
@@ -339,7 +342,8 @@ engine.query("exposed(S, C)")       # [{'S': 'app', 'C': 'cve_2026_0001'}]
 A rule with no head is an integrity constraint, a situation that must
 never arise. `engine.violations()` lists each broken one with its
 counterexamples, and the command line prints them and exits with
-status 3:
+status 3, under every engine (`--engine tabling` asks each constraint
+as one more query):
 
 ```python
 checked = run_program(rules + ":- exposed(S, C).", facts={
@@ -409,7 +413,7 @@ benchmarks/     scaled input generators (chain/tree/clique/grid, an EL
                 ontology, and the N-queens puzzle), and mutate.py,
                 which breaks the code one line at a time to measure
                 how much of it the tests would notice (91% at 0.7.0)
-tests.py        402 tests: every shipped program and exercise answer is
+tests.py        407 tests: every shipped program and exercise answer is
                 executed, a conformance suite runs every query through
                 every engine that handles it, and a seeded fuzzer checks
                 the same property on random programs
@@ -438,15 +442,15 @@ Measured in lines, comments, docstrings and blank lines included:
 |---|---|
 | the common core (`core.py`: the language, evaluating nothing; about 270 of these lines arrived with comparisons, constraints, value checks and the warnings) | 1,057 |
 | the base engine's evaluator (`datalog.py` up to its CLI section: the module docstring, the import list that re-exports the core, `Program`, `Engine`, aggregation folding, `run_program`) | 423 |
-| `--explain`, why-not, constraint reports, `--assume`, printing and the CLI (the rest of `datalog.py`) | 635 |
-| the other pluggable engines: magic sets (`magic.py`) and tabling (`tabling.py`), plus the `engines.py` registry (naive evaluation is a flag on the base engine; the fifth engine, SLG, is counted with the extensions) | 700 |
-| the nine extensions | 3,413 |
+| `--explain`, why-not, constraint reports, `--assume`, printing and the CLI (the rest of `datalog.py`) | 653 |
+| the other pluggable engines: magic sets (`magic.py`) and tabling (`tabling.py`), plus the `engines.py` registry (naive evaluation is a flag on the base engine; the fifth engine, SLG, is counted with the extensions) | 782 |
+| the nine extensions | 3,438 |
 
 So the smallest complete Datalog system here — parse, check, stratify,
 evaluate semi-naively — is the core plus the evaluator, about 1,500
-lines. All of it is 6.2k lines of toolkit (every module but the
+lines. All of it is 6.4k lines of toolkit (every module but the
 re-export list in `__init__.py`), roughly a quarter of it commentary,
-and 4.4k of tests.
+and 4.5k of tests.
 
 "Tiny" is a claim about that core and evaluator, and about each module
 built on them singly: none of the twelve (`magic.py`, `tabling.py`,
