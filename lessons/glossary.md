@@ -351,6 +351,11 @@ diverges. *(Lesson 8)*
 facts to everything derivable from it in one step. Evaluation is
 iterating it to a fixpoint. *(Lesson 2)*
 
+**Incremental tabling.** Keeping a **table space** through a change
+to the facts: throw away (or, in XSB, mark invalid) only the tables
+that read a changed fact, directly or not, found by walking the
+recorded calls back up. *(Lesson 15)*
+
 **Incremental view maintenance.** Updating derived relations after the
 input changes, rather than recomputing. Insertions resume semi-naive;
 deletions need **DRed**. *(Lesson 10)*
@@ -601,8 +606,8 @@ termination. *(Lesson 15)*
 
 **Table space.** The collection of a tabled engine's tables, kept from
 one query to the next: a complete table answers a later call without
-being solved again. It stays correct only while the facts do not
-change. *(Lesson 15)*
+being solved again. A change to the facts calls for **incremental
+tabling**. *(Lesson 15)*
 
 **Taint analysis.** Tracking whether data from a **source** can reach
 a **sink**: reachability over value-flow edges. A finding's derivation

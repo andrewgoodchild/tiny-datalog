@@ -36,9 +36,12 @@ programs, and it is the fifth engine in `engines.py`
 (`datalog.py --engine slg`). Both tabled engines table aggregation,
 through an auxiliary table per aggregate rule, and `slg.py -s` adds
 subsumptive tabling from complete tables. Both keep their tables
-between queries (a table space), and both check integrity
-constraints, each as one more query. `slg.py` has a 600-line limit
-(every other module has 500) and is at about 580. Still open:
+between queries (a table space), keep them through a change to the
+facts by throwing away only the tables that read it (`apply`, `-u`:
+incremental tabling), and check integrity constraints, each as one
+more query. `slg.py` has a 600-line limit (every other module has
+500) and is at about 600, so the next item here needs either a
+higher limit or code moved into `tabling.py` (about 490). Still open:
 
 - **Subsumption from incomplete tables, and answer indexing.**
   `-s` reads only complete tables, and only a ground call gets a
@@ -46,11 +49,12 @@ constraints, each as one more query. `slg.py` has a 600-line limit
   is why `-s` makes eight queens slower. XSB's answer tries index
   every pattern and let a call consume from an incomplete general
   table (lesson 15, exercise 6).
-- **Incremental tabling.** Tables are thrown away when facts change.
-  Keeping them, and invalidating only the tables that depend on the
-  changed facts, is what `incremental.py` does for bottom-up
-  evaluation ([lesson 10](lessons/10-incremental.md)), and what XSB
-  calls incremental tabling.
+- **Invalidation that stops early.** `apply` throws away every table
+  that reads a changed fact, directly or not, and rebuilds them on
+  demand. XSB marks them invalid instead, recomputes callee before
+  caller, and stops the walk at a table whose answers came out the
+  same (lesson 15, exercise 3). It also takes care under negation,
+  where the recomputation order matters.
 - **Re-pushing an answer that becomes true.** An answer returned to
   its consumers while still conditional is not sent again when it
   later turns true, so they keep a delayed reference to it until

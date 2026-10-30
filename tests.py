@@ -1014,6 +1014,39 @@ class TablingTests(unittest.TestCase):
             engine.query(query_atom("t(X)"))
         self.assertEqual(engine.tables, {})
 
+    def test_apply_throws_away_what_reads_a_changed_fact(self):
+        for make in (TabledEngine, SLGEngine):
+            with self.subTest(engine=make.__name__):
+                engine = make(parse(
+                    "r(a). r(b). q(b). p(X) :- r(X), not q(X). s(X) :- r(X)."))
+                ask = lambda q: (lambda found: found[0] if make is SLGEngine
+                                 else found)(engine.query(query_atom(q)))
+                self.assertEqual(ask("p(X)"), {("a",)})
+                ask("s(X)")
+                # a new fact removes an answer, through `not`
+                # ...so it throws away q(a)'s table and p(X), which read
+                # it, and keeps s(X), r(X) and q(b)
+                self.assertEqual(engine.apply("q(a)."), 2)
+                self.assertEqual(len(engine.tables), 3)
+                self.assertEqual(ask("p(X)"), set())
+                self.assertEqual(ask("s(X)"), {("a",), ("b",)})
+                # retracting what is not there, adding what is: no change
+                self.assertEqual(engine.apply("q(c)~. r(a)."), 0)
+                with self.assertRaisesRegex(DatalogError, "facts"):
+                    engine.apply("t(X) :- r(X).")
+                with self.assertRaisesRegex(SafetyError, "arity"):
+                    engine.apply("r(d). r(d, e).")    # checked whole first
+                self.assertEqual(ask("r(X)"), {("a",), ("b",)})
+
+    def test_cli_applies_updates_between_queries(self):
+        code, out, _ = _run_datalog_cli(
+            self, load("reachability.dl"), "-q", "path(n5, X)",
+            "-u", "edge(n8, n9).", "-q", "path(n5, X)", tool="tabling")
+        self.assertEqual(code, 0)
+        self.assertIn("% update edge(n8, n9).   (5 tables thrown away, "
+                      "3 kept)\n?- path(n5, X)", out)
+        self.assertIn("   path(n5, n10).", out)
+
     def test_cli_checks_constraints(self):
         code, out, _ = _run_datalog_cli(
             self, "e(a, b). e(b, a). p(X, Y) :- e(X, Y)."
@@ -1509,6 +1542,18 @@ class DifferentialFuzzTests(unittest.TestCase):
             rules.append(":-" + rule.split(":-", 1)[1])
         return "\n".join(self._facts(rng) + rules), s1 + s2 + top
 
+    def _update(self, rng, clauses):
+        """A random update script for apply() -- retract some facts the
+        program has, insert some it may not -- and the program as it is
+        after it, as text."""
+        facts = [c for c in clauses if not c.body and not c.constraint]
+        gone = rng.sample(facts, min(len(facts), rng.randint(0, 3)))
+        new = parse(" ".join(self._facts(rng)[:rng.randint(0, 3)]))
+        script = " ".join(["%s~." % str(c.head) for c in gone]
+                          + [str(c) for c in new])
+        after = [c for c in clauses if c not in gone] + new
+        return script, "\n".join(map(str, after))
+
     def _query(self, rng, idb):
         name, arity = rng.choice(idb)
         args = [rng.choice(self.DOMAIN) if rng.random() < 0.5 else "X%d" % i
@@ -1545,6 +1590,39 @@ class DifferentialFuzzTests(unittest.TestCase):
                     self.assertEqual(violations(run.counterexamples()),
                                      reference.violations())
 
+    def test_tabled_engines_repair_their_tables_after_updates(self):
+        # incremental tabling: query, change the facts, query again, and
+        # the kept tables plus the rebuilt ones must give what a fresh
+        # evaluation of the changed program gives
+        rng = random.Random(20261031)
+        for i in range(self.iterations(300)):
+            text, idb = self._program(rng, rng.random() < 0.6)
+            clauses = parse(text)
+            atoms = [self._query(rng, idb)] + [
+                Atom(name, tuple(Var("X%d" % j) for j in range(arity)))
+                for name, arity in idb]
+            engines = [TabledEngine(clauses), SLGEngine(clauses),
+                       SLGEngine(clauses, True)]
+            for _round in range(2):
+                for engine in engines:
+                    for atom in atoms:
+                        engine.query(atom)
+                script, text = self._update(rng, clauses)
+                clauses = parse(text)
+                reference = run_program(text)
+                for engine in engines:
+                    with self.subTest(iteration=i, program=text,
+                                      update=script, engine=engine):
+                        engine.apply(script)
+                        for atom in atoms:
+                            found = engine.query(atom)
+                            if isinstance(engine, SLGEngine):
+                                self.assertEqual(found[1], set())
+                                found = found[0]
+                            self.assertEqual(found, set(match_answers(
+                                atom, reference.rels.get(atom.pred, ()))),
+                                "query %s" % atom)
+
     def test_slg_matches_the_well_founded_model_on_random_programs(self):
         # negation anywhere, recursion through it included: most of
         # these programs are unstratified, and some have undefined
@@ -1559,14 +1637,25 @@ class DifferentialFuzzTests(unittest.TestCase):
             text = "\n".join(self._facts(rng) + rules)
             clauses = parse(text)
             true, undefined = well_founded(clauses)
-            # variant and subsumptive tabling must give the same model
+            # variant and subsumptive tabling must give the same model,
+            # and so must a table space repaired after an update
             engines = [SLGEngine(clauses), SLGEngine(clauses, True)]
-            for atom in [self._query(rng, idb)] + [
-                    Atom(name, tuple(Var("X%d" % j) for j in range(arity)))
-                    for name, arity in idb]:
+            atoms = [self._query(rng, idb)] + [
+                Atom(name, tuple(Var("X%d" % j) for j in range(arity)))
+                for name, arity in idb]
+            script = None
+            if rng.random() < 0.5:
+                for engine in engines:
+                    for atom in atoms:
+                        engine.query(atom)
+                script, text = self._update(rng, clauses)
+                true, undefined = well_founded(parse(text))
+                for engine in engines:
+                    engine.apply(script)
+            for atom in atoms:
                 for engine in engines:
                     with self.subTest(iteration=i, program=text,
-                                      query=str(atom),
+                                      update=script, query=str(atom),
                                       subsumptive=engine.subsumptive):
                         self.assertEqual(engine.query(atom), (
                             set(match_answers(atom, {a for p, a in true

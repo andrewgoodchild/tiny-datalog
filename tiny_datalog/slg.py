@@ -55,8 +55,9 @@ its body has a table of its own, folded once that table is complete
 answers).  `subsumptive=True` (CLI `-s`) answers a positive call from
 a complete, more general table instead of starting a new one.
 
+Tables survive a change to the facts (apply(), tabling.TableSpace).
 What this leaves out, compared with XSB: subsumption from incomplete
-tables, and the machine-level engineering
+tables, invalidation that stops at an unchanged table, and the machine
 (an abstract machine, answer tries).  The algorithmic economies are
 here: completion by stack, local scheduling, and conditions kept
 minimal (an answer true under A needs no second condition A and B).
@@ -85,13 +86,14 @@ from tiny_datalog.core import (
     is_comparison)
 from tiny_datalog.datalog import _print_violations
 from tiny_datalog.tabling import (
-    call_pattern, constraint_goals, counterexamples, fold_answers,
-    head_seed, index_clauses, subsuming)
+    TableSpace, add_steps, call_pattern, constraint_goals,
+    counterexamples, fold_answers, head_seed, index_clauses,
+    print_update, subsuming)
 
 UNCONDITIONAL = frozenset()   # the empty condition: the answer is true
 
 
-class SLGEngine:
+class SLGEngine(TableSpace):
     """SLG resolution for function-free programs, any negation.
 
     After query(), `tables` maps a subgoal (pred, pattern) — pattern has
@@ -116,7 +118,9 @@ class SLGEngine:
 
     def _reset(self):
         self.tables = {}
+        self.callers = defaultdict(set)    # subgoal -> subgoals it serves
         self.order = {}                    # subgoal -> creation number
+        self.created = 0                   # ...the next one to hand out
         self.complete = set()
         self.finished = defaultdict(list)  # pred -> complete patterns
         self.served = {}                   # call -> (tables seen, general)
@@ -144,13 +148,17 @@ class SLGEngine:
             general = self.served[key][1]
             if general is not None:
                 self.stats["subsumed calls"] += 1
-                return general          # complete: no dependency to note
+                if caller is not None:      # an edge for apply() only:
+                    self.callers[general].add(caller)   # it is complete
+                return general
         if caller is not None:
+            self.callers[key].add(caller)
             self.calls[caller].add(key)
         if key in self.tables:
             return key
         self.tables[key] = {}
-        self.order[key] = len(self.order)
+        self.order[key] = self.created
+        self.created += 1
         pred, pattern = key
         clauses = self.by_pred.get((pred, len(pattern)), ())
         facts_only = not any(body for _head, body in clauses)
@@ -172,6 +180,16 @@ class SLGEngine:
             self.complete.add(key)
             self.finished[pred].append(pattern)
         return key
+
+    def _forget(self, keys):
+        """apply()'s half: forget thrown-away tables, here and in the
+        indexes of complete ones subsumption reads."""
+        super()._forget(keys)
+        self.served = {}
+        for k in keys:
+            self.order.pop(k, None)
+            if k[1] in self.finished[k[0]]:
+                self.finished[k[0]].remove(k[1])
 
     def _push(self, frame):
         """Queue a frame on its own subgoal; the scheduler runs the
@@ -373,7 +391,7 @@ class SLGEngine:
         down from the top, tracking the oldest incomplete table called
         so far, and stop where it is no older than the table reached.
         Only the segment is scanned, and it is about to complete."""
-        oldest = len(self.order)
+        oldest = self.created
         for i in range(len(self.stack) - 1, -1, -1):
             key = self.stack[i]
             # forget calls to finished tables: they never matter again
@@ -522,8 +540,7 @@ def main(argv=None):
                     "well-founded semantics — negation through recursion "
                     "included, with undefined answers named as such.")
     ap.add_argument("file", help="Datalog program (.dl)")
-    ap.add_argument("-q", "--query", action="append", default=[],
-                    metavar="ATOM", help="goal to solve (repeatable)")
+    add_steps(ap)
     ap.add_argument("-t", "--tables", action="store_true",
                     help="also print every table and the work counters")
     ap.add_argument("-s", "--subsumptive", action="store_true",
@@ -532,7 +549,10 @@ def main(argv=None):
     args = ap.parse_args(argv)
 
     engine = SLGEngine(parse(read_program(args.file)), args.subsumptive)
-    for q in args.query:
+    for kind, q in args.steps:
+        if kind == "u":
+            print_update(engine, q)
+            continue
         atom = parse_goal(q)
         true, undefined = engine.query(atom)
         root = engine.tables[engine.root]

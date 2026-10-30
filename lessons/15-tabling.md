@@ -424,8 +424,7 @@ finished table instead of building another. The third query adds
 nothing and does no work. An error halfway through a query (a `sum`
 over a name, say) empties the table space, because its tables are no
 longer known to be complete. The one thing that would make a kept
-table wrong is a change to the facts, and that is the backlog's
-incremental tabling.
+table wrong is a change to the facts, which is the next section.
 
 A kept table also answers a question the engines used to refuse: is
 an integrity constraint (Lesson 17) violated? A constraint `:- body.`
@@ -450,9 +449,49 @@ with the same exit status 3, and the conformance tests check that.
 constraint whose body is only *undefined* is neither violated nor
 satisfied, and the CLI says so (`constraint undefined: ...`).
 
+### Incremental tabling
+
+Lesson 10 kept a materialisation up to date as facts changed. The
+tabled engines can do the same for their table space, and the
+mechanism is shorter, because a table records who asked for it. Every
+call is an edge from the calling table to the called one, and both
+engines keep those edges (`callers`). `apply(script)` takes facts to
+insert and `fact~.` ones to retract, as `incremental.py` does. It
+finds each table whose pattern matches a changed fact, then walks the
+edges back up to every table that read one of those, directly or not.
+Those tables are thrown away and the rest are kept. A kept table
+cannot see the change, so it is still right. `-u` does this between
+queries on the command line:
+
+```
+$ python3 slg.py programs/reachability.dl -q 'path(n1, X)' -u 'edge(n3, n4)~.' -q 'path(n1, X)'
+...
+   (9 true, 0 undefined; 20 subgoal tables, 10 completions, 0 delays)
+% update edge(n3, n4)~.   (4 tables thrown away, 16 kept)
+...
+   (4 true, 0 undefined; 20 subgoal tables, 13 completions, 0 delays)
+```
+
+Only `edge(n3, Y)` and the three `path` tables above it, `path(n3, X)`
+to `path(n1, X)`, are rebuilt, which takes three completions. The
+tables from `n4` down are kept, even though nothing reaches them now.
+
+Throwing a table away and rebuilding it is blunter than Lesson 10's
+counting and DRed, but it needs no special case for negation. A new
+fact can *remove* an answer from a table that negates it: insert
+`q(a)` under `p(X) :- r(X), not q(X)` and `p(a)` goes. A method that
+only added answers would miss that, which is why DRed deletes before
+it re-derives. A rebuilt table starts empty, so it cannot keep a stale
+answer. The fuzzer checks the result: random programs, random updates,
+and a fresh evaluation of the changed program to compare against,
+for both engines, and under the well-founded semantics for `slg.py`.
+XSB is finer. It marks the tables *invalid* instead of discarding
+them, and when one is recomputed with the answers it had before, it
+stops the walk there.
+
 ### What it costs, and why both modules stay
 
-`slg.py` is about 580 lines to `tabling.py`'s 410, and it borrows
+`slg.py` is about 600 lines to `tabling.py`'s 490, and it borrows
 that module's front end: the clause index, the call pattern, the head
 match, and the aggregate split and fold. It is the one module allowed
 600 lines rather than 500. The extra lines are the bookkeeping iterative QSQR
@@ -528,11 +567,11 @@ called and add no steps.)
    real SLG engines do instead? (One sentence each.) Then run the
    query under `slg.py -t` and say which of its work counters
    corresponds to a round's re-solving.
-3. The table space keeps every table between queries. Add a fact to
-   the program after the first query, as `incremental.py` would, and
-   name a kept table that is now wrong. Which tables would you have
-   to throw away, and which could stay? (This is XSB's incremental
-   tabling, and Lesson 10's DRed asks the same question bottom-up.)
+3. Run `path(n3, X)` on `programs/reachability.dl`, then
+   `-u 'edge(n8, n9).'`, then `path(n3, X)` again. Predict which
+   tables `apply` throws away before you look. One of them ends up
+   with exactly the answers it had before. Which one, and what would
+   it take to keep it, and stop the walk there, as XSB does?
 4. Write a program + query where tabling creates *fewer* tables than
    magic sets creates magic facts, or argue from the construction that
    it can't happen.

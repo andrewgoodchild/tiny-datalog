@@ -31,23 +31,29 @@ each answer reaches each consumer once. The counter with no
 counterpart is the one that is missing: nothing is re-solved, so the
 work a round repeats in `tabling.py` simply does not happen.
 
-**3. Which kept tables does a new fact break?**
+**3. Which tables does `edge(n8, n9).` throw away?**
 
-Add `edge(n8, n9).` to `programs/reachability.dl` after
-`path(n5, X)` has run. The kept table `path(n5, X)` is now missing
-`path(n5, n9)` and `path(n5, n10)`, and so are the tables between it
-and the new fact (`path(n6, X)` to `path(n8, X)`, and `edge(n8, Y)`,
-whose pattern matches it). Every table that reads one of those,
-directly or not, has to be checked again: `path(n4, X)` gains the
-same two answers, and `path(n3, X)`, which already had them through
-`n9`, gains none, but no engine knows that without looking. A table
-that does not depend on `edge(n8, ...)` can stay. The answer
-is a dependency walk: from the changed fact's tables, follow the
-calls back to their callers and throw away everything reached. XSB
-records those call edges for exactly this (incremental tabling).
-Under negation the walk has to go further: a new fact can *remove*
-an answer from a table that negates one, which is why Lesson 10's DRed
-deletes and then re-derives instead of only adding.
+```
+$ python3 slg.py programs/reachability.dl -q 'path(n3, X)' -u 'edge(n8, n9).' -q 'path(n3, X)'
+...
+% update edge(n8, n9).   (7 tables thrown away, 9 kept)
+```
+
+The new fact matches the `edge(n8, Y)` table. Walking back up the
+calls gives `path(n8, X)`, then `path(n7, X)` up to `path(n4, X)`,
+and `path(n3, X)`, seven tables in all. Every `path` table from `n8`
+up to `n4` gains `n9` and `n10`. `path(n3, X)` gains nothing, because
+it already reached them through `edge(n3, n9)`. Its rebuild was work
+that changed nothing.
+
+Keeping it means separating "may have changed" from "has changed".
+Mark the tables invalid instead of discarding them, and recompute
+them bottom-up, callee before caller. When a recomputed table has the
+same answers as before, its callers need nothing from it, so the walk
+stops there unless another changed table also reaches them. That is
+XSB's incremental tabling. Under negation it takes the same care as
+Lesson 10, because recomputing in the wrong order can read a stale
+table.
 
 **4. Can tabling create fewer tables than magic creates magic facts?**
 

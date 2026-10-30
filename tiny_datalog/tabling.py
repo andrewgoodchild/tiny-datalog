@@ -45,10 +45,16 @@ aggregate rule's body a table of its own, one answer per distinct
 body solution; the aggregate completes that table first, a stratum
 down, then folds it.  slg.py shares the split and the fold.
 
+Both engines keep their tables from query to query, and TableSpace
+keeps them through a change to the facts: apply() throws away only
+the tables that read a changed fact (incremental tabling).
+
 CLI
 ---
     python3 tabling.py programs/reachability.dl -q 'path(n5, X)'
     python3 tabling.py programs/left-recursive.dl -q 'ancestor(abe, X)'
+    python3 tabling.py programs/reachability.dl -q 'path(n3, X)' \
+        -u 'edge(n8, n9).' -q 'path(n3, X)'
 
 Integrity constraints are checked after the queries, as datalog.py
 checks them, and a violation exits 3.
@@ -215,7 +221,60 @@ def head_seed(head, pattern):
     return match([a for a, _v in bound], [v for _a, v in bound], {})
 
 
-class TabledEngine:
+class TableSpace:
+    """Incremental tabling, shared by both tabled engines: the table
+    space survives a change to the facts.  Every call is recorded as an
+    edge from caller to callee (`callers`), the dependency graph the
+    queries walked.  apply() changes the facts, then throws away each
+    table whose pattern matches a changed fact, and every table that
+    read one of those, directly or not.  The rest cannot see the change
+    and stay; the next query rebuilds only what was thrown away.
+
+    Rebuilding from scratch is what makes it right under negation: a
+    new fact can *remove* an answer from a table that negates it, which
+    adding answers alone would miss (Lesson 10's DRed meets the same
+    problem bottom-up, and deletes before it re-derives)."""
+
+    def apply(self, script):
+        """Insert facts and retract `fact~.` ones; returns the number of
+        tables thrown away.  The script is checked whole before anything
+        changes."""
+        clauses = parse(script)
+        for c in clauses:
+            if c.body or c.weight is not None:
+                raise DatalogError("apply() takes facts, and `fact~.` to "
+                                   "retract one, only: %s" % c)
+        self.arity = validate(clauses, self.arity)
+        changed = []
+        for c in clauses:
+            facts = self.by_pred[(c.head.pred, len(c.head.args))]
+            fact = (c.head, ())
+            if (fact in facts) == c.retract:            # a real change
+                if c.retract:       # every copy: `p(a). p(a).` is legal
+                    facts[:] = [f for f in facts if f != fact]
+                else:
+                    facts.append(fact)
+                changed.append((c.head.pred,
+                                tuple(a.value for a in c.head.args)))
+        dead = [k for k in self.tables for pred, tup in changed
+                if k[0] == pred and len(k[1]) == len(tup)
+                and all(v is None or v == a for v, a in zip(k[1], tup))]
+        gone = set()
+        while dead:                       # walk the calls back up
+            k = dead.pop()
+            if k not in gone:
+                gone.add(k)
+                dead.extend(self.callers.pop(k, ()))
+        self._forget(gone)
+        return len(gone)
+
+    def _forget(self, keys):
+        for k in keys:
+            self.tables.pop(k, None)
+            self.complete.discard(k)
+
+
+class TabledEngine(TableSpace):
     """Iterative QSQR: tables keyed by call pattern, filled to fixpoint;
     a negated subgoal's tables are completed first, one stratum down.
 
@@ -242,6 +301,7 @@ class TabledEngine:
 
     def _reset(self):
         self.tables = {}
+        self.callers = defaultdict(set)   # table -> tables that read it
         self.complete = set()   # tables known to hold every answer
         self.open = {}          # ...and the rest, in creation order (a
                                 # dict: a set's order would vary per run)
@@ -256,7 +316,7 @@ class TabledEngine:
 
     # -- one round of top-down solving --------------------------------------
 
-    def _prove(self, body, subst):
+    def _prove(self, body, subst, caller):
         """Solve a rule body left to right; recursive calls read the
         current tables (never the clauses directly — that is the whole
         trick: no infinite descent, the fixpoint loop supplies growth)."""
@@ -266,10 +326,11 @@ class TabledEngine:
         lit, rest = body[0], body[1:]
         if is_comparison(lit):          # a test, never a subgoal
             if holds(lit.atom, subst):
-                yield from self._prove(rest, subst)
+                yield from self._prove(rest, subst, caller)
             return
         key = (lit.atom.pred, call_pattern(lit.atom, subst))
         table = self._table(*key)
+        self.callers[key].add(caller)
         if lit.atom.pred in self.sources:
             # an aggregate reads its auxiliary table only once complete:
             # it sits a stratum below, so completing it cannot need us
@@ -283,12 +344,12 @@ class TabledEngine:
             if key not in self.complete:
                 self._fixpoint(below=self.strata.get(lit.atom.pred, 0))
             if key[1] not in table:     # the pattern is the ground atom
-                yield from self._prove(rest, subst)
+                yield from self._prove(rest, subst, caller)
             return
         for ans in list(table):         # a negation below may add to it
             s = match(lit.atom.args, ans, subst)
             if s is not None:
-                yield from self._prove(rest, s)
+                yield from self._prove(rest, s, caller)
 
     def _answers_for(self, key):
         """Re-derive a subgoal's answers from its clauses, one step of
@@ -299,11 +360,11 @@ class TabledEngine:
             if seed is None:
                 continue
             if body and body[0].atom.pred in self.sources:
-                for _s, table in self._prove(body, seed):
+                for _s, table in self._prove(body, seed, key):
                     yield from fold_answers(self.sources[body[0].atom.pred],
                                             body[0].atom, table, pattern)
                 continue
-            for s in self._prove(body, seed):
+            for s in self._prove(body, seed, key):
                 yield tuple(a.value if isinstance(a, Const) else s[a.name]
                             for a in head.args)
 
@@ -367,21 +428,42 @@ class TabledEngine:
 # CLI
 # ---------------------------------------------------------------------------
 
+def add_steps(ap):
+    """-q and -u for both tabled CLIs, kept in the order given: queries,
+    and changes to the facts between them, as `steps`."""
+    ap.add_argument("-q", "--query", dest="steps", action="append",
+                    default=[], type=lambda q: ("q", q), metavar="ATOM",
+                    help="goal to solve (repeatable)")
+    ap.add_argument("-u", "--update", dest="steps", action="append",
+                    type=lambda u: ("u", u), metavar="FACTS",
+                    help="change the facts before the queries after it: "
+                         "`e(a, b).` inserts, `e(a, b)~.` retracts")
+
+
+def print_update(engine, script):
+    gone = engine.apply(script)
+    print("%% update %s   (%d table%s thrown away, %d kept)"
+          % (script.strip(), gone, "" if gone == 1 else "s",
+             len(engine.tables)))
+
+
 @cli
 def main(argv=None):
     ap = argparse.ArgumentParser(
         description="Tabled top-down (QSQR) evaluation of stratified "
                     "Datalog — handles left recursion SLD cannot.")
     ap.add_argument("file", help="Datalog program (.dl), stratified")
-    ap.add_argument("-q", "--query", action="append", default=[],
-                    metavar="ATOM", help="goal to solve (repeatable)")
+    add_steps(ap)
     ap.add_argument("-t", "--tables", action="store_true",
                     help="also print every table (compare these with the "
                          "magic predicates from datalog.py --magic!)")
     args = ap.parse_args(argv)
 
     engine = TabledEngine(parse(read_program(args.file)))
-    for q in args.query:
+    for kind, q in args.steps:
+        if kind == "u":
+            print_update(engine, q)
+            continue
         atom = parse_goal(q)
         answers = engine.query(atom)
         print("?- %s   [tabled]" % atom)
