@@ -491,7 +491,7 @@ stops the walk there.
 
 ### What it costs, and why both modules stay
 
-`slg.py` is about 600 lines to `tabling.py`'s 490, and it borrows
+`slg.py` is about 590 lines to `tabling.py`'s 490, and it borrows
 that module's front end: the clause index, the call pattern, the head
 match, and the aggregate split and fold. It is the one module allowed
 600 lines rather than 500. The extra lines are the bookkeeping iterative QSQR

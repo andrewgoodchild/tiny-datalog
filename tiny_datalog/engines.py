@@ -105,6 +105,15 @@ class Naive(SemiNaive):
     naive = True
 
 
+def magic_counterexamples(clauses):
+    """Check a program's integrity constraints by magic sets: one
+    rewriting per constraint, each for its own body's demand.  Shared
+    with datalog.py's CLI, which never builds a Magic."""
+    checked, goals = constraint_goals(clauses)
+    return counterexamples(goals,
+                           lambda goal: magic_query(checked, goal)[1])
+
+
 class Magic:
     """Magic sets: rewrite the program for each query so that bottom-up
     evaluation derives only facts relevant to it, then run semi-naive on
@@ -118,13 +127,14 @@ class Magic:
         # check up front what the other engines check on construction:
         # the rewriting itself would quietly run an unstratified program
         # whose unstratified part a particular query never reaches
-        self.checked, self.goals = constraint_goals(clauses)
-        validate(self.checked)
-        stratify(self.checked)
+        checked = constraint_goals(clauses)[0]
+        validate(checked)
+        stratify(checked)
         # a query of an aggregate is answered in full, so the constraint
         # rules stay out of the program the queries see: a constraint
         # that fails to evaluate (3 > d) must not fail a query
         self.clauses = split_constraints(clauses)[0]
+        self.with_constraints = clauses
 
     def answers(self, atom):
         # magic_transform checks the query atom against the program
@@ -132,9 +142,7 @@ class Magic:
         return answers
 
     def counterexamples(self):
-        # one rewriting per constraint, each for its own body's demand
-        return counterexamples(
-            self.goals, lambda goal: magic_query(self.checked, goal)[1])
+        return magic_counterexamples(self.with_constraints)
 
 
 class Tabling:

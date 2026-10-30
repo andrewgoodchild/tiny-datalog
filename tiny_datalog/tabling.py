@@ -245,7 +245,7 @@ class TableSpace:
                 raise DatalogError("apply() takes facts, and `fact~.` to "
                                    "retract one, only: %s" % c)
         self.arity = validate(clauses, self.arity)
-        changed = []
+        changed = defaultdict(list)       # (pred, arity) -> changed facts
         for c in clauses:
             facts = self.by_pred[(c.head.pred, len(c.head.args))]
             fact = (c.head, ())
@@ -254,11 +254,10 @@ class TableSpace:
                     facts[:] = [f for f in facts if f != fact]
                 else:
                     facts.append(fact)
-                changed.append((c.head.pred,
-                                tuple(a.value for a in c.head.args)))
-        dead = [k for k in self.tables for pred, tup in changed
-                if k[0] == pred and len(k[1]) == len(tup)
-                and all(v is None or v == a for v, a in zip(k[1], tup))]
+                changed[(c.head.pred, len(c.head.args))].append(c.head)
+        dead = [k for k in self.tables
+                for head in changed.get((k[0], len(k[1])), ())
+                if head_seed(head, k[1]) is not None]
         gone = set()
         while dead:                       # walk the calls back up
             k = dead.pop()
@@ -440,11 +439,17 @@ def add_steps(ap):
                          "`e(a, b).` inserts, `e(a, b)~.` retracts")
 
 
-def print_update(engine, script):
-    gone = engine.apply(script)
-    print("%% update %s   (%d table%s thrown away, %d kept)"
-          % (script.strip(), gone, "" if gone == 1 else "s",
-             len(engine.tables)))
+def run_steps(engine, steps):
+    """Apply and report each -u in turn, yielding each -q's goal for
+    the CLI to solve in between."""
+    for kind, text in steps:
+        if kind == "q":
+            yield parse_goal(text)
+            continue
+        gone = engine.apply(text)
+        print("%% update %s   (%d table%s thrown away, %d kept)"
+              % (text.strip(), gone, "" if gone == 1 else "s",
+                 len(engine.tables)))
 
 
 @cli
@@ -460,11 +465,7 @@ def main(argv=None):
     args = ap.parse_args(argv)
 
     engine = TabledEngine(parse(read_program(args.file)))
-    for kind, q in args.steps:
-        if kind == "u":
-            print_update(engine, q)
-            continue
-        atom = parse_goal(q)
+    for atom in run_steps(engine, args.steps):
         answers = engine.query(atom)
         print("?- %s   [tabled]" % atom)
         for tup in sorted(answers, key=sort_key):

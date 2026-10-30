@@ -40,7 +40,7 @@ between queries (a table space), keep them through a change to the
 facts by throwing away only the tables that read it (`apply`, `-u`:
 incremental tabling), and check integrity constraints, each as one
 more query. `slg.py` has a 600-line limit (every other module has
-500) and is at about 600, so the next item here needs either a
+500) and is at about 590, so the next item here needs either a
 higher limit or code moved into `tabling.py` (about 490). Still open:
 
 - **Subsumption from incomplete tables, and answer indexing.**

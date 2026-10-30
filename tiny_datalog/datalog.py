@@ -1003,9 +1003,7 @@ def main(argv=None):
                   "materialisation, which %s does not build" % flag,
                   file=sys.stderr)
             return 1
-        from tiny_datalog.engines import ENGINES
-        from tiny_datalog.magic import magic_query
-        from tiny_datalog.tabling import constraint_goals, counterexamples
+        from tiny_datalog.engines import ENGINES, magic_counterexamples
         try:
             # the goal-directed engines check each constraint as one
             # more query, its body: every answer is a counterexample
@@ -1014,9 +1012,7 @@ def main(argv=None):
                 # (or constraint) reaches may even be unstratified
                 for q in args.query:
                     _run_magic_query(q, rules, args.trace)
-                checked, goals = constraint_goals(clauses)
-                failed = counterexamples(
-                    goals, lambda goal: magic_query(checked, goal)[1])
+                failed = magic_counterexamples(clauses)
             else:
                 tabled = ENGINES[engine_name](clauses)
                 _run_tabled_queries(args.query, tabled, args.trace,

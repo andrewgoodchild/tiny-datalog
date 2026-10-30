@@ -78,17 +78,17 @@ import argparse
 import heapq
 import sys
 from collections import Counter, defaultdict, deque
-from itertools import chain
+from itertools import chain, count
 
 from tiny_datalog.core import (
     _tarjan, check_query_atom, cli, Const, DatalogError, format_atom,
-    format_fact, match, parse, parse_goal, read_program, sort_key, holds,
+    format_fact, match, parse, read_program, sort_key, holds,
     is_comparison)
 from tiny_datalog.datalog import _print_violations
 from tiny_datalog.tabling import (
     TableSpace, add_steps, call_pattern, constraint_goals,
     counterexamples, fold_answers, head_seed, index_clauses,
-    print_update, subsuming)
+    run_steps, subsuming)
 
 UNCONDITIONAL = frozenset()   # the empty condition: the answer is true
 
@@ -120,7 +120,7 @@ class SLGEngine(TableSpace):
         self.tables = {}
         self.callers = defaultdict(set)    # subgoal -> subgoals it serves
         self.order = {}                    # subgoal -> creation number
-        self.created = 0                   # ...the next one to hand out
+        self.ids = count()                 # ...handed out from here
         self.complete = set()
         self.finished = defaultdict(list)  # pred -> complete patterns
         self.served = {}                   # call -> (tables seen, general)
@@ -145,20 +145,18 @@ class SLGEngine(TableSpace):
             done = len(self.finished[key[0]])
             if self.served.get(key, (-1,))[0] != done:
                 self.served[key] = (done, subsuming(self.finished, key))
-            general = self.served[key][1]
-            if general is not None:
+            if self.served[key][1] is not None:
                 self.stats["subsumed calls"] += 1
-                if caller is not None:      # an edge for apply() only:
-                    self.callers[general].add(caller)   # it is complete
-                return general
+                # the general table is complete, so the edges below
+                # matter only to apply(); _closed_segment skips them
+                key = self.served[key][1]
         if caller is not None:
             self.callers[key].add(caller)
             self.calls[caller].add(key)
         if key in self.tables:
             return key
         self.tables[key] = {}
-        self.order[key] = self.created
-        self.created += 1
+        self.order[key] = next(self.ids)
         pred, pattern = key
         clauses = self.by_pred.get((pred, len(pattern)), ())
         facts_only = not any(body for _head, body in clauses)
@@ -187,7 +185,6 @@ class SLGEngine(TableSpace):
         super()._forget(keys)
         self.served = {}
         for k in keys:
-            self.order.pop(k, None)
             if k[1] in self.finished[k[0]]:
                 self.finished[k[0]].remove(k[1])
 
@@ -391,7 +388,7 @@ class SLGEngine(TableSpace):
         down from the top, tracking the oldest incomplete table called
         so far, and stop where it is no older than the table reached.
         Only the segment is scanned, and it is about to complete."""
-        oldest = self.created
+        oldest = float("inf")
         for i in range(len(self.stack) - 1, -1, -1):
             key = self.stack[i]
             # forget calls to finished tables: they never matter again
@@ -549,11 +546,7 @@ def main(argv=None):
     args = ap.parse_args(argv)
 
     engine = SLGEngine(parse(read_program(args.file)), args.subsumptive)
-    for kind, q in args.steps:
-        if kind == "u":
-            print_update(engine, q)
-            continue
-        atom = parse_goal(q)
+    for atom in run_steps(engine, args.steps):
         true, undefined = engine.query(atom)
         root = engine.tables[engine.root]
         print("?- %s   [SLG]" % atom)
