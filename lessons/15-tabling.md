@@ -360,20 +360,32 @@ $ python3 slg.py programs/from-start.dl -q 'from_start(Y)' -s
 
 Variant tabling makes 7,202 tables, because each ground `path(n1, nK)`
 calls `path(n2, nK)`, and so on down the chain. With `-s` there are
-62, and the run is about four times faster. Two details made that
-work. A ground call looks its one answer up in the general table
-instead of scanning it, which is the job XSB's answer tries do for
-every pattern. And subsumption can only read a *complete* table, which
+62, and the query runs about ten times faster (Python's start-up
+aside). Three details made that
+work. A served call never scans the general table. A ground call
+looks its one answer up, and a call that binds only some arguments
+reads an index on those positions, built the first time they are
+asked for (`_slice`). XSB's answer tries do that job for every
+pattern. Finding the general table is a lookup too. The complete
+patterns of each predicate are grouped by which arguments they leave
+free, so a call checks one candidate per group, never every complete
+table. And subsumption can only read a *complete* table, which
 is why it comes after local scheduling: under the global queue,
 nothing completed until the end. (`tabling.py` has the same problem
 for good: its tables complete only when their stratum does, which is
 why it has no `-s`.)
 
-It is opt-in because it does not always pay. On eight queens, `-s`
-saves 8 tables of 2,844 and runs slower: the calls it serves are not
-ground, so each one scans a general table that is larger than the
-variant table it replaces. XSB also subsumes from *incomplete* tables,
-which takes the answer-trie machinery this module leaves out.
+Before those lookups, `-s` made eight queens 2.7 times slower, though
+it saved only 8 tables of 2,844: each call scanned the queens
+predicates' complete patterns, hundreds of them, to find a general
+one. Grouping them made it break even (51 ms against 50). The index
+matters on a different shape of program, where many calls each want
+a slice of one large general table: on an 80-node chain, asking
+`path(X, Y)` for each X bound, it cuts the run from 2.2 s to 0.22 s.
+It is still opt-in, because a program with nothing to share pays for
+the lookups and gets nothing back. XSB also subsumes from
+*incomplete* tables, which takes the answer-trie machinery this
+module leaves out.
 
 ### Aggregation, tabled
 
@@ -511,7 +523,7 @@ lazily, when a query next needs it, and these engines do it eagerly.
 
 ### What it costs, and why both modules stay
 
-`slg.py` is about 600 lines to `tabling.py`'s 540, and it borrows
+`slg.py` is about 610 lines to `tabling.py`'s 560, and it borrows
 that module's front end: the clause index, the call pattern, the head
 match, the aggregate split and fold, and the table space. The two are
 the modules allowed more than 500 lines: 700 for `slg.py`, 600 for
@@ -601,11 +613,13 @@ called and add no steps.)
    run it: for which N are there no solutions at all? Then swap the
    order of the two literals in the `queensK` rules, so `nextK` comes
    first. What happens to the table count, and why?
-6. `-s` makes eight queens slower. Find the calls it serves (count
-   them by predicate in `_call`), and say what index on the general
-   table would make serving them as cheap as a variant table.
+6. Run `programs/from-start.dl` under `SLGEngine(clauses, True)` and
+   look at `engine.indexes` after the query. Which table has an
+   index, and which calls read it? Then explain why the 59 tables
+   `path(nK, Z)` are still built, although `path(X, Y)` holds every
+   one of their answers.
 
-6. Write the smallest program you can on which `slg.py` reports an
+7. Write the smallest program you can on which `slg.py` reports an
    answer undefined *and* the answer has two conditions (the CLI
    joins them with "or if"). What does each condition say about how
    the answer could have been true?

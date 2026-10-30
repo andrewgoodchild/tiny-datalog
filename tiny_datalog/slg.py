@@ -87,7 +87,8 @@ from tiny_datalog.core import (
 from tiny_datalog.datalog import _print_violations
 from tiny_datalog.tabling import (
     TableSpace, add_steps, call_pattern, constraint_goals,
-    counterexamples, fold_answers, head_seed, index_clauses,
+    counterexamples, fold_answers, free_positions, head_seed,
+    index_clauses,
     run_steps, subsuming)
 
 UNCONDITIONAL = frozenset()   # the empty condition: the answer is true
@@ -122,8 +123,9 @@ class SLGEngine(TableSpace):
         self.order = {}                    # subgoal -> creation number
         self.ids = count()                 # ...handed out from here
         self.complete = set()
-        self.finished = defaultdict(list)  # pred -> complete patterns
-        self.served = {}                   # call -> (tables seen, general)
+        # pred -> free_positions -> complete patterns: what -s reads
+        self.finished = defaultdict(lambda: defaultdict(set))
+        self.indexes = {}                  # (general, positions) -> index
         self.stack = []                    # incomplete subgoals, oldest first
         self.consumers = defaultdict(list) # subgoal -> waiting `p(...)`
         self.waiting = defaultdict(list)   # subgoal -> waiting `not p(...)`
@@ -140,16 +142,13 @@ class SLGEngine(TableSpace):
         its table and schedule its clauses (program clause resolution).
         Returns the subgoal whose table answers the call: key's own, or
         with `subsume`, a complete more general one."""
-        if key not in self.tables and subsume and self.subsumptive:
-            # look again only once more tables of key's predicate finish
-            done = len(self.finished[key[0]])
-            if self.served.get(key, (-1,))[0] != done:
-                self.served[key] = (done, subsuming(self.finished, key))
-            if self.served[key][1] is not None:
-                self.stats["subsumed calls"] += 1
-                # the general table is complete, so the edges below
-                # matter only to apply(); _closed_segment skips them
-                key = self.served[key][1]
+        general = (key not in self.tables and subsume and self.subsumptive
+                   and subsuming(self.finished, key))
+        if general:
+            self.stats["subsumed calls"] += 1
+            # the general table is complete, so the edges below matter
+            # only to apply(); _closed_segment skips them
+            key = general
         if caller is not None:
             self.callers[key].add(caller)
             self.calls[caller].add(key)
@@ -175,24 +174,26 @@ class SLGEngine(TableSpace):
         if facts_only:
             # a table of facts calls nothing, so it is complete the
             # moment it is filled: `not` on it never waits
-            self.complete.add(key)
-            self.finished[pred].append(pattern)
+            self._finish(key)
         return key
 
     def _forget(self, keys):
         """apply()'s half: forget thrown-away tables, here and in the
         indexes of complete ones subsumption reads."""
         super()._forget(keys)
-        self.served = {}
+        self.indexes = {}
         for k in keys:
-            if k[1] in self.finished[k[0]]:
-                self.finished[k[0]].remove(k[1])
+            self.finished[k[0]][free_positions(k[1])].discard(k[1])
 
     def _restore(self, key, answers):
         super()._restore(key, answers)
         self.order[key] = next(self.ids)
-        self.finished[key[0]].append(key[1])
-        self.served = {}
+        self._finish(key)
+
+    def _finish(self, key):
+        """A table is complete: mark it, and file it for subsumption."""
+        self.complete.add(key)
+        self.finished[key[0]][free_positions(key[1])].add(key[1])
 
     def _push(self, frame):
         """Queue a frame on its own subgoal; the scheduler runs the
@@ -240,11 +241,28 @@ class SLGEngine(TableSpace):
         if callee not in self.complete:
             self.consumers[callee].append(waiter)
         answers = self.tables[callee]
-        if callee != wanted and None not in wanted[1]:
-            # a ground call on a general table: one lookup, not a scan
-            answers = [wanted[1]] if wanted[1] in answers else ()
+        if callee != wanted:            # served by a general table
+            answers = self._slice(callee, wanted[1])
         for tup in list(answers):
             self._positive_return(waiter, callee, tup)
+
+    def _slice(self, general, pattern):
+        """The answers of a complete, more general table that match a
+        call's pattern, without scanning the table: a ground call is one
+        lookup, and any other reads an index on the positions it binds
+        that the general table leaves free.  The index is built the
+        first time those positions are asked for, and stays right: the
+        table is complete.  (XSB's answer tries index every pattern.)"""
+        if None not in pattern:
+            return [pattern] if pattern in self.tables[general] else ()
+        at = tuple(i for i, v in enumerate(pattern)
+                   if v is not None and general[1][i] is None)
+        index = self.indexes.get((general, at))
+        if index is None:
+            index = self.indexes[(general, at)] = defaultdict(list)
+            for tup in self.tables[general]:
+                index[tuple(tup[i] for i in at)].append(tup)
+        return index.get(tuple(pattern[i] for i in at), ())
 
     def _fold(self, key, aux, callee):
         """Answer an aggregate call from its complete body table."""
@@ -431,7 +449,7 @@ class SLGEngine(TableSpace):
                for conds in self.tables[k].values()):  # to settle
             self._simplify(scc)
         for k in sorted(scc, key=self.order.get):
-            self.finished[k[0]].append(k[1])
+            self._finish(k)
             self.consumers.pop(k, None)      # these tables cannot grow
             self.calls.pop(k, None)          # ...nor be stuck on a call
             for waiter in self.waiting.pop(k, ()):

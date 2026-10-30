@@ -1310,6 +1310,39 @@ class SLGTests(unittest.TestCase):
         e = SLGEngine(parse("p(a). p(b). q(X) :- p(X), not r(X). r(b)."), True)
         self.assertEqual(e.query(query_atom("q(X)")), ({("a",)}, set()))
 
+    def test_subsuming_picks_the_most_specific_general_table(self):
+        from tiny_datalog.tabling import subsuming
+        F, T = False, True              # free_positions: True is free
+        finished = {"p": {(T, T): {(None, None)}, (F, T): {("a", None)},
+                          (T, F): {(None, "c")}}}
+        self.assertEqual(subsuming(finished, ("p", ("a", "b"))),
+                         ("p", ("a", None)))
+        self.assertEqual(subsuming(finished, ("p", ("b", "c"))),
+                         ("p", (None, "c")))
+        self.assertEqual(subsuming(finished, ("p", ("b", None))),
+                         ("p", (None, None)))
+        # a variant is not a generalisation, and nothing is free of q
+        self.assertIsNone(subsuming(finished, ("p", (None, None))))
+        self.assertIsNone(subsuming(finished, ("q", ("a",))))
+
+    def test_a_partly_bound_served_call_reads_an_index(self):
+        # every path(X, Y) with X bound is served by path(_, _), and
+        # reads only its own slice of it
+        text = (" ".join("edge(n%d, n%d)." % (i, i + 1) for i in range(1, 9))
+                + "path(X, Y) :- edge(X, Y)."
+                  "path(X, Z) :- path(X, Y), edge(Y, Z)."
+                  "pairs(X, Y) :- path(X, Y)."
+                  "from(X, Y) :- pairs(X, Z), path(X, Y).")
+        variant, served = SLGEngine(parse(text)), SLGEngine(parse(text), True)
+        atom = query_atom("from(X, Y)")
+        self.assertEqual(served.query(atom), variant.query(atom))
+        self.assertIn((("path", (None, None)), (0,)), served.indexes)
+        # an update throws the index away; the rebuild makes it anew
+        served.apply("edge(n9, n10).")
+        self.assertIn(("n1", "n10"), served.indexes[
+            (("path", (None, None)), (0,))][("n1",)])
+        self.assertEqual(len(served.query(atom)[0]), 45)
+
     def test_aggregates_fold_once_their_body_table_is_complete(self):
         text = ("e(a, 1). e(a, 2). e(b, 5). t(X, sum(V)) :- e(X, V)."
                 "n(count(X)) :- t(X, _). big(X) :- t(X, S), S > 2.")

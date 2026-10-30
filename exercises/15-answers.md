@@ -98,7 +98,29 @@ the *sideways information passing* of Lesson 7. It never changes the
 answer, but in a goal-directed engine it decides how much work there
 is.
 
-**6. An undefined answer with two conditions.**
+**6. The index on `from-start.dl`, and the tables `-s` cannot save.**
+
+```python
+engine = SLGEngine(parse(open("programs/from-start.dl").read()), True)
+engine.query(parse_goal("from_start(Y)"))
+engine.indexes   # {(("edge", (None, None)), (0,)): {59 keys}}
+```
+
+The one index is on `edge(X, Y)`, by its first argument. The second
+`path` rule calls `edge(X, Y)` with X bound, once for each `path(nK,
+Z)`, and every one of those calls is served by the complete
+`edge(_, _)` table, reading only its own slice. The ground calls
+`path(n1, nK)` that `from_start` makes need no index: each is one
+lookup in `path(_, _)`.
+
+The 59 `path(nK, Z)` tables are called while `path(X, Y)` is still
+being computed. Subsumption reads only *complete* tables, and the
+general table is not complete until those calls are answered, so
+each gets a variant table of its own. Serving them would mean
+consuming from an incomplete table, answers arriving as it grows,
+which is what XSB's answer tries support and the backlog keeps open.
+
+**7. An undefined answer with two conditions.**
 
 `exercises/15-answers.dl` gives position a two moves, to b and to c,
 and each of those can only move back:
