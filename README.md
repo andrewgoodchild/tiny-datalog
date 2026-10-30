@@ -446,11 +446,11 @@ Measured in lines, comments, docstrings and blank lines included:
 | the base engine's evaluator (`datalog.py` up to its CLI section: the module docstring, the import list that re-exports the core, `Program`, `Engine`, aggregation folding, `run_program`) | 423 |
 | `--explain`, why-not, constraint reports, `--assume`, printing and the CLI (the rest of `datalog.py`) | 649 |
 | the other pluggable engines: magic sets (`magic.py`) and tabling (`tabling.py`), plus the `engines.py` registry (naive evaluation is a flag on the base engine; the fifth engine, SLG, is counted with the extensions) | 940 |
-| the nine extensions | 3,475 |
+| the nine extensions | 3,491 |
 
 So the smallest complete Datalog system here — parse, check, stratify,
 evaluate semi-naively — is the core plus the evaluator, about 1,500
-lines. All of it is 6.5k lines of toolkit (every module but the
+lines. All of it is 6.6k lines of toolkit (every module but the
 re-export list in `__init__.py`), roughly a quarter of it commentary,
 and 4.7k of tests.
 

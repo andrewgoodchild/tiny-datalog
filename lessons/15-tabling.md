@@ -342,12 +342,12 @@ section shows, a finished table can answer other calls.
 ### Subsumptive tabling
 
 Every engine so far starts a table for each new *variant* of a call:
-`path(n1, n5)` gets its own table even when `path(X, Y)` is complete
-and holds the answer. *Subsumptive* tabling answers a call from a
-complete table whose pattern is more general, filtering it, and starts
-no new table. `programs/from-start.dl` is built to need it: it fills
-`path(X, Y)` over a 60-node chain, then asks `path(n1, Y)` for each Y,
-every call ground:
+`path(n1, n5)` gets its own table even when `path(X, Y)` holds the
+answer. *Subsumptive* tabling answers a call from a table whose
+pattern is more general, filtering it, and starts no new table.
+`programs/from-start.dl` is built to need it: it fills `path(X, Y)`
+over a 60-node chain, then asks `path(n1, Y)` for each Y, every call
+ground:
 
 ```
 $ python3 slg.py programs/from-start.dl -q 'from_start(Y)'
@@ -355,37 +355,42 @@ $ python3 slg.py programs/from-start.dl -q 'from_start(Y)'
    (59 true, 0 undefined; 7202 subgoal tables, 3601 completions, 0 delays)
 $ python3 slg.py programs/from-start.dl -q 'from_start(Y)' -s
 ...
-   (59 true, 0 undefined; 62 subgoal tables, 61 completions, 0 delays, 1888 subsumed calls)
+   (59 true, 0 undefined; 3 subgoal tables, 2 completions, 0 delays, 1829 subsumed calls)
 ```
 
 Variant tabling makes 7,202 tables, because each ground `path(n1, nK)`
 calls `path(n2, nK)`, and so on down the chain. With `-s` there are
-62, and the query runs about ten times faster (Python's start-up
-aside). Three details made that
-work. A served call never scans the general table. A ground call
-looks its one answer up, and a call that binds only some arguments
-reads an index on those positions, built the first time they are
-asked for (`_slice`). XSB's answer tries do that job for every
-pattern. Finding the general table is a lookup too. The complete
-patterns of each predicate are grouped by which arguments they leave
-free, so a call checks one candidate per group, never every complete
-table. And subsumption can only read a *complete* table, which
-is why it comes after local scheduling: under the global queue,
-nothing completed until the end. (`tabling.py` has the same problem
-for good: its tables complete only when their stratum does, which is
-why it has no `-s`.)
+three, `from_start(Y)`, `path(X, Y)` and `edge(X, Y)`, and the query
+runs about fourteen times faster (Python's start-up aside).
 
-Before those lookups, `-s` made eight queens 2.7 times slower, though
-it saved only 8 tables of 2,844: each call scanned the queens
-predicates' complete patterns, hundreds of them, to find a general
-one. Grouping them made it break even (51 ms against 50). The index
-matters on a different shape of program, where many calls each want
-a slice of one large general table: on an 80-node chain, asking
-`path(X, Y)` for each X bound, it cuts the run from 2.2 s to 0.22 s.
-It is still opt-in, because a program with nothing to share pays for
-the lookups and gets nothing back. XSB also subsumes from
-*incomplete* tables, which takes the answer-trie machinery this
-module leaves out.
+The general table can serve a call while it is still growing. Inside
+`path(X, Y)`'s own rule, `path(X, Z) :- edge(X, Y), path(Y, Z)` calls
+`path(n2, Z)`, `path(n3, Z)` and so on, and each of those calls is
+served by `path(X, Y)` itself. The call becomes one of its consumers,
+the way a recursive call does, and the completion stack sees it as a
+dependency, so they complete together. Two lookups keep this cheap:
+
+* **Finding the general table.** The tables of each predicate are
+  grouped by which arguments their patterns leave free, so a call
+  checks one candidate per group instead of every table.
+* **Reading only its slice.** A served call never scans the general
+  table. It reads an index on the positions it binds (`_slice`),
+  built the first time those positions are asked for. While the
+  table grows, the index grows with it, and each waiting call is
+  filed under its own slice, so a new answer goes only to the calls
+  it matches. XSB's answer tries do this for every pattern.
+
+Without the slices, every waiting call received every new answer of
+`path(X, Y)` and threw most of them away: `-s` built 3 tables and
+still ran slower than the 62 it built when it could read only
+complete ones. The first lookup matters on eight queens. When each
+call scanned the queens predicates' tables, hundreds of them, `-s`
+was 2.7 times slower, though it saved only 8 tables of 2,844. Grouped,
+it breaks even (52 ms against 50). It is still opt-in, because a
+program with nothing to share pays for the lookups and gets nothing
+back. (`tabling.py` has no `-s`: it re-solves every table each round,
+and serving a call from a table that is re-solved anyway saves
+nothing.)
 
 ### Aggregation, tabled
 
@@ -523,7 +528,7 @@ lazily, when a query next needs it, and these engines do it eagerly.
 
 ### What it costs, and why both modules stay
 
-`slg.py` is about 610 lines to `tabling.py`'s 560, and it borrows
+`slg.py` is about 630 lines to `tabling.py`'s 560, and it borrows
 that module's front end: the clause index, the call pattern, the head
 match, the aggregate split and fold, and the table space. The two are
 the modules allowed more than 500 lines: 700 for `slg.py`, 600 for
@@ -614,10 +619,11 @@ called and add no steps.)
    order of the two literals in the `queensK` rules, so `nextK` comes
    first. What happens to the table count, and why?
 6. Run `programs/from-start.dl` under `SLGEngine(clauses, True)` and
-   look at `engine.indexes` after the query. Which table has an
-   index, and which calls read it? Then explain why the 59 tables
-   `path(nK, Z)` are still built, although `path(X, Y)` holds every
-   one of their answers.
+   look at `engine.indexes` and `engine.sliced` while it runs (break
+   in `_answer`, or print from it). Which table has an index, which
+   calls wait on its slices, and when do they stop waiting? Why does
+   a ground call such as `path(n1, n5)` need no index once `path(X,
+   Y)` is complete?
 
 7. Write the smallest program you can on which `slg.py` reports an
    answer undefined *and* the answer has two conditions (the CLI

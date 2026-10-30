@@ -585,8 +585,8 @@ matching a rule body. *(Lesson 1)*
 instance of D, in every world consistent with the definitions. A
 statement about definitions, not data. *(Lesson 12)*
 
-**Subsumptive tabling.** Answering a call from a complete table whose
-call pattern is more general, by filtering it, instead of starting a
+**Subsumptive tabling.** Answering a call from a table whose call
+pattern is more general, complete or still growing, by filtering it, instead of starting a
 table for the call's own pattern (*variant tabling*). `slg.py -s`.
 Not to be confused with **subsumption** between concepts. *(Lesson 15)*
 

@@ -192,25 +192,25 @@ def free_positions(pattern):
     return tuple(v is None for v in pattern)
 
 
-def subsuming(finished, key):
-    """A complete table whose call pattern is more general than key's
-    (free wherever key is free, and agreeing where both are bound),
-    or None.  Its answers, filtered, are key's answers: subsumptive
-    tabling, where each new call pattern otherwise gets its own table
-    (variant tabling).  slg.py uses it; here tables complete too late
-    to help.
+def subsuming(tables, key):
+    """A table whose call pattern is more general than key's (free
+    wherever key is free, and agreeing where both are bound), or None.
+    Its answers, filtered, are key's answers: subsumptive tabling,
+    where each new call pattern otherwise gets its own table (variant
+    tabling).  slg.py uses it, consuming from the general table as it
+    grows; this module re-solves tables in rounds, so has no use for it.
 
-    `finished` maps a predicate to its complete patterns, grouped by
+    `tables` maps a predicate to its tables' patterns, grouped by
     free_positions.  Each group more general than key holds at most
     one candidate, key with those positions freed, so the check is a
     lookup per group, and a program has few groups per predicate.  The
     most specific candidate wins: it is the smallest table to read."""
     pred, pattern = key
     mine = free_positions(pattern)
-    for free in sorted(finished.get(pred, ()), key=sum):
+    for free in sorted(tables.get(pred, ()), key=sum):
         if free != mine and all(f or not m for f, m in zip(free, mine)):
             other = tuple(None if f else v for f, v in zip(free, pattern))
-            if other in finished[pred][free]:
+            if other in tables[pred][free]:
                 return (pred, other)
     return None
 

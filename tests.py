@@ -1297,13 +1297,16 @@ class SLGTests(unittest.TestCase):
                    if any(body for _h, body in e.by_pred[k[0], len(k[1])])]
         self.assertEqual(e.stats["completions"], len(derived))
 
-    def test_subsumptive_tabling_reads_ground_calls_from_a_general_table(self):
+    def test_subsumptive_tabling_serves_calls_from_a_general_table(self):
         clauses = parse(load("from-start.dl"))
         variant, subsumptive = SLGEngine(clauses), SLGEngine(clauses, True)
         atom = query_atom("from_start(Y)")
         self.assertEqual(variant.query(atom), subsumptive.query(atom))
+        # path(X, Y) serves even the calls its own rule makes while
+        # it grows: three tables, path, edge and from_start
         self.assertEqual((len(variant.tables), len(subsumptive.tables)),
-                         (7202, 62))
+                         (7202, 3))
+        self.assertEqual(subsumptive.sliced, {})     # none left waiting
         self.assertEqual(variant.stats["subsumed calls"], 0)
         self.assertGreater(subsumptive.stats["subsumed calls"], 0)
         # a negation is never subsumed: it keeps its own ground table
@@ -1371,7 +1374,7 @@ class SLGTests(unittest.TestCase):
              os.path.join(HERE, "programs", "from-start.dl"),
              "-q", "from_start(Y)", "-s"],
             capture_output=True, text=True, check=True)
-        self.assertIn("62 subgoal tables", r.stdout)
+        self.assertIn("3 subgoal tables", r.stdout)
         self.assertIn("subsumed calls)", r.stdout)
 
     def test_cli_names_undefined_answers_and_their_conditions(self):

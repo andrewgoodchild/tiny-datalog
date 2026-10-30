@@ -35,7 +35,8 @@ against `semantics.py`'s well-founded model on random unstratified
 programs, and it is the fifth engine in `engines.py`
 (`datalog.py --engine slg`). Both tabled engines table aggregation,
 through an auxiliary table per aggregate rule, and `slg.py -s` adds
-subsumptive tabling from complete tables, with served calls indexed.
+subsumptive tabling, served from any more general table, complete or
+growing, through an index kept per pattern asked for.
 Both keep their tables between queries (a table space), keep them
 through a change to the facts by rebuilding only the tables that
 read it, stopping at one that comes out unchanged (`apply`, `-u`:
@@ -52,13 +53,6 @@ where they were (6,527, then 6,529).
 
 Still open:
 
-- **Subsumption from incomplete tables.** `-s` reads only complete
-  tables, so a call made while its general table is still growing
-  gets a variant table of its own: the 59 `path(nK, Z)` tables of
-  `programs/from-start.dl` (lesson 15, exercise 6). XSB lets such a
-  call consume from the incomplete general table, answers arriving as
-  it grows. Served calls are already indexed (`_slice`), and the
-  general table is found by lookup, not by a scan.
 - **Lazy rebuilding.** `apply` rebuilds every reached table at once,
   even one no later query asks for. XSB marks them invalid and rebuilds
   one only when a query reaches it, which would also let a query read

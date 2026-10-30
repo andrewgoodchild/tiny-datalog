@@ -98,27 +98,24 @@ the *sideways information passing* of Lesson 7. It never changes the
 answer, but in a goal-directed engine it decides how much work there
 is.
 
-**6. The index on `from-start.dl`, and the tables `-s` cannot save.**
+**6. The index and the slices on `from-start.dl`.**
 
-```python
-engine = SLGEngine(parse(open("programs/from-start.dl").read()), True)
-engine.query(parse_goal("from_start(Y)"))
-engine.indexes   # {(("edge", (None, None)), (0,)): {59 keys}}
-```
+The one index is on `path(X, Y)`, by its first argument, with 59 keys.
+The second `path` rule calls `path(Y, Z)` with Y bound, once for each
+node, and `-s` serves every one of those calls from `path(X, Y)`
+itself while it is still growing. So 59 calls wait, one on each
+slice: `path(n2, Z)` on the slice whose first argument is `n2`, and so
+on. Each new answer `path(nI, nJ)` goes to the one call waiting on
+`nI`, which extends it by an edge. They stop waiting when `path(X, Y)`
+completes, with all 59 in its group, and `_complete` drops their
+slices (`sliced` is empty after the query).
 
-The one index is on `edge(X, Y)`, by its first argument. The second
-`path` rule calls `edge(X, Y)` with X bound, once for each `path(nK,
-Z)`, and every one of those calls is served by the complete
-`edge(_, _)` table, reading only its own slice. The ground calls
-`path(n1, nK)` that `from_start` makes need no index: each is one
-lookup in `path(_, _)`.
-
-The 59 `path(nK, Z)` tables are called while `path(X, Y)` is still
-being computed. Subsumption reads only *complete* tables, and the
-general table is not complete until those calls are answered, so
-each gets a variant table of its own. Serving them would mean
-consuming from an incomplete table, answers arriving as it grows,
-which is what XSB's answer tries support and the backlog keeps open.
+`from_start(Y) :- path(X, Y), path(n1, Y)` makes its ground calls
+after `path(X, Y)` is complete, because local scheduling runs the
+newest table's work first. A ground call on a complete table is one
+dictionary lookup, `path(n1, nK) in answers`, so it needs neither an
+index nor a slice. Had it come while `path(X, Y)` was still growing,
+it would have waited on a slice of an index on both positions.
 
 **7. An undefined answer with two conditions.**
 
