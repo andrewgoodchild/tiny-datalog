@@ -1060,7 +1060,7 @@ class TablingTests(unittest.TestCase):
             "-u", "edge(n8, n9).", "-q", "path(n5, X)", tool="tabling")
         self.assertEqual(code, 0)
         self.assertIn("% update edge(n8, n9).   (5 tables rebuilt, "
-                      "0 unchanged, 7 untouched)\n?- path(n5, X)", out)
+                      "0 unchanged, 3 untouched)\n?- path(n5, X)", out)
         self.assertIn("   path(n5, n10).", out)
 
     def test_cli_checks_constraints(self):
@@ -1312,6 +1312,20 @@ class SLGTests(unittest.TestCase):
         # a negation is never subsumed: it keeps its own ground table
         e = SLGEngine(parse("p(a). p(b). q(X) :- p(X), not r(X). r(b)."), True)
         self.assertEqual(e.query(query_atom("q(X)")), ({("a",)}, set()))
+
+    def test_a_rebuild_keeps_a_table_under_its_own_pattern(self):
+        # p(a, _) reads p(_, _), so p(_, _) is rebuilt first; rebuilding
+        # p(a, _) must not then be served by it, or the table vanishes
+        # and counts as changed, rebuilding everything that reads it
+        e = SLGEngine(parse("e(a, b). e(b, c). q(a). "
+                            "p(X, Y) :- e(X, Y). p(X, Y) :- q(X), p(W, Y). "
+                            "top(Y) :- p(a, Y)."), True)
+        e.query(query_atom("top(Y)"))
+        e.apply("e(c, d).")
+        self.assertIn(("p", ("a", None)), e.tables)
+        self.assertEqual(e.apply("q(z)."), (3, 1))   # stops at p(a, _)
+        self.assertEqual(e.query(query_atom("top(Y)")),
+                         ({("b",), ("c",), ("d",)}, set()))
 
     def test_subsuming_picks_the_most_specific_general_table(self):
         from tiny_datalog.tabling import subsuming

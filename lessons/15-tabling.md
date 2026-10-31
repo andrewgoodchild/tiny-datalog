@@ -528,7 +528,7 @@ lazily, when a query next needs it, and these engines do it eagerly.
 
 ### What it costs, and why both modules stay
 
-`slg.py` is about 630 lines to `tabling.py`'s 560, and it borrows
+`slg.py` is about 640 lines to `tabling.py`'s 560, and it borrows
 that module's front end: the clause index, the call pattern, the head
 match, the aggregate split and fold, and the table space. The two are
 the modules allowed more than 500 lines: 700 for `slg.py`, 600 for

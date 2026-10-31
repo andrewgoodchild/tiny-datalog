@@ -317,9 +317,7 @@ class TableSpace:
                 continue
             for k in group:
                 if k not in self.tables:
-                    self.query(Atom(k[0], tuple(
-                        Var("X%d" % j) if v is None else Const(v)
-                        for j, v in enumerate(k[1]))))
+                    self._solve(k)
                 rebuilt += 1
                 if self.tables.get(k) != old[k]:
                     changed.add(k)
@@ -442,15 +440,20 @@ class TabledEngine(TableSpace):
         check_query_atom(atom, self.arity)
         root = (atom.pred, call_pattern(atom, {}))
         self.rounds = 0
-        if root not in self.complete:
-            self._table(*root)
+        self._solve(root)
+        return {t for t in self.tables[root]
+                if match(atom.args, t, {}) is not None}
+
+    def _solve(self, key):
+        """Complete the table for subgoal `key` (apply() rebuilds a
+        table this way)."""
+        if key not in self.complete:
+            self._table(*key)
             try:
                 self._fixpoint()
             except DatalogError:
                 self._reset()       # half-filled tables are not complete
                 raise
-        return {t for t in self.tables[root]
-                if match(atom.args, t, {}) is not None}
 
     def counterexamples(self):
         """The violated integrity constraints, with every body solution,
@@ -508,11 +511,12 @@ def run_steps(engine, steps):
         if kind == "q":
             yield parse_goal(text)
             continue
+        before = len(engine.tables)   # a rebuild may add or drop some
         rebuilt, same = engine.apply(text)
         print("%% update %s   (%d table%s rebuilt, %d unchanged, "
               "%d untouched)"
               % (text.strip(), rebuilt, "" if rebuilt == 1 else "s", same,
-                 len(engine.tables) - rebuilt - same))
+                 before - rebuilt - same))
 
 
 @cli

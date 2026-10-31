@@ -188,8 +188,9 @@ class SLGEngine(TableSpace):
         """apply()'s half: forget thrown-away tables, here and in what
         subsumption reads."""
         super()._forget(keys)
-        self.indexes, self.indexed = {}, defaultdict(set)
         for k in keys:
+            for at in self.indexed.pop(k, ()):
+                del self.indexes[k, at]
             self.shapes[k[0]][free_positions(k[1])].discard(k[1])
 
     def _restore(self, key, answers):
@@ -343,18 +344,25 @@ class SLGEngine(TableSpace):
         instance is false.  Tables are complete when a query returns,
         so they stay, as a table space the next query reads from."""
         check_query_atom(atom, self.arity)
-        self.root = root = self._call(
-            None, (atom.pred, call_pattern(atom, {})), subsume=True)
-        try:
-            self._evaluate()
-        except DatalogError:
-            self._reset()           # half-built tables are not complete
-            raise
+        self.root = root = self._solve(
+            (atom.pred, call_pattern(atom, {})), subsume=True)
         true, undefined = set(), set()
         for tup, conds in self.tables[root].items():
             if match(atom.args, tup, {}) is not None:
                 (true if UNCONDITIONAL in conds else undefined).add(tup)
         return true, undefined
+
+    def _solve(self, key, subsume=False):
+        """Complete the table that answers `key`, and return its
+        subgoal; apply() rebuilds a table this way, under its own
+        pattern, never served by a more general one."""
+        key = self._call(None, key, subsume=subsume)
+        try:
+            self._evaluate()
+        except DatalogError:
+            self._reset()           # half-built tables are not complete
+            raise
+        return key
 
     def counterexamples(self, undefined=False):
         """The integrity constraints violated in the well-founded model,
