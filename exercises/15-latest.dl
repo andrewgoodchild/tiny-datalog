@@ -1,0 +1,23 @@
+% Lesson 15, exercise 8: the latest you can be in each city and still
+% reach rome by 20, over earliest.dl's timetable.  max recurses, by
+% answer subsumption.  Loaded and checked by ExerciseTests.
+%
+%   python3 tabling.py exercises/15-latest.dl -q 'leave(X, T)'
+
+leg(london, paris, 9, 11).
+leg(london, brussels, 8, 10).
+leg(brussels, paris, 10, 12).
+leg(paris, lyon, 12, 14).
+leg(paris, lyon, 15, 17).
+leg(lyon, rome, 14, 18).
+leg(lyon, rome, 17, 19).
+leg(paris, rome, 13, 20).
+leg(rome, paris, 21, 23).
+leg(lyon, london, 18, 21).
+
+deadline(rome, 20).
+
+% be in City by T, then: a later T is better, and it can only catch
+% more legs, since Arr <= T stays true as T grows
+leave(City, max(T)) :- deadline(City, T).
+leave(From, max(Dep)) :- leave(To, T), leg(From, To, Dep, Arr), Arr <= T.

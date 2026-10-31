@@ -409,14 +409,106 @@ $ python3 slg.py programs/spending.dl -q 'total(P, T)'
    (2 true, 0 undefined; 3 subgoal tables, 2 completions, 0 delays)
 ```
 
-The two refusals left are principled. A cycle through an aggregate
-has no stratified answer, so both engines refuse it, and `slg.py`,
-which runs unstratified programs, refuses to fold answers that are
-undefined, for the reason `semantics.py` gives: what an aggregate over
-undefined facts should mean is still debated.
+The two refusals left are principled. A cycle through `count` or
+`sum` has no stratified answer, so both engines refuse it, and
+`slg.py`, which runs unstratified programs, refuses to fold answers
+that are undefined, for the reason `semantics.py` gives: what an
+aggregate over undefined facts should mean is still debated. A cycle
+through `min` or `max` is different, and the next section runs it.
 
 Conditions are kept minimal too. An answer true under condition A
 needs no second condition "A and B", so that one is absorbed.
+
+### Recursion through min and max: answer subsumption
+
+Here is a timetable, and the earliest you can reach each city from
+London, leaving at 7 (`programs/earliest.dl`):
+
+```
+arrive(City, min(T)) :- start(City, T).
+arrive(To, min(Arr)) :- arrive(From, T), leg(From, To, Dep, Arr), T <= Dep.
+```
+
+`arrive` reads its own minimum, and Lesson 13 refuses that: `datalog.py`
+rejects the program with the same cycle diagnosis as `cyclic-agg.dl`.
+The tabled engines run it:
+
+```
+$ python3 slg.py programs/earliest.dl -q 'arrive(X, T)'
+?- arrive(X, T)   [SLG]
+   arrive(brussels, 10).
+   arrive(london, 7).
+   arrive(lyon, 14).
+   arrive(paris, 11).
+   arrive(rome, 18).
+   (5 true, 0 undefined; 7 subgoal tables, 1 completion, 0 delays)
+```
+
+The table for `arrive` keeps one answer per city, the earliest so
+far. A later arrival is not added, and an earlier one replaces the
+answer it beats. XSB calls this **answer subsumption**; B-Prolog and
+SWI-Prolog call it mode-directed tabling. It is the lattice idea from
+the end of Lesson 13: `min` is a join on a lattice, so the table moves
+only one way, down, and stops after finitely many steps, just as
+ordinary tables stop growing.
+
+What makes it right is that the rule is **monotone**. Arriving earlier
+can only catch more legs, because `T <= Dep` stays true as `T` gets
+smaller. So reading the best value gives the same minimum as reading
+every value would. That second reading is a stratified program:
+derive every arrival time into a plain relation, then take `min` once,
+a stratum up. The test suite generates random programs of this shape
+and checks both tabled engines against that program run by
+`datalog.py`.
+
+Swap the comparison for `T >= Dep` and the rule is no longer
+monotone: a better arrival could miss a leg a worse one caught, and
+the answer would depend on the order the engine found the values in.
+`lattice.py` checks each recursive rule and refuses it:
+
+```
+$ python3 tabling.py programs/earliest-wrong.dl -q 'arrive(X, T)'
+error: recursion through min needs each rule to be monotone: a smaller value from arrive(From, T) must never cost the head an answer, so it may appear only in the head's min or on the smaller side of a comparison: arrive(To, min(Arr)) :- arrive(From, T), leg(From, To, Dep, Arr), T >= Dep.
+```
+
+The check is per rule and conservative. The value read may appear
+only in the head's `min` or on the side of a comparison that improving
+it keeps true. It may not be joined on or negated, and it may not
+appear among the head's other arguments. A few more conditions keep
+the semantics simple:
+
+- The recursion must be direct: `arrive` may read itself, but not
+  through another predicate.
+- Every rule for the predicate takes the same aggregate at the same
+  place, so the table has one notion of "best".
+- Anything else reads the table only once it is complete, the way
+  `not` does. An answer the table later drops would otherwise stay in
+  the reader's table.
+- `slg.py` runs these only in stratified programs, so an answer
+  carries no condition and "the best" is always well defined.
+
+A query that binds the value, `arrive(rome, 19)`, reads the whole
+group and filters it. It cannot table the bound value on its own,
+because 19 is derivable even though it is not the minimum. Incremental
+tabling needs nothing new: it rebuilds a table from empty, so losing a
+leg makes an arrival later, as it should:
+
+```
+$ python3 slg.py programs/earliest.dl -q 'arrive(rome, T)' -u 'leg(lyon, rome, 14, 18)~.' -q 'arrive(rome, T)'
+?- arrive(rome, T)   [SLG]
+   arrive(rome, 18).
+   (1 true, 0 undefined; 14 subgoal tables, 2 completions, 0 delays)
+% update leg(lyon, rome, 14, 18)~.   (4 tables rebuilt, 0 unchanged, 10 untouched)
+?- arrive(rome, T)   [SLG]
+   arrive(rome, 19).
+   (1 true, 0 undefined; 14 subgoal tables, 4 completions, 0 delays)
+```
+
+Without arithmetic, Lesson 14's shortest path is out of reach: there
+is no `C1 + C2` to minimise. The values here come from the facts, so
+the stratified program would have terminated too. What answer
+subsumption buys is the table: one answer per city instead of every
+arrival time, and recursion written the way the problem is stated.
 
 ### The table space, and constraints as queries
 
@@ -629,6 +721,12 @@ called and add no steps.)
    answer undefined *and* the answer has two conditions (the CLI
    joins them with "or if"). What does each condition say about how
    the answer could have been true?
+8. Turn `programs/earliest.dl` round with `max`: given
+   `deadline(rome, 20).`, compute `leave(City, T)`, the latest time
+   you can be in each city and still reach Rome by 20. Predict the
+   answer for paris before you run it. Then say why your recursive
+   rule passes `lattice.py`'s check, and write the one-character
+   change to it that the check would refuse.
 
 That closes the evaluation arc: five strategies, one semantics, and
 every pair of them checkable against each other by the conformance

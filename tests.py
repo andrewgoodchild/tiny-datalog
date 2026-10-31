@@ -1400,6 +1400,100 @@ class SLGTests(unittest.TestCase):
         self.assertIn("(0 true, 2 undefined;", r.stdout)
 
 
+class AnswerSubsumptionTests(unittest.TestCase):
+    """Recursion through min or max in the tabled engines (lattice.py):
+    each table keeps one best answer per group."""
+
+    def engines(self, text):
+        clauses = parse(text)
+        return [TabledEngine(clauses), SLGEngine(clauses),
+                SLGEngine(clauses, True)]
+
+    def answers(self, engine, goal):
+        found = engine.query(query_atom(goal))
+        if isinstance(engine, SLGEngine):
+            self.assertEqual(found[1], set())
+            found = found[0]
+        return found
+
+    def test_earliest_arrival(self):
+        with open(os.path.join(HERE, "programs", "earliest.dl")) as fh:
+            text = fh.read()
+        with self.assertRaises(StratificationError):   # lesson 13's verdict
+            run_program(text)
+        for e in self.engines(text):
+            with self.subTest(engine=e):
+                self.assertEqual(self.answers(e, "arrive(X, T)"), {
+                    ("london", 7), ("brussels", 10), ("paris", 11),
+                    ("lyon", 14), ("rome", 18)})
+                # a bound value reads the whole group, then filters
+                self.assertEqual(self.answers(e, "arrive(rome, 19)"), set())
+                self.assertEqual(self.answers(e, "arrive(rome, 18)"),
+                                 {("rome", 18)})
+                # losing a leg makes an arrival later: rebuilt from empty
+                e.apply("leg(lyon, rome, 14, 18)~.")
+                self.assertEqual(self.answers(e, "arrive(rome, T)"),
+                                 {("rome", 19)})
+
+    def test_max_keeps_the_largest(self):
+        for e in self.engines("e(a, b). e(b, c). e(c, a). v(a, 1). v(b, 3). "
+                              "m(X, max(N)) :- v(X, N). "
+                              "m(Y, max(N)) :- m(X, N), e(X, Y)."):
+            with self.subTest(engine=e):
+                self.assertEqual(self.answers(e, "m(X, N)"),
+                                 {("a", 3), ("b", 3), ("c", 3)})
+
+    def test_a_reader_waits_for_the_best_answer(self):
+        # t reads m from outside; a value m later improves on must not
+        # stay in t's table
+        text = ("e(a, b). e(b, c). e(c, d). e(a, d). s(a, 9). w(c, 1). "
+                "m(X, min(V)) :- s(X, V). "
+                "m(Y, min(V)) :- m(X, V), e(X, Y). "
+                "m(Y, min(W)) :- m(Y, _), w(Y, W). "
+                "t(X, V) :- m(X, V).")
+        for e in self.engines(text):
+            with self.subTest(engine=e):
+                self.assertEqual(self.answers(e, "t(X, V)"), {
+                    ("a", 9), ("b", 9), ("c", 1), ("d", 1)})
+
+    def test_refusals(self):
+        for text, message in [
+            # a smaller V could fail W <= V: not monotone
+            ("w(a, 1). m(a, 2). m(Y, min(W)) :- m(Y, V), w(Y, W), W <= V.",
+             "monotone"),
+            ("e(a, b). m(a, 1). m(Y, min(V)) :- m(X, V), e(X, Y), "
+             "e(V, Y).", "monotone"),
+            ("e(a, b). m(a, 1). m(V, min(V)) :- m(X, V), e(X, V).",
+             "monotone"),
+            ("e(a, b). m(a, 1). m(Y, min(V)) :- n(Y, V). "
+             "n(Y, V) :- m(X, V), e(X, Y).", "must be direct"),
+            ("e(a, b). m(a, 1). m(Y, min(V)) :- m(X, V), e(X, Y). "
+             "m(Y, V) :- m(Y, V), e(Y, Y).", "every rule"),
+            ("e(a, b). m(a, 1). m(Y, min(V)) :- m(X, V), e(X, Y). "
+             "t(X) :- e(X, _), not m(X, 1).", "best answers"),
+        ]:
+            for make in (TabledEngine, SLGEngine):
+                with self.subTest(program=text, engine=make):
+                    with self.assertRaisesRegex(DatalogError, message):
+                        make(parse(text))
+        # a min that does not itself recurse is an ordinary fold, even
+        # on a predicate that recurses through its other rules
+        text = ("e(a, 1). e(a, 2). f(b, a). p(X, min(V)) :- e(X, V). "
+                "p(Y, V) :- f(Y, X), p(X, V).")
+        for e in self.engines(text):
+            with self.subTest(engine=e):
+                self.assertEqual(self.answers(e, "p(X, V)"),
+                                 {("a", 1), ("b", 1)})
+        # count and sum are no lattice: still refused, as lesson 13 says
+        with self.assertRaises(StratificationError):
+            TabledEngine(parse("q(1). q(count(N)) :- q(N)."))
+        # slg.py keeps lattices to stratified programs: no delays
+        with self.assertRaisesRegex(StratificationError, "min or max"):
+            SLGEngine(parse("e(a, b). m(a, 1). "
+                            "m(Y, min(V)) :- m(X, V), e(X, Y). "
+                            "w(X) :- e(X, Y), not w(Y)."))
+
+
 class ConformanceTests(unittest.TestCase):
     """One semantics, many algorithms: every applicable strategy must
     return identical answers.  (AbcDatalog's shared-suite pattern.)"""
@@ -1689,6 +1783,125 @@ class DifferentialFuzzTests(unittest.TestCase):
                                 atom, reference.rels.get(atom.pred, ()))),
                                 "query %s" % atom)
 
+    def _lattice_program(self, rng):
+        """A program whose m recurses through min or max, monotone by
+        construction, and the stratified program it must agree with:
+        m's rules derive every value into mall, and m folds mall once.
+        Returns (rules, reference rules, derived predicates)."""
+        func = rng.choice(["min", "max"])
+        arity = rng.choice([1, 2, 3])
+        idx = rng.randrange(arity)
+        # V on the side of a comparison a better V keeps true
+        left, right = ((["<", "<="], [">", ">="]) if func == "min"
+                       else ([">", ">="], ["<", "<="]))
+
+        def atom(name, keys, value):
+            return "%s(%s)" % (name, ", ".join(keys[:idx] + [value]
+                                               + keys[idx:]))
+
+        def edb(bound):
+            name, ar = rng.choice(self.EDB)
+            args = [rng.choice(self.VARS) if rng.random() < 0.85
+                    else rng.choice(self.DOMAIN) for _ in range(ar)]
+            bound += [a for a in args if a in self.VARS]
+            return "%s(%s)" % (name, ", ".join(args))
+
+        def keys(bound):
+            return [rng.choice(bound) if bound and rng.random() < 0.8
+                    else rng.choice(self.DOMAIN) for _ in range(arity - 1)]
+
+        rules, reference = [], []
+        for _ in range(rng.randint(1, 2)):
+            bound = []
+            body = [edb(bound) for _ in range(rng.randint(1, 2))]
+            if not bound:
+                continue
+            if rng.random() < 0.3:
+                name, ar = rng.choice(self.EDB)
+                body.append("not %s(%s)" % (name, ", ".join(
+                    rng.choice(bound) for _ in range(ar))))
+            head = keys(bound)
+            value = rng.choice(bound)
+            rules.append("%s :- %s." % (atom("m", head, "%s(%s)" % (
+                func, value)), ", ".join(body)))
+            reference.append("%s :- %s." % (atom("mall", head, value),
+                                            ", ".join(body)))
+        for _ in range(rng.randint(1, 2)):
+            bound = []
+            ks = [rng.choice(self.VARS) for _ in range(arity - 1)]
+            bound += ks
+            body = [edb(bound) for _ in range(rng.randint(0, 1))]
+            others = sorted(set(bound))
+            if rng.random() < 0.5:
+                other = (rng.choice(others) if others and rng.random() < 0.6
+                         else rng.choice(self.DOMAIN))
+                body.append("V %s %s" % (rng.choice(left), other)
+                            if rng.random() < 0.5 else
+                            "%s %s V" % (other, rng.choice(right)))
+            head = keys(others)
+            value = (rng.choice(others) if others and rng.random() < 0.4
+                     else "V")
+            rules.append("%s :- %s." % (
+                atom("m", head, "%s(%s)" % (func, value)),
+                ", ".join([atom("m", ks, "V")] + body)))
+            reference.append("%s :- %s." % (
+                atom("mall", head, value),
+                ", ".join([atom("mall", ks, "V")] + body)))
+        if not reference:
+            return None
+        ks = ["K%d" % j for j in range(arity - 1)]
+        reference.append("%s :- %s." % (atom("m", ks, "%s(V)" % func),
+                                        atom("mall", ks, "V")))
+        # read from outside, the value position bound or not
+        read = [rng.choice(self.VARS + self.DOMAIN) for _ in range(arity)]
+        bound = [a for a in read if a in self.VARS] or None
+        head = rng.choice(bound) if bound else rng.choice(self.DOMAIN)
+        if read[idx] in self.VARS and rng.random() < 0.6:
+            head = read[idx]    # the value: a stale one would show
+        reader = "t1(%s) :- m(%s)." % (head, ", ".join(read))
+        return rules + [reader], reference + [reader], [("m", arity),
+                                                        ("t1", 1)]
+
+    def test_answer_subsumption_matches_folding_every_value(self):
+        # recursion through min or max: a lattice table keeps only its
+        # best answer per group, and must come out as the stratified
+        # program that derives every value and folds once at the end
+        # does, in both tabled engines, before and after an update
+        rng = random.Random(20261101)
+        for i in range(self.iterations(300)):
+            made = self._lattice_program(rng)
+            if made is None:
+                continue
+            rules, reference, idb = made
+            text = "\n".join(self._facts(rng) + rules)
+            clauses = parse(text)
+            atoms = [self._query(rng, idb)] + [
+                Atom(name, tuple(Var("X%d" % j) for j in range(arity)))
+                for name, arity in idb]
+            # the reader first, sometimes, so m is still incomplete
+            rng.shuffle(atoms)
+            engines = [TabledEngine(clauses), SLGEngine(clauses),
+                       SLGEngine(clauses, True)]
+            script = None
+            for _round in range(2):
+                facts = [str(c) for c in clauses if not c.body]
+                expected = run_program("\n".join(facts + reference))
+                for engine in engines:
+                    with self.subTest(iteration=i, program=text,
+                                      update=script, engine=engine):
+                        for atom in atoms:
+                            found = engine.query(atom)
+                            if isinstance(engine, SLGEngine):
+                                self.assertEqual(found[1], set())
+                                found = found[0]
+                            self.assertEqual(found, set(match_answers(
+                                atom, expected.rels.get(atom.pred, ()))),
+                                "query %s" % atom)
+                script, text = self._update(rng, clauses)
+                clauses = parse(text)
+                for engine in engines:
+                    engine.apply(script)
+
     def test_slg_matches_the_well_founded_model_on_random_programs(self):
         # negation anywhere, recursion through it included: most of
         # these programs are unstratified, and some have undefined
@@ -1969,7 +2182,8 @@ class RepositoryClaimTests(unittest.TestCase):
     # the three pluggable engines beyond the base one, their registry,
     # and the extensions; core.py and datalog.py are the two larger
     # files the README sizes separately
-    SATELLITES = ["engines.py", "magic.py", "tabling.py", "slg.py",
+    SATELLITES = ["engines.py", "magic.py", "tabling.py", "lattice.py",
+                  "slg.py",
                   "semantics.py", "semiring.py", "defeasible.py",
                   "incremental.py", "prolog.py",
                   "subsumption.py", "containment.py", "chase.py"]
@@ -2110,6 +2324,17 @@ class ExerciseTests(unittest.TestCase):
         self.assertIn("garnished", supers["house_special"])
         self.assertNotIn("smoothie", supers["house_special"])
         self.assertIn("dish", supers["garnished"])
+
+    def test_lesson15_latest_departure_by_max(self):
+        text = self.ex("15-latest.dl")
+        expected = {("brussels", 10), ("london", 9), ("lyon", 17),
+                    ("paris", 15), ("rome", 20)}
+        self.assertEqual(TabledEngine(parse(text)).query(
+            query_atom("leave(X, T)")), expected)
+        self.assertEqual(SLGEngine(parse(text)).query(
+            query_atom("leave(X, T)")), (expected, set()))
+        with self.assertRaisesRegex(DatalogError, "monotone"):
+            TabledEngine(parse(text.replace("Arr <= T", "Arr >= T")))
 
     def test_lesson15_undefined_with_two_conditions(self):
         text = self.ex("15-answers.dl")

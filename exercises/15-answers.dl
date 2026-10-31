@@ -1,4 +1,4 @@
-% Lesson 15, exercise 6: an undefined answer with two conditions.
+% Lesson 15, exercise 7: an undefined answer with two conditions.
 % From a, either move leads to a position that can only move back, so
 % win(a) waits on win(b) and on win(c), and they each wait on win(a).
 % Loaded and checked by ExerciseTests.

@@ -43,7 +43,10 @@ well-founded semantics.  That is slg.py, the sequel to this module.
 Aggregation is stratified the same way.  split_aggregates gives an
 aggregate rule's body a table of its own, one answer per distinct
 body solution; the aggregate completes that table first, a stratum
-down, then folds it.  slg.py shares the split and the fold.
+down, then folds it.  slg.py shares the split and the fold.  The
+one cycle through an aggregate both engines run is through min or
+max: that predicate's table keeps only its best answer per group
+(answer subsumption, lattice.py).
 
 Both engines keep their tables from query to query, and TableSpace
 keeps them through a change to the facts: apply() rebuilds only the
@@ -73,6 +76,8 @@ from tiny_datalog.core import (
     read_program, sort_key, stratify, validate, aggregate_of, body_order,
     holds, is_comparison)
 from tiny_datalog.datalog import _fold, _print_violations
+from tiny_datalog.lattice import (
+    free_value, improve, lattices, unfold_lattices)
 
 
 # -- shared with slg.py: what a subgoal is, and how a clause meets one ------
@@ -146,13 +151,15 @@ def split_aggregates(clauses):
 
 def index_clauses(clauses):
     """Validate a program for a tabled engine and index it: returns
-    (arity, by_pred, sources), by_pred mapping (pred, arity) to (head,
-    body) pairs, with aggregate rules split as split_aggregates does."""
+    (arity, by_pred, sources, lattice), by_pred mapping (pred, arity)
+    to (head, body) pairs, with aggregate rules split as
+    split_aggregates does, and lattice as lattices() finds it."""
     arity = validate(clauses)
     for c in clauses:
         if c.retract:
             raise DatalogError("retraction is incremental.py's job: %s" % c)
-    clauses, sources = split_aggregates(clauses)
+    lattice = lattices(clauses)
+    clauses, sources = split_aggregates(unfold_lattices(clauses, lattice))
     by_pred = defaultdict(list)
     for c in clauses:
         # positive literals first: they bind; comparisons and negations
@@ -168,7 +175,7 @@ def index_clauses(clauses):
             head = Atom(head.pred, head.args[:idx] + (Var("_#fold"),)
                         + head.args[idx + 1:])
         by_pred[(head.pred, len(head.args))].append((head, body))
-    return arity, by_pred, sources
+    return arity, by_pred, sources, lattice
 
 
 def fold_answers(rule, aux, tuples, pattern):
@@ -327,6 +334,16 @@ class TableSpace:
         for k in keys:
             self.tables.pop(k, None)
             self.complete.discard(k)
+            self.best.pop(k, None)
+
+    def _key(self, atom, subst):
+        """The subgoal a call reads (lattice.free_value says why)."""
+        return (atom.pred, free_value(self.lattice, atom.pred,
+                                      call_pattern(atom, subst)))
+
+    def _improve(self, key, tup):
+        """lattice.improve, on this table space's tables."""
+        return improve(self.lattice, self.best, key, self.tables[key], tup)
 
     def _restore(self, key, answers):
         self.tables[key] = answers
@@ -343,7 +360,10 @@ class TabledEngine(TableSpace):
 
     def __init__(self, clauses):
         clauses, self.goals = constraint_goals(clauses)
-        self.arity, self.by_pred, self.sources = index_clauses(clauses)
+        (self.arity, self.by_pred, self.sources,
+         self.lattice) = index_clauses(clauses)
+        # a lattice is read from outside only once complete, as `not` is
+        clauses = unfold_lattices(clauses, self.lattice, strict=True)
         try:
             stratify(clauses)           # refuses with the program's names
             # ...and the strata of the split program, where an
@@ -362,6 +382,7 @@ class TabledEngine(TableSpace):
         self.tables = {}
         self.callers = defaultdict(set)   # table -> tables that read it
         self.complete = set()   # tables known to hold every answer
+        self.best = {}          # lattice table -> {group: best answer}
         self.open = {}          # ...and the rest, in creation order (a
                                 # dict: a set's order would vary per run)
         self.rounds = 0
@@ -387,7 +408,7 @@ class TabledEngine(TableSpace):
             if holds(lit.atom, subst):
                 yield from self._prove(rest, subst, caller)
             return
-        key = (lit.atom.pred, call_pattern(lit.atom, subst))
+        key = self._key(lit.atom, subst)
         table = self._table(*key)
         self.callers[key].add(caller)
         if lit.atom.pred in self.sources:
@@ -405,6 +426,11 @@ class TabledEngine(TableSpace):
             if key[1] not in table:     # the pattern is the ground atom
                 yield from self._prove(rest, subst, caller)
             return
+        if key[0] in self.lattice and key[0] != caller[0] and \
+                key not in self.complete:
+            # read from outside, a lattice must be complete: an answer
+            # it later dropped would stay in the reader's table
+            self._fixpoint(below=self.strata[key[0]])
         for ans in list(table):         # a negation below may add to it
             s = match(lit.atom.args, ans, subst)
             if s is not None:
@@ -438,7 +464,7 @@ class TabledEngine(TableSpace):
         change, so a later query reads them instead of re-solving them.
         `rounds` counts the last query's rounds alone."""
         check_query_atom(atom, self.arity)
-        root = (atom.pred, call_pattern(atom, {}))
+        root = self._key(atom, {})
         self.rounds = 0
         self._solve(root)
         return {t for t in self.tables[root]
@@ -477,7 +503,11 @@ class TabledEngine(TableSpace):
                     continue
                 table = self.tables[key]
                 for ans in list(self._answers_for(key)):
-                    if ans not in table:
+                    if ans in table:
+                        continue
+                    better, old = self._improve(key, ans)
+                    if better:
+                        table.discard(old)
                         table.add(ans)
                         changed = True
             changed = changed or len(self.tables) != known

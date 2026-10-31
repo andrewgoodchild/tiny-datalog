@@ -87,7 +87,9 @@ example program). What's forbidden is the summary feeding back into what
 it summarises. (Letting *monotone* aggregation recurse safely — min
 inside shortest-path — is precisely the semiring story of Lesson 8 and
 the current research thread behind it; the two lessons are one idea
-seen from two sides.)
+seen from two sides. The tabled engines of
+[Lesson 15](15-tabling.md) run it for `min` and `max`, by answer
+subsumption.)
 
 ## The powerset is one lattice
 

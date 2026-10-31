@@ -1,0 +1,21 @@
+% earliest.dl with the comparison turned round: arriving earlier can
+% now miss a leg, so the rule is not monotone, and the tabled engines
+% refuse it (lesson 15).
+%
+%   python3 tabling.py programs/earliest-wrong.dl -q 'arrive(X, T)'
+
+leg(london, paris, 9, 11).
+leg(london, brussels, 8, 10).
+leg(brussels, paris, 10, 12).
+leg(paris, lyon, 12, 14).
+leg(paris, lyon, 15, 17).
+leg(lyon, rome, 14, 18).
+leg(lyon, rome, 17, 19).
+leg(paris, rome, 13, 20).
+leg(rome, paris, 21, 23).
+leg(lyon, london, 18, 21).
+
+start(london, 7).
+
+arrive(City, min(T)) :- start(City, T).
+arrive(To, min(Arr)) :- arrive(From, T), leg(From, To, Dep, Arr), T >= Dep.

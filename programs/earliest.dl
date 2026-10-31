@@ -1,0 +1,29 @@
+% Earliest arrival over a timetable.  Each leg leaves From at Dep and
+% lands at To at Arr (hours); you can catch a leg only if you are there
+% by the time it leaves.
+%
+%   python3 tabling.py programs/earliest.dl -q 'arrive(X, T)'
+%   python3 slg.py programs/earliest.dl -q 'arrive(rome, T)'
+%
+% arrive recurses through min, which stratification refuses (lesson
+% 13): datalog.py rejects this program.  The tabled engines run it by
+% answer subsumption (lesson 15): each city's table keeps only its
+% earliest arrival so far, and a better one replaces it.  That is sound
+% because the rule is monotone: arriving earlier can only catch more
+% legs (T <= Dep).
+
+leg(london, paris, 9, 11).
+leg(london, brussels, 8, 10).
+leg(brussels, paris, 10, 12).
+leg(paris, lyon, 12, 14).
+leg(paris, lyon, 15, 17).
+leg(lyon, rome, 14, 18).
+leg(lyon, rome, 17, 19).
+leg(paris, rome, 13, 20).
+leg(rome, paris, 21, 23).
+leg(lyon, london, 18, 21).
+
+start(london, 7).
+
+arrive(City, min(T)) :- start(City, T).
+arrive(To, min(Arr)) :- arrive(From, T), leg(From, To, Dep, Arr), T <= Dep.

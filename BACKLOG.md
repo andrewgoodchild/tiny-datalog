@@ -41,8 +41,11 @@ Both keep their tables between queries (a table space), keep them
 through a change to the facts by rebuilding only the tables that
 read it, stopping at one that comes out unchanged (`apply`, `-u`:
 incremental tabling), and check integrity constraints, each as one
-more query. The two tabled modules have higher line limits than the
-other modules' 500: 700 for `slg.py`, 600 for `tabling.py`.
+more query. Both run recursion through `min` and `max` by answer
+subsumption (`lattice.py`): a table keeps the best answer per group,
+for rules a monotonicity check accepts. The two tabled modules have
+higher line limits than the other modules' 500: 700 for `slg.py`, 600
+for `tabling.py`.
 
 Tried and dropped: sending an answer to its consumers again when it
 turns from conditional to true. A `not` waits for its table to
@@ -58,6 +61,15 @@ Still open:
   one only when a query reaches it, which would also let a query read
   a large table space after a small update without paying for the
   rest.
+- **Answer subsumption, further.** `lattice.py` refuses recursion
+  through `min` or `max` that is not direct (two predicates through
+  each other), and its monotonicity check is per rule, so it refuses
+  some monotone programs. A bottleneck path needs two rules, one per
+  case of `min(V, W)`, and the rule for `V < W` fails the check,
+  though the pair together is monotone. Without arithmetic, lattices
+  other than `min` and `max` (intervals, Lesson 13's sign lattice)
+  cannot be written at all. `slg.py` keeps lattices to stratified
+  programs.
 - **A simplification worklist.** `_simplify` rescans every
   conditional answer on each pass, and `_drop_unfounded` rescans until
   nothing grows. Indexing answers by the delayed literals they mention
