@@ -94,7 +94,7 @@ Nothing to install:
 
 ```sh
 git clone https://github.com/andrewgoodchild/tiny-datalog && cd tiny-datalog
-python3 tests.py        # 420 tests, ~20s
+python3 tests.py        # 423 tests, ~20s
 ```
 
 ## Why the language choice decides what you can ask later
@@ -392,8 +392,10 @@ tiny_datalog/   the code you read, in three tiers:
                 evaluation, aggregation, integrity constraints,
                 --explain / why-not, --assume, the CLI
   magic.py      the magic-sets rewriting (a program-to-program pass)
-  tabling.py    tabled top-down evaluation (iterative QSQR); the
-                table space both tabled engines keep through updates
+  tabling.py    tabled top-down evaluation (iterative QSQR), and the
+                front end both tabled engines share
+  tablespace.py the table space both tabled engines keep through
+                updates: incremental tabling, eager or lazy
   lattice.py    answer subsumption: recursion through min and max,
                 for both tabled engines
   engines.py    the registry and the interface the five share (the
@@ -425,7 +427,7 @@ benchmarks/     scaled input generators (chain/tree/clique/grid, an EL
                 ontology, and the N-queens puzzle), and mutate.py,
                 which breaks the code one line at a time to measure
                 how much of it the tests would notice (91% at 0.7.0)
-tests.py        420 tests: every shipped program and exercise answer is
+tests.py        423 tests: every shipped program and exercise answer is
                 executed, a conformance suite runs every query through
                 every engine that handles it, and a seeded fuzzer checks
                 the same property on random programs
@@ -455,21 +457,20 @@ Measured in lines, comments, docstrings and blank lines included:
 | the common core (`core.py`: the language, evaluating nothing; about 270 of these lines arrived with comparisons, constraints, value checks and the warnings) | 1,057 |
 | the base engine's evaluator (`datalog.py` up to its CLI section: the module docstring, the import list that re-exports the core, `Program`, `Engine`, aggregation folding, `run_program`) | 423 |
 | `--explain`, why-not, constraint reports, `--assume`, printing and the CLI (the rest of `datalog.py`) | 649 |
-| the other pluggable engines: magic sets (`magic.py`) and tabling (`tabling.py`, with `lattice.py`, the answer subsumption both tabled engines share), plus the `engines.py` registry (naive evaluation is a flag on the base engine; the fifth engine, SLG, is counted with the extensions) | 1,123 |
-| the nine extensions | 3,520 |
+| the other pluggable engines: magic sets (`magic.py`) and tabling (`tabling.py`, with `tablespace.py` and `lattice.py`, the incremental tabling and answer subsumption both tabled engines share), plus the `engines.py` registry (naive evaluation is a flag on the base engine; the fifth engine, SLG, is counted with the extensions) | 1,213 |
+| the nine extensions | 3,526 |
 
 So the smallest complete Datalog system here — parse, check, stratify,
 evaluate semi-naively — is the core plus the evaluator, about 1,500
-lines. All of it is 6.8k lines of toolkit (every module but the
+lines. All of it is 6.9k lines of toolkit (every module but the
 re-export list in `__init__.py`), roughly a quarter of it commentary,
-and 4.9k of tests.
+and 5.0k of tests.
 
 "Tiny" is a claim about that core and evaluator, and about each module
-built on them singly: none of the thirteen (`magic.py`, `tabling.py`,
-`lattice.py`, `engines.py` and the nine extensions) exceeds 500 lines, except the
-two tabled engines: `slg.py`, allowed 700 because it is tabling plus
-a scheduler, and `tabling.py`, allowed 600 because it holds the front
-end and the table space both share. A test asserts the limits. It is not a
+built on them singly: none of the fourteen (`magic.py`, `tabling.py`,
+`tablespace.py`, `lattice.py`, `engines.py` and the nine extensions)
+exceeds 500 lines, except `slg.py`, allowed 700 because it is tabling
+plus a scheduler. A test asserts the limits. It is not a
 claim about the repository, which is a dozen modules because it
 teaches a dozen things.
 

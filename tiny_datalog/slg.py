@@ -57,9 +57,8 @@ answer subsumption, lattice.py).  `subsumptive=True` (CLI `-s`) answers a positi
 a more general table, complete or still growing, instead of starting
 a new one; the call reads, and waits on, only its own slice of it.
 
-Tables survive a change to the facts (apply(), tabling.TableSpace).
-What this leaves out, compared with XSB: rebuilding a changed table
-lazily, and the machine (an abstract machine, answer tries; the
+Tables survive a change to the facts (apply(), tablespace.TableSpace).
+What this leaves out, compared with XSB: the machine (an abstract machine, answer tries; the
 indexes here are built per pattern asked for).  The algorithmic economies are
 here: completion by stack, local scheduling, and conditions kept
 minimal (an answer true under A needs no second condition A and B).
@@ -87,10 +86,12 @@ from tiny_datalog.core import (
     format_atom, format_fact, match, parse, read_program, sort_key, holds,
     is_comparison, stratify)
 from tiny_datalog.datalog import _print_violations
+from tiny_datalog.lattice import unfold_lattices
 from tiny_datalog.tabling import (
-    TableSpace, add_steps, constraint_goals, counterexamples, fold_answers,
-    free_positions, head_seed, index_clauses, run_steps, subsuming,
-    unfold_lattices)
+    constraint_goals, counterexamples, fold_answers, free_positions,
+    index_clauses, subsuming)
+from tiny_datalog.tablespace import (
+    TableSpace, add_steps, head_seed, run_steps)
 
 UNCONDITIONAL = frozenset()   # the empty condition: the answer is true
 
@@ -131,7 +132,8 @@ class SLGEngine(TableSpace):
 
     def _reset(self):
         self.tables = {}
-        self.callers = defaultdict(set)    # subgoal -> subgoals it serves
+        self._reset_space()                # callers: subgoal -> the
+                                           # subgoals it serves
         self.order = {}                    # subgoal -> creation number
         self.ids = count()                 # ...handed out from here
         self.complete = set()
@@ -172,6 +174,8 @@ class SLGEngine(TableSpace):
             self.calls[caller].add(key)
         if key in self.tables:
             return key
+        if key in self.old:
+            self._settled(key)
         self.tables[key] = {}
         self.order[key] = next(self.ids)
         pred, pattern = key
@@ -366,7 +370,9 @@ class SLGEngine(TableSpace):
         instance is false.  Tables are complete when a query returns,
         so they stay, as a table space the next query reads from."""
         check_query_atom(atom, self.arity)
-        self.root = root = self._solve(self._key(atom, {}), subsume=True)
+        key = self._key(atom, {})
+        self._revalidate({key})
+        self.root = root = self._solve(key, subsume=True)
         true, undefined = set(), set()
         for tup, conds in self.tables[root].items():
             if match(atom.args, tup, {}) is not None:
@@ -615,7 +621,7 @@ def main(argv=None):
     args = ap.parse_args(argv)
 
     engine = SLGEngine(parse(read_program(args.file)), args.subsumptive)
-    for atom in run_steps(engine, args.steps):
+    for atom in run_steps(engine, args.steps, args.lazy):
         true, undefined = engine.query(atom)
         root = engine.tables[engine.root]
         print("?- %s   [SLG]" % atom)

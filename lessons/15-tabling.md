@@ -614,17 +614,58 @@ answer. Two details keep it honest:
 
 The fuzzer checks the result: random programs, random updates, and a
 fresh evaluation of the changed program to compare against, for both
-engines, and under the well-founded semantics for `slg.py`. This is
-the idea of XSB's incremental tabling, though XSB rebuilds a table
-lazily, when a query next needs it, and these engines do it eagerly.
+engines, and under the well-founded semantics for `slg.py`.
+
+That is eager rebuilding: `apply` rebuilds every table it reaches,
+whether or not a later query will read it. XSB rebuilds lazily. An
+update only marks the tables it reaches as stale, and a query rebuilds
+the stale tables it reads, when it reads them. `--lazy`, or
+`apply(script, lazy=True)`, does the same:
+
+```
+$ python3 slg.py programs/reachability.dl --lazy -q 'path(n1, X)' -u 'edge(n8, n9).' -q 'path(n8, X)' -q 'path(n1, X)'
+...
+% update edge(n8, n9).   (9 tables stale, 11 live)
+?- path(n8, X)   [SLG]
+   path(n8, n10).
+   path(n8, n9).
+   (2 true, 0 undefined; 13 subgoal tables, 11 completions, 0 delays)
+% rebuilt on demand: 2 tables, 0 unchanged; 7 still stale
+...
+% rebuilt on demand: 5 tables, 2 unchanged; 0 still stale
+```
+
+`path(n8, X)` reads two of the nine stale tables, itself and
+`edge(n8, Y)`, so only those two are rebuilt. The other seven wait.
+When `path(n1, X)` reads them, the total comes to what eager `apply`
+did all at once: 7 rebuilt, 2 put back unchanged. Had no query asked
+for `path(n1, X)` again, that work would never have been done.
+
+A stale table is out of `tables`, so nothing reads it by mistake. It
+keeps its old answers, so the early stop still works when a query
+reaches it, and it records the stale tables it read. Two cases need
+care:
+
+* A stale table can be called afresh before anything revalidates it,
+  for instance by a new query whose call it happens to match. It is
+  rebuilt from empty, which is right for it. But the stale tables that
+  read it can no longer compare it with what it was, so each of those
+  will be rebuilt, not put back.
+* A fact can change for a table that is already stale. That table must
+  be rebuilt even if everything it reads comes back unchanged.
+
+Eager `apply` is the lazy one followed by revalidating every stale
+table at once, so the two modes share one code path. They live in
+`tablespace.py`, which both engines build on.
 
 ### What it costs, and why both modules stay
 
-`slg.py` is about 640 lines to `tabling.py`'s 560, and it borrows
-that module's front end: the clause index, the call pattern, the head
-match, the aggregate split and fold, and the table space. The two are
-the modules allowed more than 500 lines: 700 for `slg.py`, 600 for
-`tabling.py`. The extra lines are the bookkeeping iterative QSQR
+`slg.py` is about 670 lines to `tabling.py`'s 440, and it borrows
+that module's front end: the clause index, the aggregate split and
+fold, and subsumption's lookup. Both build on `tablespace.py` (the
+call pattern, the head match and incremental tabling) and
+`lattice.py` (answer subsumption). `slg.py` is the one module allowed
+more than 500 lines, 700. The extra lines are the bookkeeping iterative QSQR
 avoids: parked consumers, the completion stack, conditions on
 answers, and the simplification loop.
 In exchange it never repeats work, and it accepts every function-free
