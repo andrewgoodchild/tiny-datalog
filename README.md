@@ -276,8 +276,10 @@ regression test without writing Python.
 
 ## What this is not, and what is missing on purpose
 
-Not an engine to build a product on. Joins are nested-loop,
-stable-model search is exhaustive, evaluation is batch. For real
+Not an engine to build a product on. The bottom-up engines join by
+nested loop with no join planning, stable-model search is exhaustive,
+and evaluation starts from scratch, apart from `incremental.py` and
+the tabled engines' incremental tabling. For real
 workloads see Soufflé, clingo, RDFox or Feldera; for Datalog inside a
 Python application, with arithmetic and queries over SQL databases,
 see [pyDatalog](https://pypi.org/project/pyDatalog/).
@@ -289,9 +291,12 @@ quietly:
   a relation infinite, and the termination theorem goes with it.
   [Lesson 14](https://github.com/andrewgoodchild/tiny-datalog/blob/main/lessons/14-arithmetic.md) is the whole
   story, including what to do instead.
-- **Indexes and join planning.** Every join is a nested loop so the
-  algorithms stay one-screen readable. It is also why the magic-sets
-  timing above goes the way it does.
+- **Indexes and join planning.** The bottom-up engines join every
+  body by nested loop, left to right, so the algorithms stay
+  one-screen readable. It is also why the magic-sets timing above goes
+  the way it does. The only indexes are the ones `slg.py -s` builds
+  for the call patterns it serves, and the one `--explain` uses to
+  find an earlier derivation.
 - **⊤ and role hierarchies** in the classifier — what ships is EL⊥
   (disjointness and unsatisfiability detection included). SNOMED needs
   ELH (EL plus role hierarchies) with right identities, which is what
@@ -300,7 +305,10 @@ quietly:
 
 Aggregation used to be on this list;
 [lesson 13](https://github.com/andrewgoodchild/tiny-datalog/blob/main/lessons/13-aggregation.md) is what promoting an omission
-into a feature looks like. Comparisons (`<`, `<=`, `>`, `>=`, `=`,
+into a feature looks like, and
+[lesson 15](https://github.com/andrewgoodchild/tiny-datalog/blob/main/lessons/15-tabling.md) goes a step further: the tabled
+engines let `min` and `max` recurse, by answer subsumption, where
+stratification refuses them. Comparisons (`<`, `<=`, `>`, `>=`, `=`,
 `!=`) used to share arithmetic's entry. They check values and never
 make them, so they can only filter, and lesson 14's own argument lets
 them in; [lesson 23](https://github.com/andrewgoodchild/tiny-datalog/blob/main/lessons/23-time.md) puts them to work.
