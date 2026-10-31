@@ -35,30 +35,29 @@ against `semantics.py`'s well-founded model on random unstratified
 programs, and it is the fifth engine in `engines.py`
 (`datalog.py --engine slg`). Both tabled engines table aggregation,
 through an auxiliary table per aggregate rule, and `slg.py -s` adds
-subsumptive tabling from complete tables. `slg.py` has a 600-line
-limit (every other module has 500) and is at about 550. Still open:
+subsumptive tabling, served from any more general table, complete or
+growing, through an index kept per pattern asked for.
+Both keep their tables between queries (a table space), keep them
+through a change to the facts by rebuilding only the tables that
+read it, stopping at one that comes out unchanged (`apply`, `-u`:
+incremental tabling), and check integrity constraints, each as one
+more query. The two tabled modules have higher line limits than the
+other modules' 500: 700 for `slg.py`, 600 for `tabling.py`.
 
-- **A table space shared across queries.** Tables reset on every query
-  (exercise 3).
-- **Integrity constraints.** Refused by both: only the base engine
-  checks them.
-- **Subsumption from incomplete tables, and answer indexing.**
-  `-s` reads only complete tables, and only a ground call gets a
-  direct lookup; any other served call scans the general table, which
-  is why `-s` makes eight queens slower. XSB's answer tries index
-  every pattern and let a call consume from an incomplete general
-  table (lesson 15, exercise 6).
-- **Incremental tabling.** Tables are thrown away when facts change.
-  Keeping them, and invalidating only the tables that depend on the
-  changed facts, is what `incremental.py` does for bottom-up
-  evaluation ([lesson 10](lessons/10-incremental.md)), and what XSB
-  calls incremental tabling.
-- **Re-pushing an answer that becomes true.** An answer returned to
-  its consumers while still conditional is not sent again when it
-  later turns true, so they keep a delayed reference to it until
-  simplification. The answers are correct, but some `not` calls are
-  delayed that could have been decided. Fixing it changes the work
-  counters lesson 15 quotes.
+Tried and dropped: sending an answer to its consumers again when it
+turns from conditional to true. A `not` waits for its table to
+complete, and simplification has settled every condition by then, so
+nothing is decided sooner. Over 20,000 random unstratified programs
+it happened 113 times, cut simplifications by 1.4%, and left delays
+where they were (6,527, then 6,529).
+
+Still open:
+
+- **Lazy rebuilding.** `apply` rebuilds every reached table at once,
+  even one no later query asks for. XSB marks them invalid and rebuilds
+  one only when a query reaches it, which would also let a query read
+  a large table space after a small update without paying for the
+  rest.
 - **A simplification worklist.** `_simplify` rescans every
   conditional answer on each pass, and `_drop_unfounded` rescans until
   nothing grows. Indexing answers by the delayed literals they mention

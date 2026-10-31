@@ -26,11 +26,20 @@ The interface, which every entry of ENGINES follows:
                                       # if the program cannot be run
     engine.answers(atom)              # -> set of ground tuples matching
                                       #    a query Atom
+    engine.counterexamples()          # -> the violated integrity
+                                      #    constraints, as
+                                      #    Engine._counterexamples gives
+                                      #    them (datalog.violations
+                                      #    tidies them for reporting)
     ENGINES[name].handles(clauses)    # -> False if this strategy cannot
                                       #    run the program at all
 
-Integrity constraints change no answer, so Magic and Tabling set them
-aside; checking them takes the full materialisation (Engine.violations).
+Integrity constraints change no answer, but every engine checks them.
+Bottom-up, a constraint's body is one more join over the finished
+database (Engine.violations).  The goal-directed engines ask it as one
+more query: tabling.constraint_goals turns `:- body.` into a rule whose
+head holds every variable the body binds, so each answer is a
+counterexample, and nothing else calls it.
 
 Every engine requires a *stratified* program — that is what makes their
 answers comparable — and refuses another one with StratificationError.
@@ -64,7 +73,8 @@ from tiny_datalog.core import split_constraints, stratify, validate
 from tiny_datalog.datalog import Engine, Program
 from tiny_datalog.magic import magic_query
 from tiny_datalog.slg import SLGEngine
-from tiny_datalog.tabling import TabledEngine
+from tiny_datalog.tabling import (
+    TabledEngine, constraint_goals, counterexamples)
 
 
 class SemiNaive:
@@ -84,12 +94,24 @@ class SemiNaive:
     def answers(self, atom):
         return self.engine.answers(atom)
 
+    def counterexamples(self):
+        return self.engine._counterexamples()
+
 
 class Naive(SemiNaive):
     """Bottom-up naive evaluation: the same fixpoint, reached by re-running
     every rule against the whole database each round (Lesson 2)."""
 
     naive = True
+
+
+def magic_counterexamples(clauses):
+    """Check a program's integrity constraints by magic sets: one
+    rewriting per constraint, each for its own body's demand.  Shared
+    with datalog.py's CLI, which never builds a Magic."""
+    checked, goals = constraint_goals(clauses)
+    return counterexamples(goals,
+                           lambda goal: magic_query(checked, goal)[1])
 
 
 class Magic:
@@ -105,15 +127,22 @@ class Magic:
         # check up front what the other engines check on construction:
         # the rewriting itself would quietly run an unstratified program
         # whose unstratified part a particular query never reaches
-        clauses = split_constraints(clauses)[0]
-        validate(clauses)
-        stratify(clauses)
-        self.clauses = list(clauses)
+        checked = constraint_goals(clauses)[0]
+        validate(checked)
+        stratify(checked)
+        # a query of an aggregate is answered in full, so the constraint
+        # rules stay out of the program the queries see: a constraint
+        # that fails to evaluate (3 > d) must not fail a query
+        self.clauses = split_constraints(clauses)[0]
+        self.with_constraints = clauses
 
     def answers(self, atom):
         # magic_transform checks the query atom against the program
         _engine, answers = magic_query(self.clauses, atom)
         return answers
+
+    def counterexamples(self):
+        return magic_counterexamples(self.with_constraints)
 
 
 class Tabling:
@@ -125,10 +154,13 @@ class Tabling:
         return True
 
     def __init__(self, clauses):
-        self.engine = TabledEngine(split_constraints(clauses)[0])
+        self.engine = TabledEngine(clauses)
 
     def answers(self, atom):
         return self.engine.query(atom)
+
+    def counterexamples(self):
+        return self.engine.counterexamples()
 
 
 class SLG(Tabling):
@@ -139,7 +171,6 @@ class SLG(Tabling):
     def __init__(self, clauses):
         # SLGEngine would run an unstratified program; the registry
         # promises to refuse one, as every other engine does
-        clauses = split_constraints(clauses)[0]
         stratify(clauses)
         self.engine = SLGEngine(clauses)
 

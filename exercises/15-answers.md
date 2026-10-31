@@ -31,14 +31,37 @@ each answer reaches each consumer once. The counter with no
 counterpart is the one that is missing: nothing is re-solved, so the
 work a round repeats in `tabling.py` simply does not happen.
 
-**3. Why do tables reset per query?**
+**3. Predict what `-u 'edge(n3, n9)~.'` rebuilds.**
 
-`query()` rebuilds `self.tables` because answers are *per call
-pattern*, and a fresh query's patterns may overlap the old ones —
-keeping them would be correct (tables are monotone truths) but requires
-knowing when a table is *complete* versus still growing. Production
-systems keep a shared "table space" with completion tracking for
-exactly this reuse, and it is their central engineering artifact.
+```
+$ python3 slg.py programs/reachability.dl -q 'path(n1, X)' -u 'edge(n3, n9)~.' -q 'path(n1, X)'
+...
+% update edge(n3, n9)~.   (4 tables rebuilt, 0 unchanged, 16 untouched)
+```
+
+The retracted edge matches one table, `edge(n3, Y)`. Walking the calls
+back up gives `path(n3, X)`, `path(n2, X)` and `path(n1, X)`, so four
+tables are reached. Nothing stops the walk early, because each of the
+three loses `n9` and `n10`, and so each changes what its caller reads.
+The other 16 tables, among them `path(n9, X)`, which nothing calls
+now, are untouched. Compare lesson 15's `edge(n8, n9).`, where
+`path(n3, X)` came out the same and the two tables above it were kept.
+
+For the second part, add `r(c)` and `q(c)` in one update:
+
+```
+r(a). r(b). q(b).
+p(X) :- r(X), not q(X).
+t(X) :- p(X).
+```
+
+Query `t(X)` (answer: `a`), then apply `r(c). q(c).`. The new `r(c)`
+reaches `r(X)`, so `p(X)` is rebuilt. But `q(c)` cancels it out, and
+`p(X)` comes out as `{a}` again. `t(X)` reads only `p(X)`, so it is put
+back without a rebuild: `apply` returns `(2, 1)`. The `q(c)` table did
+not exist before the update; the rebuilt `p(X)` calls it for the first
+time and builds it fresh. That is why every reached table is set aside
+before any is rebuilt.
 
 **4. Can tabling create fewer tables than magic creates magic facts?**
 
@@ -75,7 +98,26 @@ the *sideways information passing* of Lesson 7. It never changes the
 answer, but in a goal-directed engine it decides how much work there
 is.
 
-**6. An undefined answer with two conditions.**
+**6. The index and the slices on `from-start.dl`.**
+
+The one index is on `path(X, Y)`, by its first argument, with 59 keys.
+The second `path` rule calls `path(Y, Z)` with Y bound, once for each
+node, and `-s` serves every one of those calls from `path(X, Y)`
+itself while it is still growing. So 59 calls wait, one on each
+slice: `path(n2, Z)` on the slice whose first argument is `n2`, and so
+on. Each new answer `path(nI, nJ)` goes to the one call waiting on
+`nI`, which extends it by an edge. They stop waiting when `path(X, Y)`
+completes, with all 59 in its group, and `_complete` drops their
+slices (`sliced` is empty after the query).
+
+`from_start(Y) :- path(X, Y), path(n1, Y)` makes its ground calls
+after `path(X, Y)` is complete, because local scheduling runs the
+newest table's work first. A ground call on a complete table is one
+dictionary lookup, `path(n1, nK) in answers`, so it needs neither an
+index nor a slice. Had it come while `path(X, Y)` was still growing,
+it would have waited on a slice of an index on both positions.
+
+**7. An undefined answer with two conditions.**
 
 `exercises/15-answers.dl` gives position a two moves, to b and to c,
 and each of those can only move back:

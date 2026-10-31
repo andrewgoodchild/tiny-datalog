@@ -351,6 +351,11 @@ diverges. *(Lesson 8)*
 facts to everything derivable from it in one step. Evaluation is
 iterating it to a fixpoint. *(Lesson 2)*
 
+**Incremental tabling.** Keeping a **table space** through a change
+to the facts: rebuild only the tables that read a changed fact,
+directly or not, found by walking the recorded calls back up, callee
+first, and stop at a table that comes out unchanged. *(Lesson 15)*
+
 **Incremental view maintenance.** Updating derived relations after the
 input changes, rather than recomputing. Insertions resume semi-naive;
 deletions need **DRed**. *(Lesson 10)*
@@ -580,8 +585,8 @@ matching a rule body. *(Lesson 1)*
 instance of D, in every world consistent with the definitions. A
 statement about definitions, not data. *(Lesson 12)*
 
-**Subsumptive tabling.** Answering a call from a complete table whose
-call pattern is more general, by filtering it, instead of starting a
+**Subsumptive tabling.** Answering a call from a table whose call
+pattern is more general, complete or still growing, by filtering it, instead of starting a
 table for the call's own pattern (*variant tabling*). `slg.py -s`.
 Not to be confused with **subsumption** between concepts. *(Lesson 15)*
 
@@ -598,6 +603,11 @@ stays on record. Non-monotone, since a new fact retracts a conclusion.
 in a **table**, so recursive calls read the table instead of
 descending. Gives Prolog-style goal direction with Datalog-style
 termination. *(Lesson 15)*
+
+**Table space.** The collection of a tabled engine's tables, kept from
+one query to the next: a complete table answers a later call without
+being solved again. A change to the facts calls for **incremental
+tabling**. *(Lesson 15)*
 
 **Taint analysis.** Tracking whether data from a **source** can reach
 a **sink**: reachability over value-flow edges. A finding's derivation

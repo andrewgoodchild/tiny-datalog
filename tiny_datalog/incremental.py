@@ -425,7 +425,8 @@ def main(argv=None):
         for pred in sorted(inc.program.idb):
             for tup in sorted(inc.rels.get(pred, ()), key=sort_key):
                 print(format_fact(pred, tup))
-    return 3 if _print_violations(inc.engine) else 0
+    return 3 if _print_violations(inc.program.constraints,
+                                  inc.engine._counterexamples()) else 0
 
 
 if __name__ == "__main__":

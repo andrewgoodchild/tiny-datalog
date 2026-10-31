@@ -327,10 +327,7 @@ class Engine:
         first; incremental.py shares this method, so a repaired
         materialisation is checked the same way.  As in query(), `_`
         is not reported: `:- p(_).` has one counterexample, {}."""
-        return [(c, _sorted_substs({tuple(sorted(
-                    (k, v) for k, v in s.items() if not k.startswith("_#")))
-                    for s in found}))
-                for c, found in self._counterexamples()]
+        return violations(self._counterexamples())
 
     def _counterexamples(self):
         """[(constraint, every body solution)], `_` included: the CLI
@@ -515,20 +512,29 @@ def _sorted_substs(items):
         [v for _k, v in t]))]
 
 
-def _print_violations(engine):
+def violations(found):
+    """Engine.violations from Engine._counterexamples' form: `_`
+    dropped, duplicates merged, sorted.  Every engine in engines.py
+    reports violations through this."""
+    return [(c, _sorted_substs({tuple(sorted(
+                (k, v) for k, v in s.items() if not k.startswith("_#")))
+                for s in subs}))
+            for c, subs in found]
+
+
+def _print_violations(constraints, failed):
     """Report every integrity constraint's verdict; True if any failed.
-    A counterexample prints as the body it satisfied, ground: the facts
+    `failed` is in Engine._counterexamples' form, from any engine.  A
+    counterexample prints as the body it satisfied, ground: the facts
     to --explain, and the comparisons that held between them."""
-    constraints = engine.program.constraints
     if not constraints:
         return False
-    failed = engine._counterexamples()
     for c, found in failed:
         print("constraint violated: %s" % c)
         for s in _sorted_substs(tuple(sorted(s.items())) for s in found):
             print("   " + ", ".join(
                 ("not " if lit.negated else "")
-                + _ground(lit.atom, engine.instantiate(lit.atom, s))
+                + _ground(lit.atom, Engine.instantiate(lit.atom, s))
                 for lit in c.body))
         print("   (%d counterexample%s)" % (len(found),
                                            "" if len(found) == 1 else "s"))
@@ -865,13 +871,11 @@ def _run_magic_query(q, clauses, trace):
                    suffix="   [magic]")
 
 
-def _run_tabled_queries(queries, clauses, trace, name="tabling"):
+def _run_tabled_queries(queries, tabled, trace, name="tabling"):
     """-q under --engine tabling or slg, through the engines.py
     interface.  The answers print exactly as every other engine's do;
     --trace adds the size of the work, and tabling.py --tables (or
     slg.py --tables) lists the tables."""
-    from tiny_datalog.engines import ENGINES
-    tabled = ENGINES[name](clauses)
     for q in queries:
         atom = parse_query_atom(q, tabled.engine.arity)
         _print_answers(atom, tabled.answers(atom),
@@ -975,11 +979,11 @@ def main(argv=None):
 
     rules, constraints = split_constraints(clauses)
     goal_directed = engine_name in ("magic", "tabling", "slg")
-    if constraints and (args.models or goal_directed):
-        # constraints change no answer, so these modes may set them
-        # aside -- but say so, rather than imply they were checked
-        print("note: %d integrity constraint%s not checked: that needs "
-              "the full materialisation of seminaive or naive evaluation"
+    if constraints and args.models:
+        # constraints change no answer, so --models may set them aside
+        # -- but say so, rather than imply they were checked
+        print("note: %d integrity constraint%s not checked: --models "
+              "lists the models of the rules alone"
               % (len(constraints), "" if len(constraints) == 1 else "s"),
               file=sys.stderr)
         clauses = rules
@@ -999,13 +1003,21 @@ def main(argv=None):
                   "materialisation, which %s does not build" % flag,
                   file=sys.stderr)
             return 1
+        from tiny_datalog.engines import ENGINES, magic_counterexamples
         try:
+            # the goal-directed engines check each constraint as one
+            # more query, its body: every answer is a counterexample
             if engine_name == "magic":
+                # query by query, as magic sets does: a rule no query
+                # (or constraint) reaches may even be unstratified
                 for q in args.query:
-                    _run_magic_query(q, clauses, args.trace)
+                    _run_magic_query(q, rules, args.trace)
+                failed = magic_counterexamples(clauses)
             else:
-                _run_tabled_queries(args.query, clauses, args.trace,
+                tabled = ENGINES[engine_name](clauses)
+                _run_tabled_queries(args.query, tabled, args.trace,
                                     engine_name)
+                failed = tabled.counterexamples()
         except StratificationError as exc:
             print("REJECTED: %s" % exc, file=sys.stderr)
             if engine_name == "slg":
@@ -1014,7 +1026,7 @@ def main(argv=None):
                       "undefined answers, the well-founded model.)",
                       file=sys.stderr)
             return 2
-        return 0
+        return 3 if _print_violations(constraints, failed) else 0
 
     try:
         program = Program(clauses)
@@ -1039,7 +1051,8 @@ def main(argv=None):
             _run_query(q, engine)
         for q in args.explain:
             _run_explain(q, engine)
-        return 3 if _print_violations(engine) else 0
+        return 3 if _print_violations(program.constraints,
+                                      engine._counterexamples()) else 0
 
     preds = sorted(set(program.arity) if args.all else program.idb)
     for pred in preds:
@@ -1051,7 +1064,8 @@ def main(argv=None):
         for tup in sorted(tuples, key=sort_key):
             print(format_fact(pred, tup))
         print()
-    return 3 if _print_violations(engine) else 0
+    return 3 if _print_violations(program.constraints,
+                                  engine._counterexamples()) else 0
 
 
 if __name__ == "__main__":

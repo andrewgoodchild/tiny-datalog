@@ -53,11 +53,13 @@ Aggregation is tabled too: tabling.py splits each aggregate rule so
 its body has a table of its own, folded once that table is complete
 (a cycle through an aggregate is refused, as is folding undefined
 answers).  `subsumptive=True` (CLI `-s`) answers a positive call from
-a complete, more general table instead of starting a new one.
+a more general table, complete or still growing, instead of starting
+a new one; the call reads, and waits on, only its own slice of it.
 
-What this leaves out, compared with XSB: integrity constraints,
-subsumption from incomplete tables, and the machine-level engineering
-(an abstract machine, answer tries).  The algorithmic economies are
+Tables survive a change to the facts (apply(), tabling.TableSpace).
+What this leaves out, compared with XSB: rebuilding a changed table
+lazily, and the machine (an abstract machine, answer tries; the
+indexes here are built per pattern asked for).  The algorithmic economies are
 here: completion by stack, local scheduling, and conditions kept
 minimal (an answer true under A needs no second condition A and B).
 
@@ -66,6 +68,9 @@ CLI
     python3 slg.py programs/win.dl -q 'win(X)'
     python3 slg.py programs/left-recursive.dl -q 'ancestor(abe, X)' -t
     python3 slg.py programs/from-start.dl -q 'from_start(Y)' -s
+
+Integrity constraints are checked after the queries; one whose body
+is true exits 3, and one whose body is only undefined is named.
 """
 
 from __future__ import annotations
@@ -74,19 +79,23 @@ import argparse
 import heapq
 import sys
 from collections import Counter, defaultdict, deque
-from itertools import chain
+from itertools import chain, count
 
 from tiny_datalog.core import (
     _tarjan, check_query_atom, cli, Const, DatalogError, format_atom,
-    format_fact, match, parse, parse_goal, read_program, sort_key, holds,
+    format_fact, match, parse, read_program, sort_key, holds,
     is_comparison)
+from tiny_datalog.datalog import _print_violations
 from tiny_datalog.tabling import (
-    call_pattern, fold_answers, head_seed, index_clauses, subsuming)
+    TableSpace, add_steps, call_pattern, constraint_goals,
+    counterexamples, fold_answers, free_positions, head_seed,
+    index_clauses,
+    run_steps, subsuming)
 
 UNCONDITIONAL = frozenset()   # the empty condition: the answer is true
 
 
-class SLGEngine:
+class SLGEngine(TableSpace):
     """SLG resolution for function-free programs, any negation.
 
     After query(), `tables` maps a subgoal (pred, pattern) — pattern has
@@ -97,11 +106,13 @@ class SLGEngine:
     literal is ("+", subgoal, answer) — "that answer of that table" —
     or ("-", subgoal) for `not` of a ground subgoal.  `stats` counts
     the work done.  With subsumptive=True, a positive call answered from
-    a complete, more general table gets no table of its own."""
+    a more general table gets no table of its own."""
 
     def __init__(self, clauses, subsumptive=False):
         # the same front end as tabling.py: positive literals first, so
-        # by the time a negation is reached its subgoal is ground
+        # by the time a negation is reached its subgoal is ground; each
+        # integrity constraint becomes a query
+        clauses, self.goals = constraint_goals(clauses)
         self.arity, self.by_pred, self.sources = index_clauses(clauses)
         self.subsumptive = subsumptive
         self.root = None                   # the last query's subgoal
@@ -109,10 +120,17 @@ class SLGEngine:
 
     def _reset(self):
         self.tables = {}
+        self.callers = defaultdict(set)    # subgoal -> subgoals it serves
         self.order = {}                    # subgoal -> creation number
+        self.ids = count()                 # ...handed out from here
         self.complete = set()
-        self.finished = defaultdict(list)  # pred -> complete patterns
-        self.served = {}                   # call -> (tables seen, general)
+        # pred -> free_positions -> patterns with a table: what -s reads
+        self.shapes = defaultdict(lambda: defaultdict(set))
+        self.indexes = {}                  # (general, positions) -> index
+        self.indexed = defaultdict(set)    # general -> positions indexed
+        self.sliced = defaultdict(lambda: defaultdict(list))
+                                           # general -> (positions,
+                                           # values) -> waiting calls
         self.stack = []                    # incomplete subgoals, oldest first
         self.consumers = defaultdict(list) # subgoal -> waiting `p(...)`
         self.waiting = defaultdict(list)   # subgoal -> waiting `not p(...)`
@@ -128,23 +146,24 @@ class SLGEngine:
         """Note that `caller` depends on `key`; on a first call, make
         its table and schedule its clauses (program clause resolution).
         Returns the subgoal whose table answers the call: key's own, or
-        with `subsume`, a complete more general one."""
-        if key not in self.tables and subsume and self.subsumptive:
-            # look again only once more tables of key's predicate finish
-            done = len(self.finished[key[0]])
-            if self.served.get(key, (-1,))[0] != done:
-                self.served[key] = (done, subsuming(self.finished, key))
-            general = self.served[key][1]
-            if general is not None:
-                self.stats["subsumed calls"] += 1
-                return general          # complete: no dependency to note
+        with `subsume`, a more general one."""
+        general = (key not in self.tables and subsume and self.subsumptive
+                   and subsuming(self.shapes, key))
+        if general:
+            self.stats["subsumed calls"] += 1
+            # if the general table is still growing, the call becomes
+            # one of its consumers, as a recursive call does, and the
+            # edges below make them complete together
+            key = general
         if caller is not None:
+            self.callers[key].add(caller)
             self.calls[caller].add(key)
         if key in self.tables:
             return key
         self.tables[key] = {}
-        self.order[key] = len(self.order)
+        self.order[key] = next(self.ids)
         pred, pattern = key
+        self.shapes[pred][free_positions(pattern)].add(pattern)
         clauses = self.by_pred.get((pred, len(pattern)), ())
         facts_only = not any(body for _head, body in clauses)
         if not facts_only:
@@ -163,8 +182,21 @@ class SLGEngine:
             # a table of facts calls nothing, so it is complete the
             # moment it is filled: `not` on it never waits
             self.complete.add(key)
-            self.finished[pred].append(pattern)
         return key
+
+    def _forget(self, keys):
+        """apply()'s half: forget thrown-away tables, here and in what
+        subsumption reads."""
+        super()._forget(keys)
+        for k in keys:
+            for at in self.indexed.pop(k, ()):
+                del self.indexes[k, at]
+            self.shapes[k[0]][free_positions(k[1])].discard(k[1])
+
+    def _restore(self, key, answers):
+        super()._restore(key, answers)
+        self.order[key] = next(self.ids)
+        self.shapes[key[0]][free_positions(key[1])].add(key[1])
 
     def _push(self, frame):
         """Queue a frame on its own subgoal; the scheduler runs the
@@ -209,14 +241,39 @@ class SLGEngine:
             return
         # suspend as a consumer (a complete table has nothing more to
         # send), then catch up on the answers so far
-        if callee not in self.complete:
-            self.consumers[callee].append(waiter)
-        answers = self.tables[callee]
-        if callee != wanted and None not in wanted[1]:
-            # a ground call on a general table: one lookup, not a scan
-            answers = [wanted[1]] if wanted[1] in answers else ()
+        if callee != wanted:            # served by a general table
+            answers = self._slice(callee, wanted[1], waiter)
+        else:
+            if callee not in self.complete:
+                self.consumers[callee].append(waiter)
+            answers = self.tables[callee]
         for tup in list(answers):
             self._positive_return(waiter, callee, tup)
+
+    def _slice(self, general, pattern, waiter):
+        """The answers of a more general table that match a call's
+        pattern, without scanning the table: an index on the positions
+        the call binds and the general table leaves free, built the
+        first time those positions are asked for.  If the table is
+        still growing, the index grows with it (_answer), and the call
+        waits on its own slice, so a new answer goes only to the calls
+        it matches.  (XSB's answer tries index every pattern.)"""
+        answers = self.tables[general]
+        if None not in pattern and general in self.complete:
+            return [pattern] if pattern in answers else ()  # one lookup
+        at = tuple(i for i, v in enumerate(pattern)
+                   if v is not None and general[1][i] is None)
+        want = tuple(pattern[i] for i in at)
+        if general not in self.complete:
+            self.sliced[general][at, want].append(waiter)
+        index = self.indexes.get((general, at))
+        if index is None:
+            index = self.indexes[(general, at)] = defaultdict(list)
+            self.indexed[general].add(at)
+            for tup in answers:
+                index[tuple(tup[i] for i in at)].append(tup)
+        # simplification may since have dropped an answer
+        return [t for t in index.get(want, ()) if t in answers]
 
     def _fold(self, key, aux, callee):
         """Answer an aggregate call from its complete body table."""
@@ -248,6 +305,11 @@ class SLGEngine:
             conds.add(cond)
             return
         answers[tup] = {cond}
+        for at in self.indexed.get(key, ()):    # served calls, by slice
+            want = tuple(tup[i] for i in at)
+            self.indexes[key, at][want].append(tup)
+            for waiter in self.sliced[key].get((at, want), ()):
+                self._positive_return(waiter, key, tup)
         for waiter in self.consumers[key]:
             self._positive_return(waiter, key, tup)
 
@@ -279,17 +341,35 @@ class SLGEngine:
     def query(self, atom):
         """Answers to `atom` under the well-founded semantics, as
         (true, undefined): two sets of tuples.  Every other ground
-        instance is false."""
+        instance is false.  Tables are complete when a query returns,
+        so they stay, as a table space the next query reads from."""
         check_query_atom(atom, self.arity)
-        self._reset()
-        self.root = root = (atom.pred, call_pattern(atom, {}))
-        self._call(None, root)
-        self._evaluate()
+        self.root = root = self._solve(
+            (atom.pred, call_pattern(atom, {})), subsume=True)
         true, undefined = set(), set()
         for tup, conds in self.tables[root].items():
             if match(atom.args, tup, {}) is not None:
                 (true if UNCONDITIONAL in conds else undefined).add(tup)
         return true, undefined
+
+    def _solve(self, key, subsume=False):
+        """Complete the table that answers `key`, and return its
+        subgoal; apply() rebuilds a table this way, under its own
+        pattern, never served by a more general one."""
+        key = self._call(None, key, subsume=subsume)
+        try:
+            self._evaluate()
+        except DatalogError:
+            self._reset()           # half-built tables are not complete
+            raise
+        return key
+
+    def counterexamples(self, undefined=False):
+        """The integrity constraints violated in the well-founded model,
+        with every body solution, as Engine._counterexamples gives them;
+        with undefined=True, the counterexamples that are undefined."""
+        return counterexamples(self.goals,
+                               lambda goal: self.query(goal)[undefined])
 
     def _evaluate(self):
         """Local scheduling: run the newest subgoal's frames first.  When
@@ -355,7 +435,7 @@ class SLGEngine:
         down from the top, tracking the oldest incomplete table called
         so far, and stop where it is no older than the table reached.
         Only the segment is scanned, and it is about to complete."""
-        oldest = len(self.order)
+        oldest = float("inf")
         for i in range(len(self.stack) - 1, -1, -1):
             key = self.stack[i]
             # forget calls to finished tables: they never matter again
@@ -392,8 +472,8 @@ class SLGEngine:
                for conds in self.tables[k].values()):  # to settle
             self._simplify(scc)
         for k in sorted(scc, key=self.order.get):
-            self.finished[k[0]].append(k[1])
-            self.consumers.pop(k, None)      # these tables cannot grow
+            self.consumers.pop(k, None)
+            self.sliced.pop(k, None)      # these tables cannot grow
             self.calls.pop(k, None)          # ...nor be stuck on a call
             for waiter in self.waiting.pop(k, ()):
                 self._negative_return(waiter, k)
@@ -504,18 +584,17 @@ def main(argv=None):
                     "well-founded semantics — negation through recursion "
                     "included, with undefined answers named as such.")
     ap.add_argument("file", help="Datalog program (.dl)")
-    ap.add_argument("-q", "--query", action="append", default=[],
-                    metavar="ATOM", help="goal to solve (repeatable)")
+    add_steps(ap)
     ap.add_argument("-t", "--tables", action="store_true",
                     help="also print every table and the work counters")
     ap.add_argument("-s", "--subsumptive", action="store_true",
-                    help="answer a call from a complete, more general table "
-                         "instead of starting one for its own pattern")
+                    help="answer a call from a more general table, even one "
+                         "still growing, instead of starting one for its "
+                         "own pattern")
     args = ap.parse_args(argv)
 
     engine = SLGEngine(parse(read_program(args.file)), args.subsumptive)
-    for q in args.query:
-        atom = parse_goal(q)
+    for atom in run_steps(engine, args.steps):
         true, undefined = engine.query(atom)
         root = engine.tables[engine.root]
         print("?- %s   [SLG]" % atom)
@@ -546,7 +625,13 @@ def main(argv=None):
                       % (pred, shown, n_true, len(answers) - n_true))
             print("   work: " + ", ".join(
                 "%s %d" % (k, v) for k, v in sorted(engine.stats.items())))
-    return 0
+    failed = _print_violations([c for c, _g in engine.goals],
+                               engine.counterexamples())
+    for c, found in engine.counterexamples(undefined=True):
+        # neither violated nor satisfied: the model leaves it open
+        print("constraint undefined: %s   (%s)"
+              % (c, _plural(len(found), "undefined counterexample")))
+    return 3 if failed else 0
 
 
 if __name__ == "__main__":

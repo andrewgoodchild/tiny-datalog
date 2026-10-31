@@ -342,12 +342,12 @@ section shows, a finished table can answer other calls.
 ### Subsumptive tabling
 
 Every engine so far starts a table for each new *variant* of a call:
-`path(n1, n5)` gets its own table even when `path(X, Y)` is complete
-and holds the answer. *Subsumptive* tabling answers a call from a
-complete table whose pattern is more general, filtering it, and starts
-no new table. `programs/from-start.dl` is built to need it: it fills
-`path(X, Y)` over a 60-node chain, then asks `path(n1, Y)` for each Y,
-every call ground:
+`path(n1, n5)` gets its own table even when `path(X, Y)` holds the
+answer. *Subsumptive* tabling answers a call from a table whose
+pattern is more general, filtering it, and starts no new table.
+`programs/from-start.dl` is built to need it: it fills `path(X, Y)`
+over a 60-node chain, then asks `path(n1, Y)` for each Y, every call
+ground:
 
 ```
 $ python3 slg.py programs/from-start.dl -q 'from_start(Y)'
@@ -355,25 +355,42 @@ $ python3 slg.py programs/from-start.dl -q 'from_start(Y)'
    (59 true, 0 undefined; 7202 subgoal tables, 3601 completions, 0 delays)
 $ python3 slg.py programs/from-start.dl -q 'from_start(Y)' -s
 ...
-   (59 true, 0 undefined; 62 subgoal tables, 61 completions, 0 delays, 1888 subsumed calls)
+   (59 true, 0 undefined; 3 subgoal tables, 2 completions, 0 delays, 1829 subsumed calls)
 ```
 
 Variant tabling makes 7,202 tables, because each ground `path(n1, nK)`
 calls `path(n2, nK)`, and so on down the chain. With `-s` there are
-62, and the run is about four times faster. Two details made that
-work. A ground call looks its one answer up in the general table
-instead of scanning it, which is the job XSB's answer tries do for
-every pattern. And subsumption can only read a *complete* table, which
-is why it comes after local scheduling: under the global queue,
-nothing completed until the end. (`tabling.py` has the same problem
-for good: its tables complete only when their stratum does, which is
-why it has no `-s`.)
+three, `from_start(Y)`, `path(X, Y)` and `edge(X, Y)`, and the query
+runs about fourteen times faster (Python's start-up aside).
 
-It is opt-in because it does not always pay. On eight queens, `-s`
-saves 8 tables of 2,844 and runs slower: the calls it serves are not
-ground, so each one scans a general table that is larger than the
-variant table it replaces. XSB also subsumes from *incomplete* tables,
-which takes the answer-trie machinery this module leaves out.
+The general table can serve a call while it is still growing. Inside
+`path(X, Y)`'s own rule, `path(X, Z) :- edge(X, Y), path(Y, Z)` calls
+`path(n2, Z)`, `path(n3, Z)` and so on, and each of those calls is
+served by `path(X, Y)` itself. The call becomes one of its consumers,
+the way a recursive call does, and the completion stack sees it as a
+dependency, so they complete together. Two lookups keep this cheap:
+
+* **Finding the general table.** The tables of each predicate are
+  grouped by which arguments their patterns leave free, so a call
+  checks one candidate per group instead of every table.
+* **Reading only its slice.** A served call never scans the general
+  table. It reads an index on the positions it binds (`_slice`),
+  built the first time those positions are asked for. While the
+  table grows, the index grows with it, and each waiting call is
+  filed under its own slice, so a new answer goes only to the calls
+  it matches. XSB's answer tries do this for every pattern.
+
+Without the slices, every waiting call received every new answer of
+`path(X, Y)` and threw most of them away: `-s` built 3 tables and
+still ran slower than the 62 it built when it could read only
+complete ones. The first lookup matters on eight queens. When each
+call scanned the queens predicates' tables, hundreds of them, `-s`
+was 2.7 times slower, though it saved only 8 tables of 2,844. Grouped,
+it breaks even (52 ms against 50). It is still opt-in, because a
+program with nothing to share pays for the lookups and gets nothing
+back. (`tabling.py` has no `-s`: it re-solves every table each round,
+and serving a call from a table that is re-solved anyway saves
+nothing.)
 
 ### Aggregation, tabled
 
@@ -401,12 +418,121 @@ undefined facts should mean is still debated.
 Conditions are kept minimal too. An answer true under condition A
 needs no second condition "A and B", so that one is absorbed.
 
+### The table space, and constraints as queries
+
+When a query returns, every table it made is complete, and the
+program cannot change under the engine. So the tables can stay,
+ready for the next query to read. Real systems call this collection
+the **table space**. Both engines keep one:
+
+```
+$ python3 slg.py programs/reachability.dl -q 'path(n5, X)' -q 'path(n3, X)' -q 'path(n5, X)'
+...
+   (3 true, 0 undefined; 8 subgoal tables, 4 completions, 0 delays)
+...
+   (7 true, 0 undefined; 16 subgoal tables, 8 completions, 0 delays)
+...
+   (3 true, 0 undefined; 16 subgoal tables, 8 completions, 0 delays)
+```
+
+The counts are for the whole table space. The second query adds 8
+tables, because `path(n3, X)` reaches `path(n5, X)` and reads its
+finished table instead of building another. The third query adds
+nothing and does no work. An error halfway through a query (a `sum`
+over a name, say) empties the table space, because its tables are no
+longer known to be complete. The one thing that would make a kept
+table wrong is a change to the facts, which is the next section.
+
+A kept table also answers a question the engines used to refuse: is
+an integrity constraint (Lesson 17) violated? A constraint `:- body.`
+is a query whose every answer is a counterexample. `constraint_goals`
+in `tabling.py` gives each one a rule, `#constraint1(P) :- body.`,
+whose head holds every variable the body binds. Nothing calls that
+predicate, so no other answer changes, and checking the constraint is
+one more query. It reads the tables the real queries left behind:
+
+```
+$ python3 slg.py programs/lending-draft2-checked.dl -q 'may_borrow(P)'
+...
+constraint violated: :- may_borrow(P), suspended(P).
+   may_borrow(kim), suspended(kim)
+   (1 counterexample)
+```
+
+Magic sets does the same, with one rewriting per constraint. So now
+every engine reports the counterexamples the base engine reports,
+with the same exit status 3, and the conformance tests check that.
+`slg.py` has a third verdict for an unstratified program: a
+constraint whose body is only *undefined* is neither violated nor
+satisfied, and the CLI says so (`constraint undefined: ...`).
+
+### Incremental tabling
+
+Lesson 10 kept a materialisation up to date as facts changed. The
+tabled engines can do the same for their table space, and the
+mechanism is shorter, because a table records who asked for it. Every
+call is an edge from the calling table to the called one, and both
+engines keep those edges (`callers`). `apply(script)` takes facts to
+insert and `fact~.` ones to retract, as `incremental.py` does. It
+finds each table whose pattern matches a changed fact, then walks the
+edges back up to every table that read one of those, directly or not.
+Only those tables can see the change. The rest are untouched, and
+still right.
+
+The reached tables are rebuilt from empty, callee before caller, one
+strongly connected group at a time (Tarjan's algorithm, which Lesson
+3 used to stratify, gives that order). Before rebuilding a group,
+`apply` looks at what it reads. If nothing it reads came out
+different, the group is put back as it was, unrebuilt. So the walk
+stops at the first table an update leaves unchanged. `-u` does this
+between queries on the command line:
+
+```
+$ python3 slg.py programs/reachability.dl -q 'path(n1, X)' -u 'edge(n8, n9).' -q 'path(n1, X)'
+...
+   (9 true, 0 undefined; 20 subgoal tables, 10 completions, 0 delays)
+% update edge(n8, n9).   (7 tables rebuilt, 2 unchanged, 11 untouched)
+...
+   (9 true, 0 undefined; 20 subgoal tables, 16 completions, 0 delays)
+```
+
+The new edge changes `edge(n8, Y)`, and with it `path(n8, X)` up to
+`path(n4, X)`, which all gain `n9` and `n10`. `path(n3, X)` is rebuilt
+too, because it reads `path(n4, X)`, but it comes out the same: it
+already reached `n9` and `n10` through `edge(n3, n9)`. So
+`path(n2, X)` and `path(n1, X)` are put back without a rebuild, and
+the second query does no work at all. The rebuilding happens inside
+`apply`, which is why the completions go up before the query asks.
+
+Rebuilding a table from empty is blunter than Lesson 10's counting
+and DRed, but it needs no special case for negation. A new fact can
+*remove* an answer from a table that negates it: insert `q(a)` under
+`p(X) :- r(X), not q(X)` and `p(a)` goes. A method that only added
+answers would miss that, which is why DRed deletes before it
+re-derives. A rebuilt table starts empty, so it cannot keep a stale
+answer. Two details keep it honest:
+
+* Every reached table is set aside before any is rebuilt. A rebuild
+  that newly calls one not yet settled (an update can create calls
+  the old tables never made) builds it afresh instead of reading a
+  stale copy.
+* A whole group is rebuilt or put back together. Inside a recursive
+  group, one table's old answers may rest on another's, so it is
+  never safe to keep half.
+
+The fuzzer checks the result: random programs, random updates, and a
+fresh evaluation of the changed program to compare against, for both
+engines, and under the well-founded semantics for `slg.py`. This is
+the idea of XSB's incremental tabling, though XSB rebuilds a table
+lazily, when a query next needs it, and these engines do it eagerly.
+
 ### What it costs, and why both modules stay
 
-`slg.py` is about 550 lines to `tabling.py`'s 350, and it borrows
+`slg.py` is about 640 lines to `tabling.py`'s 560, and it borrows
 that module's front end: the clause index, the call pattern, the head
-match, and the aggregate split and fold. It is the one module allowed
-600 lines rather than 500. The extra lines are the bookkeeping iterative QSQR
+match, the aggregate split and fold, and the table space. The two are
+the modules allowed more than 500 lines: 700 for `slg.py`, 600 for
+`tabling.py`. The extra lines are the bookkeeping iterative QSQR
 avoids: parked consumers, the completion stack, conditions on
 answers, and the simplification loop.
 In exchange it never repeats work, and it accepts every function-free
@@ -479,9 +605,11 @@ called and add no steps.)
    real SLG engines do instead? (One sentence each.) Then run the
    query under `slg.py -t` and say which of its work counters
    corresponds to a round's re-solving.
-3. Add a second bound query to the same engine object. Why do the
-   tables reset, and what would it take to share them across queries
-   (the real systems' "table space")?
+3. Run `path(n1, X)` on `programs/reachability.dl`, then
+   `-u 'edge(n3, n9)~.'`. Before you run it, predict the three counts
+   `apply` prints: rebuilt, unchanged, untouched. Then write an update
+   to `r` and `q` under `p(X) :- r(X), not q(X).  t(X) :- p(X).` that
+   rebuilds `p(X)` but leaves `t(X)` unchanged.
 4. Write a program + query where tabling creates *fewer* tables than
    magic sets creates magic facts, or argue from the construction that
    it can't happen.
@@ -490,11 +618,14 @@ called and add no steps.)
    run it: for which N are there no solutions at all? Then swap the
    order of the two literals in the `queensK` rules, so `nextK` comes
    first. What happens to the table count, and why?
-6. `-s` makes eight queens slower. Find the calls it serves (count
-   them by predicate in `_call`), and say what index on the general
-   table would make serving them as cheap as a variant table.
+6. Run `programs/from-start.dl` under `SLGEngine(clauses, True)` and
+   look at `engine.indexes` and `engine.sliced` while it runs (break
+   in `_answer`, or print from it). Which table has an index, which
+   calls wait on its slices, and when do they stop waiting? Why does
+   a ground call such as `path(n1, n5)` need no index once `path(X,
+   Y)` is complete?
 
-6. Write the smallest program you can on which `slg.py` reports an
+7. Write the smallest program you can on which `slg.py` reports an
    answer undefined *and* the answer has two conditions (the CLI
    joins them with "or if"). What does each condition say about how
    the answer could have been true?

@@ -6,7 +6,7 @@ beyond Python 3.9+.
 ```sh
 git clone https://github.com/andrewgoodchild/tiny-datalog
 cd tiny-datalog
-python3 tests.py                     # 402 tests, should all pass
+python3 tests.py                     # 414 tests, should all pass
 python3 datalog.py programs/reachability.dl
 ```
 
@@ -154,6 +154,7 @@ and the lesson that builds the machinery:
 | How many, how much, largest? | `python3 datalog.py programs/spending.dl` | [13](13-aggregation.md) |
 | Answer a goal top-down, even left-recursive | `python3 tabling.py programs/left-recursive.dl -q 'ancestor(abe, X)'` | [15](15-tabling.md) |
 | Ask an unstratified program top-down, and see why an answer is undefined | `python3 slg.py programs/win.dl -q 'win(X)'` | [15](15-tabling.md) |
+| Change a fact and re-ask, rebuilding only the tables it touches | `python3 slg.py programs/reachability.dl -q 'path(n1, X)' -u 'edge(n3, n4)~.' -q 'path(n1, X)'` | [15](15-tabling.md) |
 | Search a finite space — where can eight queens go? | `python3 tabling.py programs/queens.dl -q 'queens8(r0, X1, X2, X3, X4, X5, X6, X7)'` | [15](15-tabling.md) |
 | What if I allow function symbols, and lose termination? | `python3 prolog.py programs/peano.pl -q 'add(X, Y, s(s(zero)))'` | [11](11-horn-clauses.md) |
 | What do these definitions entail about each other? | `python3 subsumption.py programs/family-ontology.dl` | [12](12-kl-one-subsumption.md) |
