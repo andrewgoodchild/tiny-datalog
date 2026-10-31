@@ -49,9 +49,10 @@ max: that predicate's table keeps only its best answer per group
 (answer subsumption, lattice.py).
 
 Both engines keep their tables from query to query, and TableSpace
-keeps them through a change to the facts: apply() rebuilds only the
-tables that read a changed fact, and stops at one that comes out
-unchanged (incremental tabling).
+(tablespace.py) keeps them through a change to the facts: apply()
+rebuilds only the tables that read a changed fact, at once or when a
+query next reads one, and stops at one that comes out unchanged
+(incremental tabling).
 
 CLI
 ---
@@ -71,13 +72,13 @@ import sys
 from collections import defaultdict
 
 from tiny_datalog.core import (
-    _tarjan, check_query_atom, cli, Atom, Const, DatalogError, Literal, Rule,
-    StratificationError, Var, format_fact, match, parse, parse_goal,
-    read_program, sort_key, stratify, validate, aggregate_of, body_order,
+    check_query_atom, cli, Atom, Const, DatalogError, Literal, Rule,
+    StratificationError, Var, format_fact, match, parse, read_program, sort_key, stratify, validate, aggregate_of, body_order,
     holds, is_comparison)
 from tiny_datalog.datalog import _fold, _print_violations
-from tiny_datalog.lattice import (
-    free_value, improve, lattices, unfold_lattices)
+from tiny_datalog.lattice import lattices, unfold_lattices
+from tiny_datalog.tablespace import (
+    TableSpace, add_steps, head_seed, run_steps)
 
 
 # -- shared with slg.py: what a subgoal is, and how a clause meets one ------
@@ -222,134 +223,6 @@ def subsuming(tables, key):
     return None
 
 
-def call_pattern(atom, subst):
-    """The call pattern of an atom under a substitution: the bound
-    arguments' values, None where still free."""
-    out = []
-    for a in atom.args:
-        if isinstance(a, Const):
-            out.append(a.value)
-        elif a.name in subst:
-            out.append(subst[a.name])
-        else:
-            out.append(None)
-    return tuple(out)
-
-
-def head_seed(head, pattern):
-    """Unify a clause head with a call pattern: one-way matching, as
-    in a join, over the bound positions only (a free position, None,
-    constrains nothing).  The substitution, or None if they clash."""
-    bound = [(a, v) for a, v in zip(head.args, pattern) if v is not None]
-    return match([a for a, _v in bound], [v for _a, v in bound], {})
-
-
-class TableSpace:
-    """Incremental tabling, shared by both tabled engines: the table
-    space survives a change to the facts.  Every call is recorded as an
-    edge from caller to callee (`callers`), the dependency graph the
-    queries walked.  apply() changes the facts, then finds the tables
-    the change can reach: each one whose pattern matches a changed
-    fact, and every table that read one of those, directly or not.  The
-    rest cannot see the change and stay as they are.
-
-    The reached tables are rebuilt from empty, callee before caller,
-    one strongly connected group at a time.  A group none of whose
-    callees came out different is put back as it was, unrebuilt, so
-    the walk stops at the first table an update leaves unchanged.
-    Rebuilding from empty is what makes it right under negation: a new
-    fact can *remove* an answer from a table that negates it, which
-    adding answers alone would miss (Lesson 10's DRed meets the same
-    problem bottom-up, and deletes before it re-derives)."""
-
-    def apply(self, script):
-        """Insert facts and retract `fact~.` ones; returns (tables
-        rebuilt, tables the change reached but left as they were).  The
-        script is checked whole before anything changes."""
-        clauses = parse(script)
-        for c in clauses:
-            if c.body or c.weight is not None:
-                raise DatalogError("apply() takes facts, and `fact~.` to "
-                                   "retract one, only: %s" % c)
-        self.arity = validate(clauses, self.arity)
-        changed = defaultdict(list)       # (pred, arity) -> changed facts
-        for c in clauses:
-            facts = self.by_pred[(c.head.pred, len(c.head.args))]
-            fact = (c.head, ())
-            if (fact in facts) == c.retract:            # a real change
-                if c.retract:       # every copy: `p(a). p(a).` is legal
-                    facts[:] = [f for f in facts if f != fact]
-                else:
-                    facts.append(fact)
-                changed[(c.head.pred, len(c.head.args))].append(c.head)
-        dead = [k for k in self.tables
-                for head in changed.get((k[0], len(k[1])), ())
-                if head_seed(head, k[1]) is not None]
-        hit, reached = set(dead), set()
-        reads = defaultdict(set)          # reached table -> the reached
-        while dead:                       # tables it reads: walk the
-            k = dead.pop()                # calls back up
-            if k not in reached:
-                reached.add(k)
-                for caller in self.callers.get(k, ()):
-                    # an edge outlives a caller a rebuild did not
-                    # remake (a later -s call may be served instead)
-                    if caller in self.tables:
-                        reads[caller].add(k)
-                        dead.append(caller)
-        return self._rebuild(reached, hit, reads)
-
-    def _rebuild(self, reached, hit, reads):
-        """Rebuild the reached tables callee first, and put back each
-        group whose inputs came out unchanged.  Every reached table is
-        forgotten first, so a rebuild that newly calls one not yet
-        settled builds it afresh instead of reading a stale copy."""
-        old = {k: self.tables[k] for k in reached}
-        self._forget(reached)
-        keys = sorted(reached, key=str)   # patterns mix None and values
-        num = {k: i for i, k in enumerate(keys)}
-        scc = _tarjan(range(len(keys)), [(num[u], num[v], False)
-                                         for u in keys for v in reads[u]])
-        groups = defaultdict(list)
-        for k in keys:
-            groups[scc[num[k]]].append(k)
-        changed, rebuilt = set(), 0
-        for i in sorted(groups):          # Tarjan numbers callees first
-            group = groups[i]
-            if not hit.intersection(group) and not any(
-                    v in changed for k in group for v in reads[k]):
-                for k in group:           # nothing it reads changed
-                    if k not in self.tables:
-                        self._restore(k, old[k])
-                continue
-            for k in group:
-                if k not in self.tables:
-                    self._solve(k)
-                rebuilt += 1
-                if self.tables.get(k) != old[k]:
-                    changed.add(k)
-        return rebuilt, len(reached) - rebuilt
-
-    def _forget(self, keys):
-        for k in keys:
-            self.tables.pop(k, None)
-            self.complete.discard(k)
-            self.best.pop(k, None)
-
-    def _key(self, atom, subst):
-        """The subgoal a call reads (lattice.free_value says why)."""
-        return (atom.pred, free_value(self.lattice, atom.pred,
-                                      call_pattern(atom, subst)))
-
-    def _improve(self, key, tup):
-        """lattice.improve, on this table space's tables."""
-        return improve(self.lattice, self.best, key, self.tables[key], tup)
-
-    def _restore(self, key, answers):
-        self.tables[key] = answers
-        self.complete.add(key)
-
-
 class TabledEngine(TableSpace):
     """Iterative QSQR: tables keyed by call pattern, filled to fixpoint;
     a negated subgoal's tables are completed first, one stratum down.
@@ -380,7 +253,7 @@ class TabledEngine(TableSpace):
 
     def _reset(self):
         self.tables = {}
-        self.callers = defaultdict(set)   # table -> tables that read it
+        self._reset_space()
         self.complete = set()   # tables known to hold every answer
         self.best = {}          # lattice table -> {group: best answer}
         self.open = {}          # ...and the rest, in creation order (a
@@ -390,6 +263,8 @@ class TabledEngine(TableSpace):
     def _table(self, pred, pattern):
         key = (pred, pattern)
         if key not in self.tables:
+            if key in self.old:
+                self._settled(key)
             self.tables[key] = set()   # discovered a new subgoal, which
             self.open[key] = None      # the fixpoint will now revisit
         return self.tables[key]
@@ -466,6 +341,7 @@ class TabledEngine(TableSpace):
         check_query_atom(atom, self.arity)
         root = self._key(atom, {})
         self.rounds = 0
+        self._revalidate({root})
         self._solve(root)
         return {t for t in self.tables[root]
                 if match(atom.args, t, {}) is not None}
@@ -522,33 +398,6 @@ class TabledEngine(TableSpace):
 # CLI
 # ---------------------------------------------------------------------------
 
-def add_steps(ap):
-    """-q and -u for both tabled CLIs, kept in the order given: queries,
-    and changes to the facts between them, as `steps`."""
-    ap.add_argument("-q", "--query", dest="steps", action="append",
-                    default=[], type=lambda q: ("q", q), metavar="ATOM",
-                    help="goal to solve (repeatable)")
-    ap.add_argument("-u", "--update", dest="steps", action="append",
-                    type=lambda u: ("u", u), metavar="FACTS",
-                    help="change the facts before the queries after it: "
-                         "`e(a, b).` inserts, `e(a, b)~.` retracts")
-
-
-def run_steps(engine, steps):
-    """Apply and report each -u in turn, yielding each -q's goal for
-    the CLI to solve in between."""
-    for kind, text in steps:
-        if kind == "q":
-            yield parse_goal(text)
-            continue
-        before = len(engine.tables)   # a rebuild may add or drop some
-        rebuilt, same = engine.apply(text)
-        print("%% update %s   (%d table%s rebuilt, %d unchanged, "
-              "%d untouched)"
-              % (text.strip(), rebuilt, "" if rebuilt == 1 else "s", same,
-                 before - rebuilt - same))
-
-
 @cli
 def main(argv=None):
     ap = argparse.ArgumentParser(
@@ -562,7 +411,7 @@ def main(argv=None):
     args = ap.parse_args(argv)
 
     engine = TabledEngine(parse(read_program(args.file)))
-    for atom in run_steps(engine, args.steps):
+    for atom in run_steps(engine, args.steps, args.lazy):
         answers = engine.query(atom)
         print("?- %s   [tabled]" % atom)
         for tup in sorted(answers, key=sort_key):

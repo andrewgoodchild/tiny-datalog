@@ -16,7 +16,8 @@ It gives the answer the stratified program would, where every
 recursive read sees every value and the min is taken once at the end,
 provided each rule is monotone: a better value read can only help.
 lattices() checks that rule by rule, conservatively, and refuses the
-rest.  free_value() and improve() keep the tables, for tabling.TableSpace;
+rest.  free_value() and improve() keep the tables, for
+tablespace.TableSpace;
 lesson 15 tells the story.
 """
 
