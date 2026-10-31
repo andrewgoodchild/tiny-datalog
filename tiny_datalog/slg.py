@@ -51,8 +51,9 @@ test suite checks exactly that, on random unstratified programs.
 
 Aggregation is tabled too: tabling.py splits each aggregate rule so
 its body has a table of its own, folded once that table is complete
-(a cycle through an aggregate is refused, as is folding undefined
-answers).  `subsumptive=True` (CLI `-s`) answers a positive call from
+(a cycle through count or sum is refused, as is folding undefined
+answers; one through min or max keeps the best answer per group, by
+answer subsumption, lattice.py).  `subsumptive=True` (CLI `-s`) answers a positive call from
 a more general table, complete or still growing, instead of starting
 a new one; the call reads, and waits on, only its own slice of it.
 
@@ -82,15 +83,14 @@ from collections import Counter, defaultdict, deque
 from itertools import chain, count
 
 from tiny_datalog.core import (
-    _tarjan, check_query_atom, cli, Const, DatalogError, format_atom,
-    format_fact, match, parse, read_program, sort_key, holds,
-    is_comparison)
+    _tarjan, check_query_atom, cli, Const, DatalogError, StratificationError,
+    format_atom, format_fact, match, parse, read_program, sort_key, holds,
+    is_comparison, stratify)
 from tiny_datalog.datalog import _print_violations
 from tiny_datalog.tabling import (
-    TableSpace, add_steps, call_pattern, constraint_goals,
-    counterexamples, fold_answers, free_positions, head_seed,
-    index_clauses,
-    run_steps, subsuming)
+    TableSpace, add_steps, constraint_goals, counterexamples, fold_answers,
+    free_positions, head_seed, index_clauses, run_steps, subsuming,
+    unfold_lattices)
 
 UNCONDITIONAL = frozenset()   # the empty condition: the answer is true
 
@@ -113,7 +113,18 @@ class SLGEngine(TableSpace):
         # by the time a negation is reached its subgoal is ground; each
         # integrity constraint becomes a query
         clauses, self.goals = constraint_goals(clauses)
-        self.arity, self.by_pred, self.sources = index_clauses(clauses)
+        (self.arity, self.by_pred, self.sources,
+         self.lattice) = index_clauses(clauses)
+        if self.lattice:
+            # a lattice's answers must all be true, so no delays: a
+            # stratified program, its lattices read from outside only
+            # once complete (tabling.unfold_lattices)
+            try:
+                stratify(unfold_lattices(clauses, self.lattice, True))
+            except StratificationError as exc:
+                raise StratificationError(
+                    "recursion through min or max is tabled only in a "
+                    "stratified program: %s" % exc, exc.cycle) from exc
         self.subsumptive = subsumptive
         self.root = None                   # the last query's subgoal
         self._reset()
@@ -134,7 +145,8 @@ class SLGEngine(TableSpace):
         self.stack = []                    # incomplete subgoals, oldest first
         self.consumers = defaultdict(list) # subgoal -> waiting `p(...)`
         self.waiting = defaultdict(list)   # subgoal -> waiting `not p(...)`
-        self.folds = defaultdict(list)     # subgoal -> aggregates over it
+        self.folds = defaultdict(list)     # subgoal -> reads once complete
+        self.best = {}                     # lattice -> {group: best answer}
         self.calls = defaultdict(set)      # subgoal -> subgoals it called
         self.work = defaultdict(deque)     # subgoal -> its frames to run
         self.ready = []                    # heap: newest subgoal with work
@@ -222,17 +234,18 @@ class SLGEngine(TableSpace):
             if holds(lit.atom, subst):
                 self._push((key, head, rest, subst, cond))
             return
-        wanted = (lit.atom.pred, call_pattern(lit.atom, subst))
+        wanted = self._key(lit.atom, subst)
         callee = self._call(key, wanted, subsume=not lit.negated)
-        if lit.atom.pred in self.sources:
-            # an aggregate's body table, split off by index_clauses: fold
-            # it once, when it is complete
-            if callee in self.complete:
-                self._fold(key, lit.atom, callee)
-            else:
-                self.folds[callee].append((key, lit.atom))
-            return
         waiter = (key, head, rest, subst, cond, lit)
+        if lit.atom.pred in self.sources or (
+                lit.atom.pred in self.lattice and lit.atom.pred != key[0]):
+            # an aggregate's body table, split off by index_clauses, or
+            # a lattice read from outside: read it once it is complete
+            if callee in self.complete:
+                self._fold(waiter, callee)
+            else:
+                self.folds[callee].append(waiter)
+            return
         if lit.negated:
             if callee in self.complete:
                 self._negative_return(waiter, callee)
@@ -275,10 +288,15 @@ class SLGEngine(TableSpace):
         # simplification may since have dropped an answer
         return [t for t in index.get(want, ()) if t in answers]
 
-    def _fold(self, key, aux, callee):
-        """Answer an aggregate call from its complete body table."""
+    def _fold(self, waiter, callee):
+        """Answer an aggregate call from its complete body table, or
+        resume a read of a complete lattice with all its answers."""
+        key, aux, answers = waiter[0], waiter[5].atom, self.tables[callee]
+        if aux.pred not in self.sources:
+            for tup in list(answers):
+                self._positive_return(waiter, callee, tup)
+            return
         rule = self.sources[aux.pred]
-        answers = self.tables[callee]
         if any(UNCONDITIONAL not in c for c in answers.values()):
             raise DatalogError(
                 "cannot aggregate over undefined answers (the well-founded "
@@ -304,6 +322,10 @@ class SLGEngine(TableSpace):
             conds.difference_update({c for c in conds if cond <= c})
             conds.add(cond)
             return
+        better, old = self._improve(key, tup)
+        if not better:                  # a lattice's best is no worse
+            return
+        answers.pop(old, None)
         answers[tup] = {cond}
         for at in self.indexed.get(key, ()):    # served calls, by slice
             want = tuple(tup[i] for i in at)
@@ -344,8 +366,7 @@ class SLGEngine(TableSpace):
         instance is false.  Tables are complete when a query returns,
         so they stay, as a table space the next query reads from."""
         check_query_atom(atom, self.arity)
-        self.root = root = self._solve(
-            (atom.pred, call_pattern(atom, {})), subsume=True)
+        self.root = root = self._solve(self._key(atom, {}), subsume=True)
         true, undefined = set(), set()
         for tup, conds in self.tables[root].items():
             if match(atom.args, tup, {}) is not None:
@@ -477,8 +498,8 @@ class SLGEngine(TableSpace):
             self.calls.pop(k, None)          # ...nor be stuck on a call
             for waiter in self.waiting.pop(k, ()):
                 self._negative_return(waiter, k)
-            for caller, aux in self.folds.pop(k, ()):
-                self._fold(caller, aux, k)
+            for waiter in self.folds.pop(k, ()):
+                self._fold(waiter, k)
 
     # -- simplification ------------------------------------------------------
 

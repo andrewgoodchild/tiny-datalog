@@ -40,6 +40,14 @@ count only once its body is proved, so the doubt stays where it arose.
 *Propagating* lets a merely supported attacker count, so the doubt
 spreads to whatever depends on it. *(Lesson 18)*
 
+**Answer subsumption.** A tabled predicate that recurses through
+`min` or `max` keeps one answer per group, the best so far, and a
+better answer replaces it. It is sound when each rule is monotone,
+meaning a better value read can only help. Stratification refuses
+these programs, and `lattice.py` runs them in both tabled engines. Also
+called mode-directed tabling. Not to be confused with **subsumptive
+tabling**. *(Lesson 15)*
+
 **Answer Set Programming (ASP).** The branch of logic programming
 where a program is written so that its **stable models** *are* the
 solutions to a combinatorial problem. `clingo` is the standard

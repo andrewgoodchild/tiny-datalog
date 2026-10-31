@@ -135,3 +135,36 @@ if c is. Either would do, which is why the conditions are joined by
 is winning, so both stay open and `win(a)` is undefined. The
 well-founded model agrees: `datalog.py --models` puts `win(a)`,
 `win(b)` and `win(c)` all in its undefined zone.
+
+**8. The latest departure, by `max`.**
+
+`exercises/15-latest.dl` keeps earliest.dl's legs and reverses the
+recursion. To be in a city by T, you need a leg into one you can leave
+from: arrive by its deadline, and that leg's departure is the new
+deadline.
+
+```
+leave(City, max(T)) :- deadline(City, T).
+leave(From, max(Dep)) :- leave(To, T), leg(From, To, Dep, Arr), Arr <= T.
+```
+
+```
+$ python3 tabling.py exercises/15-latest.dl -q 'leave(X, T)'
+?- leave(X, T)   [tabled]
+   leave(brussels, 10).
+   leave(london, 9).
+   leave(lyon, 17).
+   leave(paris, 15).
+   leave(rome, 20).
+```
+
+Paris is 15, not 13. The direct leg to Rome leaves at 13, but the
+15:00 to Lyon lands at 17, in time for Lyon's 17:00 to Rome. The table
+held 13 first and the later deadline replaced it.
+
+The rule passes the check because the value read, `T`, appears only
+in `Arr <= T`, on the larger side. A later deadline keeps that true,
+so a better `T` can only catch more legs. Change `<=` to `>=`, so the
+rule reads `Arr >= T`, and a later deadline could fail a comparison
+an earlier one passed. `lattice.py` refuses it: the rule is no longer
+monotone.
