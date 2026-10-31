@@ -362,7 +362,9 @@ iterating it to a fixpoint. *(Lesson 2)*
 **Incremental tabling.** Keeping a **table space** through a change
 to the facts: rebuild only the tables that read a changed fact,
 directly or not, found by walking the recorded calls back up, callee
-first, and stop at a table that comes out unchanged. *(Lesson 15)*
+first, and stop at a table that comes out unchanged. Eager rebuilds
+them all at once; *lazy* only marks them stale and rebuilds one when a
+query next reads it. *(Lesson 15)*
 
 **Incremental view maintenance.** Updating derived relations after the
 input changes, rather than recomputing. Insertions resume semi-naive;

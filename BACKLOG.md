@@ -40,12 +40,12 @@ growing, through an index kept per pattern asked for.
 Both keep their tables between queries (a table space), keep them
 through a change to the facts by rebuilding only the tables that
 read it, stopping at one that comes out unchanged (`apply`, `-u`:
-incremental tabling), and check integrity constraints, each as one
-more query. Both run recursion through `min` and `max` by answer
+incremental tabling, `tablespace.py`), eagerly or, with `--lazy`,
+only when a query reads a stale table, and check integrity
+constraints, each as one more query. Both run recursion through `min` and `max` by answer
 subsumption (`lattice.py`): a table keeps the best answer per group,
-for rules a monotonicity check accepts. The two tabled modules have
-higher line limits than the other modules' 500: 700 for `slg.py`, 600
-for `tabling.py`.
+for rules a monotonicity check accepts. `slg.py` has a higher line
+limit than the other modules' 500: 700.
 
 Tried and dropped: sending an answer to its consumers again when it
 turns from conditional to true. A `not` waits for its table to
@@ -56,11 +56,6 @@ where they were (6,527, then 6,529).
 
 Still open:
 
-- **Lazy rebuilding.** `apply` rebuilds every reached table at once,
-  even one no later query asks for. XSB marks them invalid and rebuilds
-  one only when a query reaches it, which would also let a query read
-  a large table space after a small update without paying for the
-  rest.
 - **Answer subsumption, further.** `lattice.py` refuses recursion
   through `min` or `max` that is not direct (two predicates through
   each other), and its monotonicity check is per rule, so it refuses

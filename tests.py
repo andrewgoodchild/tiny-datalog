@@ -1063,6 +1063,49 @@ class TablingTests(unittest.TestCase):
                       "0 unchanged, 3 untouched)\n?- path(n5, X)", out)
         self.assertIn("   path(n5, n10).", out)
 
+    def test_lazy_apply_rebuilds_only_what_a_query_reads(self):
+        for make in (TabledEngine, SLGEngine):
+            with self.subTest(engine=make.__name__):
+                engine = make(parse(load("reachability.dl")))
+                engine.query(query_atom("path(n1, X)"))
+                self.assertEqual(engine.apply("edge(n8, n9).", lazy=True),
+                                 (0, 0))
+                self.assertEqual((len(engine.old), len(engine.tables)),
+                                 (9, 11))
+                # path(n8, X) reads two of the nine; the rest stay stale
+                engine.query(query_atom("path(n8, X)"))
+                self.assertEqual(len(engine.old), 7)
+                engine.query(query_atom("path(n1, X)"))
+                # in all, what eager apply does at once, early stop too
+                self.assertEqual(engine.repairs,
+                                 {"rebuilt": 7, "unchanged": 2})
+                self.assertEqual(engine.old, {})
+
+    def test_lazy_apply_rebuilds_a_stale_table_given_a_fact(self):
+        # p(X) is stale, and q comes back as it was, so p(X) would be
+        # put back unrebuilt, but for the fact of its own that arrived
+        # while it was stale
+        for make in (TabledEngine, SLGEngine):
+            with self.subTest(engine=make.__name__):
+                engine = make(parse("q(a). p(X) :- q(X)."))
+                engine.query(query_atom("p(X)"))
+                for script in ("q(b).", "q(b)~.", "p(z)."):
+                    engine.apply(script, lazy=True)
+                found = engine.query(query_atom("p(X)"))
+                if make is SLGEngine:
+                    found = found[0]
+                self.assertEqual(found, {("a",), ("z",)})
+
+    def test_cli_rebuilds_lazily_on_demand(self):
+        code, out, _ = _run_datalog_cli(
+            self, load("reachability.dl"), "--lazy", "-q", "path(n1, X)",
+            "-u", "edge(n8, n9).", "-q", "path(n8, X)", tool="tabling")
+        self.assertEqual(code, 0)
+        self.assertIn("% update edge(n8, n9).   (9 tables stale, 11 live)",
+                      out)
+        self.assertIn("% rebuilt on demand: 2 tables, 0 unchanged; "
+                      "7 still stale", out)
+
     def test_cli_checks_constraints(self):
         code, out, _ = _run_datalog_cli(
             self, "e(a, b). e(b, a). p(X, Y) :- e(X, Y)."
@@ -1753,7 +1796,9 @@ class DifferentialFuzzTests(unittest.TestCase):
     def test_tabled_engines_repair_their_tables_after_updates(self):
         # incremental tabling: query, change the facts, query again, and
         # the kept tables plus the rebuilt ones must give what a fresh
-        # evaluation of the changed program gives
+        # evaluation of the changed program gives.  Lazy engines only
+        # mark tables stale, and each round asks only some queries, so
+        # stale tables pile up across updates before one is read
         rng = random.Random(20261031)
         for i in range(self.iterations(300)):
             text, idb = self._program(rng, rng.random() < 0.6)
@@ -1761,20 +1806,23 @@ class DifferentialFuzzTests(unittest.TestCase):
             atoms = [self._query(rng, idb)] + [
                 Atom(name, tuple(Var("X%d" % j) for j in range(arity)))
                 for name, arity in idb]
-            engines = [TabledEngine(clauses), SLGEngine(clauses),
-                       SLGEngine(clauses, True)]
-            for _round in range(2):
-                for engine in engines:
-                    for atom in atoms:
-                        engine.query(atom)
+            engines = [(make(clauses), lazy) for lazy in (False, True)
+                       for make in (TabledEngine, SLGEngine,
+                                    lambda c: SLGEngine(c, True))]
+            for engine, _lazy in engines:
+                for atom in atoms:
+                    engine.query(atom)
+            for last in (False, False, True):
                 script, text = self._update(rng, clauses)
                 clauses = parse(text)
                 reference = run_program(text)
-                for engine in engines:
+                asked = [a for a in atoms if last or rng.random() < 0.5]
+                for engine, lazy in engines:
                     with self.subTest(iteration=i, program=text,
-                                      update=script, engine=engine):
-                        engine.apply(script)
-                        for atom in atoms:
+                                      update=script, engine=engine,
+                                      lazy=lazy):
+                        engine.apply(script, lazy)
+                        for atom in asked:
                             found = engine.query(atom)
                             if isinstance(engine, SLGEngine):
                                 self.assertEqual(found[1], set())
@@ -1899,8 +1947,8 @@ class DifferentialFuzzTests(unittest.TestCase):
                                 "query %s" % atom)
                 script, text = self._update(rng, clauses)
                 clauses = parse(text)
-                for engine in engines:
-                    engine.apply(script)
+                for j, engine in enumerate(engines):
+                    engine.apply(script, lazy=j == 1)   # one of each
 
     def test_slg_matches_the_well_founded_model_on_random_programs(self):
         # negation anywhere, recursion through it included: most of
@@ -1929,8 +1977,8 @@ class DifferentialFuzzTests(unittest.TestCase):
                         engine.query(atom)
                 script, text = self._update(rng, clauses)
                 true, undefined = well_founded(parse(text))
-                for engine in engines:
-                    engine.apply(script)
+                for j, engine in enumerate(engines):
+                    engine.apply(script, lazy=j == 1)   # one of each
             for atom in atoms:
                 for engine in engines:
                     with self.subTest(iteration=i, program=text,
@@ -2183,16 +2231,14 @@ class RepositoryClaimTests(unittest.TestCase):
     # and the extensions; core.py and datalog.py are the two larger
     # files the README sizes separately
     SATELLITES = ["engines.py", "magic.py", "tabling.py", "lattice.py",
-                  "slg.py",
+                  "tablespace.py", "slg.py",
                   "semantics.py", "semiring.py", "defeasible.py",
                   "incremental.py", "prolog.py",
                   "subsumption.py", "containment.py", "chase.py"]
 
-    # the two tabled engines are allowed more: SLG is tabling plus a
-    # scheduler, local completion and tabled aggregation, and
-    # tabling.py holds the front end and the table space both share,
-    # incremental tabling included (lesson 15)
-    LIMITS = {"slg.py": 700, "tabling.py": 600}
+    # slg.py is allowed more: SLG is tabling plus a scheduler, local
+    # completion and tabled aggregation (lesson 15)
+    LIMITS = {"slg.py": 700}
 
     def test_no_satellite_module_exceeds_its_line_limit(self):
         # measured on the real module, not the root launcher shim
