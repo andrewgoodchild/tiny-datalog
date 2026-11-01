@@ -43,7 +43,8 @@ spreads to whatever depends on it. *(Lesson 18)*
 **Answer subsumption.** A tabled predicate that recurses through
 `min` or `max` keeps one answer per group, the best so far, and a
 better answer replaces it. It is sound when each rule is monotone,
-meaning a better value read can only help. Stratification refuses
+meaning a better value read can only help, alone or with a partner
+rule that negates its test. Stratification refuses
 these programs, and `lattice.py` runs them in both tabled engines. Also
 called mode-directed tabling. Not to be confused with **subsumptive
 tabling**. *(Lesson 15)*

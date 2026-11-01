@@ -6,7 +6,7 @@ beyond Python 3.9+.
 ```sh
 git clone https://github.com/andrewgoodchild/tiny-datalog
 cd tiny-datalog
-python3 tests.py                     # 423 tests, should all pass
+python3 tests.py                     # 429 tests, should all pass
 python3 datalog.py programs/reachability.dl
 ```
 
@@ -157,6 +157,8 @@ and the lesson that builds the machinery:
 | Change a fact, and rebuild only the tables a later query reads | `python3 slg.py programs/reachability.dl --lazy -q 'path(n1, X)' -u 'edge(n8, n9).' -q 'path(n8, X)'` | [15](15-tabling.md) |
 | Change a fact and re-ask, rebuilding only the tables it touches | `python3 slg.py programs/reachability.dl -q 'path(n1, X)' -u 'edge(n3, n4)~.' -q 'path(n1, X)'` | [15](15-tabling.md) |
 | Recurse through `min` — the earliest you can reach each city | `python3 slg.py programs/earliest.dl -q 'arrive(X, T)'` | [15](15-tabling.md) |
+| Recurse through `max` with a case split — the widest path | `python3 tabling.py programs/widest.dl -q 'wide(X, B)'` | [15](15-tabling.md) |
+| See how a tabled engine derived each answer, read off its tables | `python3 tabling.py programs/earliest.dl -e 'arrive(rome, T)'` | [15](15-tabling.md) |
 | Search a finite space — where can eight queens go? | `python3 tabling.py programs/queens.dl -q 'queens8(r0, X1, X2, X3, X4, X5, X6, X7)'` | [15](15-tabling.md) |
 | What if I allow function symbols, and lose termination? | `python3 prolog.py programs/peano.pl -q 'add(X, Y, s(s(zero)))'` | [11](11-horn-clauses.md) |
 | What do these definitions entail about each other? | `python3 subsumption.py programs/family-ontology.dl` | [12](12-kl-one-subsumption.md) |

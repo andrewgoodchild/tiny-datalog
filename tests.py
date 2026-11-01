@@ -18,6 +18,7 @@ from tiny_datalog.datalog import (
     ParseError, Atom, Literal, Rule, Var, validate, parse_goal,
     check_query_atom, read_program, violations,
 )
+from tiny_datalog.core import _tarjan, holds, is_comparison
 from tiny_datalog.magic import magic_query
 from tiny_datalog.semantics import stable_models, well_founded
 from tiny_datalog.semiring import run_semiring
@@ -1014,6 +1015,17 @@ class TablingTests(unittest.TestCase):
             engine.query(query_atom("t(X)"))
         self.assertEqual(engine.tables, {})
 
+    def test_answers_a_negation_adds_count_as_growth(self):
+        # m reads r(c) while it is still empty; then n's `not p(b, b)`
+        # completes stratum 0, filling r(c), in a nested fixpoint.  The
+        # round must see that growth and run m again (found by the
+        # answer-subsumption fuzz test, which once got no answer here)
+        engine = TabledEngine(parse(
+            "p(b, b). r(c). r(b). m(X, X) :- p(X, X), r(c). "
+            "m(X, X) :- n(V, X), X <= V. n(Y, Y) :- r(Y), not p(Y, Y). "
+            "n(V, X) :- m(V, X). t1(Y) :- m(Y, b)."))
+        self.assertEqual(engine.query(query_atom("t1(X)")), {("b",)})
+
     def test_apply_rebuilds_what_reads_a_changed_fact(self):
         for make in (TabledEngine, SLGEngine):
             with self.subTest(engine=make.__name__):
@@ -1105,6 +1117,75 @@ class TablingTests(unittest.TestCase):
                       out)
         self.assertIn("% rebuilt on demand: 2 tables, 0 unchanged; "
                       "7 still stale", out)
+
+    def test_explain_reads_derivations_off_the_tables(self):
+        via = ("[via arrive(To, min(Arr)) :- arrive(From, T), "
+               "leg(From, To, Dep, Arr), T <= Dep.]")
+        for make in (TabledEngine, SLGEngine):
+            with self.subTest(engine=make.__name__):
+                engine = make(parse(load("earliest.dl")))
+                self.assertEqual(engine.explain(query_atom(
+                    "arrive(rome, T)")), [
+                    "arrive(rome, 18)   " + via,
+                    "  arrive(lyon, 14)   " + via,
+                    "    arrive(paris, 11)   " + via,
+                    "      arrive(london, 7)   [via arrive(City, min(T)) "
+                    ":- start(City, T).]",
+                    "        start(london, 7)   (base fact)",
+                    "      leg(london, paris, 9, 11)   (base fact)",
+                    "      7 <= 9   (comparison)",
+                    "    leg(paris, lyon, 12, 14)   (base fact)",
+                    "    11 <= 12   (comparison)",
+                    "  leg(lyon, rome, 14, 18)   (base fact)",
+                    "  14 <= 14   (comparison)"])
+                # after an update, the rebuilt tables explain themselves
+                engine.apply("leg(lyon, rome, 14, 18)~.")
+                self.assertEqual(engine.explain(query_atom(
+                    "arrive(rome, T)"))[-2:], [
+                        "  leg(lyon, rome, 17, 19)   (base fact)",
+                        "  14 <= 17   (comparison)"])
+                engine = make(parse(
+                    "charge(ann, 50). charge(ann, 20). charge(bob, 5). "
+                    "total(P, sum(A)) :- charge(P, A). "
+                    "big(P) :- total(P, T), T > 30."))
+                self.assertEqual(engine.explain(query_atom("big(X)")), [
+                    "big(ann)   [via big(P) :- total(P, T), T > 30.]",
+                    "  total(ann, 70)   [via total(P, sum(A)) :- "
+                    "charge(P, A).]",
+                    "    = sum over 2 body solutions of A: [20, 50]",
+                    "  70 > 30   (comparison)"])
+        # win(n1) is true only once simplification finds win(n2) false;
+        # an undefined answer shows a derivation under its condition
+        engine = SLGEngine(parse(
+            "move(n0, n1). move(n1, n2). move(n2, n0). move(n0, sink). "
+            "move(a, b). move(b, a). win(X) :- move(X, Y), not win(Y)."))
+        self.assertEqual(engine.explain(query_atom("win(n1)")), [
+            "win(n1)   [via win(X) :- move(X, Y), not win(Y).]",
+            "  move(n1, n2)   (base fact)",
+            "  not win(n2)   (no such answer)"])
+        self.assertEqual(engine.explain(query_atom("win(a)")), [
+            "win(a)   [via win(X) :- move(X, Y), not win(Y).]   undefined",
+            "  move(a, b)   (base fact)",
+            "  not win(b)   (undefined)"])
+        self.assertEqual(engine.explain(query_atom("win(n2)")), [])
+
+    def test_explain_names_a_bettered_premise(self):
+        # slg.py finds cardiff's 20 before its 30, and dover's width
+        # through it: still a derivation, of a value derived
+        engine = SLGEngine(parse(load("widest.dl")))
+        lines = engine.explain(query_atom("wide(exeter, B)"))
+        self.assertTrue(lines[0].startswith("wide(exeter, 20)"))
+        self.assertIn("(since bettered: wide(dover, 30))", lines[1])
+
+    def test_cli_explains(self):
+        for tool in ("tabling", "slg"):
+            code, out, _ = _run_datalog_cli(
+                self, "e(a, b). p(X, Y) :- e(X, Y).", "-e", "p(a, Y)",
+                "-e", "p(b, Y)", tool=tool)
+            self.assertEqual(code, 0)
+            self.assertIn("?- explain p(a, Y)\n   p(a, b)   [via p(X, Y) :- "
+                          "e(X, Y).]\n     e(a, b)   (base fact)\n"
+                          "?- explain p(b, Y)\n   (no answers)\n", out)
 
     def test_cli_checks_constraints(self):
         code, out, _ = _run_datalog_cli(
@@ -1499,8 +1580,47 @@ class AnswerSubsumptionTests(unittest.TestCase):
                 self.assertEqual(self.answers(e, "t(X, V)"), {
                     ("a", 9), ("b", 9), ("c", 1), ("d", 1)})
 
+    def test_widest_path_needs_a_pair_of_rules(self):
+        # min(B, W) without arithmetic: one rule per case.  The one
+        # for B < W fails the monotonicity check alone; as a pair, both
+        # pass
+        with open(os.path.join(HERE, "programs", "widest.dl")) as fh:
+            text = fh.read()
+        for e in self.engines(text):
+            with self.subTest(engine=e):
+                self.assertEqual(self.answers(e, "wide(X, B)"), {
+                    ("bristol", 40), ("cardiff", 30), ("dover", 30),
+                    ("exeter", 20)})
+        alone = "\n".join(line for line in text.splitlines()
+                          if "W <= B" not in line)
+        with self.assertRaisesRegex(DatalogError, "monotone"):
+            TabledEngine(parse(alone))
+
+    def test_two_predicates_recurse_through_min_together(self):
+        text = ("leg(london, paris, 9, 11). leg(paris, rome, 12, 15). "
+                "leg(paris, rome, 10, 13). leg(london, rome, 8, 20). "
+                "hub(paris). hub(london). start(london, 7). "
+                "arrive(C, min(T)) :- start(C, T). "
+                "arrive(To, min(Arr)) :- ready(From, T), "
+                "leg(From, To, Dep, Arr), T <= Dep. "
+                "ready(C, min(T)) :- arrive(C, T), hub(C). "
+                "late(C) :- arrive(C, T), T > 12.")
+        for e in self.engines(text):
+            with self.subTest(engine=e):
+                self.assertEqual(self.answers(e, "arrive(X, T)"), {
+                    ("london", 7), ("paris", 11), ("rome", 15)})
+                # read from outside, both wait for the pair to complete
+                self.assertEqual(self.answers(e, "late(X)"), {("rome",)})
+
     def test_refusals(self):
         for text, message in [
+            ("e(a, b). m(a, 1). m(Y, min(V)) :- n(Y, V). "
+             "n(Y, max(V)) :- m(X, V), e(X, Y).", "n takes max"),
+            # a pair whose value is neither operand of the test
+            ("e(a, b, 1). m(a, 1). "
+             "m(Y, max(U)) :- m(X, B), e(X, Y, W), e(Y, X, U), B < W. "
+             "m(Y, max(W)) :- m(X, B), e(X, Y, W), e(Y, X, U), W <= B.",
+             "monotone"),
             # a smaller V could fail W <= V: not monotone
             ("w(a, 1). m(a, 2). m(Y, min(W)) :- m(Y, V), w(Y, W), W <= V.",
              "monotone"),
@@ -1509,7 +1629,7 @@ class AnswerSubsumptionTests(unittest.TestCase):
             ("e(a, b). m(a, 1). m(V, min(V)) :- m(X, V), e(X, V).",
              "monotone"),
             ("e(a, b). m(a, 1). m(Y, min(V)) :- n(Y, V). "
-             "n(Y, V) :- m(X, V), e(X, Y).", "must be direct"),
+             "n(Y, V) :- m(X, V), e(X, Y).", "n does not take min"),
             ("e(a, b). m(a, 1). m(Y, min(V)) :- m(X, V), e(X, Y). "
              "m(Y, V) :- m(Y, V), e(Y, Y).", "every rule"),
             ("e(a, b). m(a, 1). m(Y, min(V)) :- m(X, V), e(X, Y). "
@@ -1830,18 +1950,25 @@ class DifferentialFuzzTests(unittest.TestCase):
                             self.assertEqual(found, set(match_answers(
                                 atom, reference.rels.get(atom.pred, ()))),
                                 "query %s" % atom)
+                        self.assert_explanations_hold(engine)
 
     def _lattice_program(self, rng):
-        """A program whose m recurses through min or max, monotone by
-        construction, and the stratified program it must agree with:
-        m's rules derive every value into mall, and m folds mall once.
-        Returns (rules, reference rules, derived predicates)."""
+        """A program whose m, and sometimes n, recurse through min or
+        max, monotone by construction, and the stratified program it
+        must agree with: each lattice rule derives every value into
+        mall (nall), folded once at the end.  Some recursive rules come
+        as a pair, `V < W` in one and its negation in the other, each
+        taking V or W: between them, a min or max of the two.  Returns
+        (rules, reference rules, derived predicates)."""
         func = rng.choice(["min", "max"])
         arity = rng.choice([1, 2, 3])
         idx = rng.randrange(arity)
+        names = ["m", "n"] if rng.random() < 0.4 else ["m"]
         # V on the side of a comparison a better V keeps true
         left, right = ((["<", "<="], [">", ">="]) if func == "min"
                        else ([">", ">="], ["<", "<="]))
+        negate = {"<": ">=", "<=": ">", ">": "<=", ">=": "<"}
+        flip = {"<": ">", "<=": ">=", ">": "<", ">=": "<="}
 
         def atom(name, keys, value):
             return "%s(%s)" % (name, ", ".join(keys[:idx] + [value]
@@ -1859,22 +1986,32 @@ class DifferentialFuzzTests(unittest.TestCase):
                     else rng.choice(self.DOMAIN) for _ in range(arity - 1)]
 
         rules, reference = [], []
-        for _ in range(rng.randint(1, 2)):
-            bound = []
-            body = [edb(bound) for _ in range(rng.randint(1, 2))]
-            if not bound:
-                continue
-            if rng.random() < 0.3:
-                name, ar = rng.choice(self.EDB)
-                body.append("not %s(%s)" % (name, ", ".join(
-                    rng.choice(bound) for _ in range(ar))))
-            head = keys(bound)
-            value = rng.choice(bound)
-            rules.append("%s :- %s." % (atom("m", head, "%s(%s)" % (
-                func, value)), ", ".join(body)))
-            reference.append("%s :- %s." % (atom("mall", head, value),
-                                            ", ".join(body)))
-        for _ in range(rng.randint(1, 2)):
+
+        def add(name, head, value, body, read=None):
+            rules.append("%s :- %s." % (
+                atom(name, head, "%s(%s)" % (func, value)),
+                ", ".join(([atom(read, ks, "V")] if read else []) + body)))
+            reference.append("%s :- %s." % (
+                atom(name + "all", head, value),
+                ", ".join(([atom(read + "all", ks, "V")] if read else [])
+                          + body)))
+
+        for name in names:
+            for _ in range(rng.randint(1, 2)):
+                bound = []
+                body = [edb(bound) for _ in range(rng.randint(1, 2))]
+                if not bound:
+                    continue
+                if rng.random() < 0.3:
+                    pred, ar = rng.choice(self.EDB)
+                    body.append("not %s(%s)" % (pred, ", ".join(
+                        rng.choice(bound) for _ in range(ar))))
+                add(name, keys(bound), rng.choice(bound), body)
+        # two names: m reads n and n reads m, so they recurse together
+        reads = [(n, r) for n, r in zip(names, names[::-1])] + [
+            (rng.choice(names), rng.choice(names))
+            for _ in range(rng.randint(0, 1) + 2 - len(names))]
+        for name, read in reads:
             bound = []
             ks = [rng.choice(self.VARS) for _ in range(arity - 1)]
             bound += ks
@@ -1887,19 +2024,23 @@ class DifferentialFuzzTests(unittest.TestCase):
                             if rng.random() < 0.5 else
                             "%s %s V" % (other, rng.choice(right)))
             head = keys(others)
+            if others and rng.random() < 0.3:
+                # a test on the wrong side, made monotone by its partner
+                w = rng.choice(others)
+                op = rng.choice(right)
+                for test in ("V %s %s" % (op, w), "V %s %s" % (
+                        negate[op], w) if rng.random() < 0.5 else
+                        "%s %s V" % (w, flip[negate[op]])):
+                    add(name, head, rng.choice(["V", w]), body + [test],
+                        read)
+                continue
             value = (rng.choice(others) if others and rng.random() < 0.4
                      else "V")
-            rules.append("%s :- %s." % (
-                atom("m", head, "%s(%s)" % (func, value)),
-                ", ".join([atom("m", ks, "V")] + body)))
-            reference.append("%s :- %s." % (
-                atom("mall", head, value),
-                ", ".join([atom("mall", ks, "V")] + body)))
-        if not reference:
-            return None
+            add(name, head, value, body, read)
         ks = ["K%d" % j for j in range(arity - 1)]
-        reference.append("%s :- %s." % (atom("m", ks, "%s(V)" % func),
-                                        atom("mall", ks, "V")))
+        for name in names:
+            reference.append("%s :- %s." % (atom(name, ks, "%s(V)" % func),
+                                            atom(name + "all", ks, "V")))
         # read from outside, the value position bound or not
         read = [rng.choice(self.VARS + self.DOMAIN) for _ in range(arity)]
         bound = [a for a in read if a in self.VARS] or None
@@ -1907,8 +2048,8 @@ class DifferentialFuzzTests(unittest.TestCase):
         if read[idx] in self.VARS and rng.random() < 0.6:
             head = read[idx]    # the value: a stale one would show
         reader = "t1(%s) :- m(%s)." % (head, ", ".join(read))
-        return rules + [reader], reference + [reader], [("m", arity),
-                                                        ("t1", 1)]
+        return rules + [reader], reference + [reader], [
+            (name, arity) for name in names] + [("t1", 1)]
 
     def test_answer_subsumption_matches_folding_every_value(self):
         # recursion through min or max: a lattice table keeps only its
@@ -1917,10 +2058,7 @@ class DifferentialFuzzTests(unittest.TestCase):
         # does, in both tabled engines, before and after an update
         rng = random.Random(20261101)
         for i in range(self.iterations(300)):
-            made = self._lattice_program(rng)
-            if made is None:
-                continue
-            rules, reference, idb = made
+            rules, reference, idb = self._lattice_program(rng)
             text = "\n".join(self._facts(rng) + rules)
             clauses = parse(text)
             atoms = [self._query(rng, idb)] + [
@@ -1945,6 +2083,7 @@ class DifferentialFuzzTests(unittest.TestCase):
                             self.assertEqual(found, set(match_answers(
                                 atom, expected.rels.get(atom.pred, ()))),
                                 "query %s" % atom)
+                        self.assert_explanations_hold(engine)
                 script, text = self._update(rng, clauses)
                 clauses = parse(text)
                 for j, engine in enumerate(engines):
@@ -1990,6 +2129,46 @@ class DifferentialFuzzTests(unittest.TestCase):
                             set(match_answers(atom, {a for p, a in undefined
                                                      if p == atom.pred}))))
                         self.assert_tables_settled(engine)
+                        self.assert_explanations_hold(engine)
+
+    def assert_explanations_hold(self, engine):
+        """What explain() reads, checked for every answer of every live
+        table: each derivation is an instance of its clause, with each
+        positive premise an answer (true ones for a true answer), each
+        `not` on a non-answer (or, for an undefined one, a non-true
+        answer), each comparison true; and following premises the way
+        explain() does never leads a true answer back to itself."""
+        proofs = engine._proofs()
+        edges = []
+        for (pred, tup), (status, derivations) in proofs.items():
+            ok = ("true", "bettered") if status != "undefined" else (
+                "true", "bettered", "undefined")
+            for tick, (head, body), s in derivations:
+                if not body:
+                    self.assertIn((head, ()), engine.by_pred[pred, len(tup)])
+                    continue
+                if body[0].atom.pred in engine.sources:
+                    continue              # a fold, of a complete table
+                self.assertEqual(Engine.instantiate(head, s), tup)
+                for lit in body:
+                    ground = (lit.atom.pred, Engine.instantiate(lit.atom, s))
+                    if is_comparison(lit):
+                        self.assertTrue(holds(lit.atom, s), (pred, tup, lit))
+                    elif lit.negated:
+                        self.assertNotIn(
+                            proofs.get(ground, ("false",))[0],
+                            ok[:1] if status == "undefined"
+                            else ("true", "undefined"), (pred, tup, lit))
+                    else:
+                        self.assertIn(proofs[ground][0], ok, (pred, tup, lit))
+                        if status != "undefined":
+                            edges.append(((pred, tup, tick), ground + (
+                                engine._premise(proofs[ground][1], tick)[0],),
+                                False))
+        nodes = {a for e in edges for a in e[:2]}
+        scc = _tarjan(nodes, edges)
+        self.assertEqual(len(set(scc.values())), len(nodes))
+        self.assertFalse([e for e in edges if e[0] == e[1]])
 
     def assert_tables_settled(self, engine):
         """What simplification promises of every finished table, beyond

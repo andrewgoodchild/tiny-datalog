@@ -14,7 +14,7 @@ three ideas Lesson 15 names:
    that table — the rest of its rule body, waiting — and every answer
    the table gains is pushed to every consumer exactly once.  Python
    generators cannot be copied or resumed twice, so a suspended call is
-   plain data: (the calling subgoal, its rule head, the body literals
+   plain data: (the calling subgoal, its clause, the body literals
    still to prove, the substitution so far, the delays so far).
 
 2. **Detect completion.**  The incomplete tables and the calls between
@@ -68,6 +68,7 @@ CLI
     python3 slg.py programs/win.dl -q 'win(X)'
     python3 slg.py programs/left-recursive.dl -q 'ancestor(abe, X)' -t
     python3 slg.py programs/from-start.dl -q 'from_start(Y)' -s
+    python3 slg.py programs/win.dl -e 'win(X)'
 
 Integrity constraints are checked after the queries; one whose body
 is true exits 3, and one whose body is only undefined is named.
@@ -86,14 +87,12 @@ from tiny_datalog.core import (
     format_atom, format_fact, match, parse, read_program, sort_key, holds,
     is_comparison, stratify)
 from tiny_datalog.datalog import _print_violations
-from tiny_datalog.lattice import unfold_lattices
+from tiny_datalog.lattice import outside, unfold_lattices
 from tiny_datalog.tabling import (
     constraint_goals, counterexamples, fold_answers, free_positions,
     index_clauses, subsuming)
 from tiny_datalog.tablespace import (
-    TableSpace, add_steps, head_seed, run_steps)
-
-UNCONDITIONAL = frozenset()   # the empty condition: the answer is true
+    UNCONDITIONAL, TableSpace, add_steps, head_seed, run_steps)
 
 
 class SLGEngine(TableSpace):
@@ -114,8 +113,8 @@ class SLGEngine(TableSpace):
         # by the time a negation is reached its subgoal is ground; each
         # integrity constraint becomes a query
         clauses, self.goals = constraint_goals(clauses)
-        (self.arity, self.by_pred, self.sources,
-         self.lattice) = index_clauses(clauses)
+        (self.arity, self.by_pred, self.sources, self.lattice,
+         self.shown) = index_clauses(clauses)
         if self.lattice:
             # a lattice's answers must all be true, so no delays: a
             # stratified program, its lattices read from outside only
@@ -176,7 +175,7 @@ class SLGEngine(TableSpace):
             return key
         if key in self.old:
             self._settled(key)
-        self.tables[key] = {}
+        self.tables[key], self.why[key] = {}, {}
         self.order[key] = next(self.ids)
         pred, pattern = key
         self.shapes[pred][free_positions(pattern)].add(pattern)
@@ -191,9 +190,9 @@ class SLGEngine(TableSpace):
             self.stats["clause resolutions"] += 1
             if facts_only:
                 self._answer(key, tuple(a.value for a in head.args),
-                             UNCONDITIONAL)
+                             UNCONDITIONAL, (head, body), seed)
             else:
-                self._push((key, head, body, seed, UNCONDITIONAL))
+                self._push((key, (head, body), body, seed, UNCONDITIONAL))
         if facts_only:
             # a table of facts calls nothing, so it is complete the
             # moment it is filled: `not` on it never waits
@@ -225,24 +224,25 @@ class SLGEngine(TableSpace):
     # -- running frames ------------------------------------------------------
 
     def _step(self, frame):
-        """Prove the next literal of a frame: (subgoal, head, remaining
+        """Prove the next literal of a frame: (subgoal, clause, remaining
         body, substitution, condition)."""
-        key, head, body, subst, cond = frame
+        key, clause, body, subst, cond = frame
         if not body:
             self._answer(key, tuple(a.value if isinstance(a, Const)
-                                    else subst[a.name] for a in head.args),
-                         cond)
+                                    else subst[a.name]
+                                    for a in clause[0].args),
+                         cond, clause, subst)
             return
         lit, rest = body[0], body[1:]
         if is_comparison(lit):          # a test, never a subgoal
             if holds(lit.atom, subst):
-                self._push((key, head, rest, subst, cond))
+                self._push((key, clause, rest, subst, cond))
             return
         wanted = self._key(lit.atom, subst)
         callee = self._call(key, wanted, subsume=not lit.negated)
-        waiter = (key, head, rest, subst, cond, lit)
-        if lit.atom.pred in self.sources or (
-                lit.atom.pred in self.lattice and lit.atom.pred != key[0]):
+        waiter = (key, clause, rest, subst, cond, lit)
+        if lit.atom.pred in self.sources or outside(
+                self.lattice, key[0], lit.atom.pred):
             # an aggregate's body table, split off by index_clauses, or
             # a lattice read from outside: read it once it is complete
             if callee in self.complete:
@@ -306,15 +306,16 @@ class SLGEngine(TableSpace):
                 "cannot aggregate over undefined answers (the well-founded "
                 "semantics of aggregates is still debated): %s" % rule)
         for tup in fold_answers(rule, aux, answers, key[1]):
-            self._answer(key, tup, UNCONDITIONAL)
+            self._answer(key, tup, UNCONDITIONAL, waiter[1], waiter[3])
 
     def _proved(self, key):
         """Whether a table already holds a true answer.  For a ground
         subgoal that settles `not` early: more answers cannot undo it."""
         return any(UNCONDITIONAL in c for c in self.tables[key].values())
 
-    def _answer(self, key, tup, cond):
-        """Record an answer; a new tuple goes to every consumer."""
+    def _answer(self, key, tup, cond, clause, subst):
+        """Record an answer, and how it was derived (for explain); a new
+        tuple goes to every consumer."""
         answers = self.tables[key]
         conds = answers.get(tup)
         if conds is not None:
@@ -325,12 +326,14 @@ class SLGEngine(TableSpace):
                 return
             conds.difference_update({c for c in conds if cond <= c})
             conds.add(cond)
+            self._record(key, tup, cond, clause, subst)
             return
         better, old = self._improve(key, tup)
         if not better:                  # a lattice's best is no worse
             return
         answers.pop(old, None)
         answers[tup] = {cond}
+        self._record(key, tup, cond, clause, subst)
         for at in self.indexed.get(key, ()):    # served calls, by slice
             want = tuple(tup[i] for i in at)
             self.indexes[key, at][want].append(tup)
@@ -343,24 +346,24 @@ class SLGEngine(TableSpace):
         """Resume a consumer with one answer.  A conditional answer is
         returned once, as a delayed reference to itself; if it later
         turns out true or false, simplification settles the reference."""
-        caller, head, rest, subst, cond, lit = waiter
+        caller, clause, rest, subst, cond, lit = waiter
         s = match(lit.atom.args, tup, subst)
         if s is None:
             return
         self.stats["answers returned"] += 1
         if UNCONDITIONAL not in self.tables[key][tup]:
             cond = cond | {("+", key, tup)}
-        self._push((caller, head, rest, s, cond))
+        self._push((caller, clause, rest, s, cond))
 
     def _negative_return(self, waiter, key):
         """Resume a `not` on a completed (and simplified) table."""
-        caller, head, rest, subst, cond, _lit = waiter
+        caller, clause, rest, subst, cond, _lit = waiter
         value = self._value(("-", key))
         if value is False:
             return
         if value is None:                # undefined: carry it along
             cond = cond | {("-", key)}
-        self._push((caller, head, rest, subst, cond))
+        self._push((caller, clause, rest, subst, cond))
 
     # -- the scheduler -------------------------------------------------------
 
@@ -451,9 +454,9 @@ class SLGEngine(TableSpace):
         for k, waiters in stuck.items():
             if self._proved(k):     # true since they suspended
                 continue
-            for caller, head, rest, subst, cond, _lit in waiters:
+            for caller, clause, rest, subst, cond, _lit in waiters:
                 self.stats["delays"] += 1
-                self._push((caller, head, rest, subst, cond | {("-", k)}))
+                self._push((caller, clause, rest, subst, cond | {("-", k)}))
 
     def _closed_segment(self):
         """The smallest top segment of the completion stack that calls
@@ -527,37 +530,57 @@ class SLGEngine(TableSpace):
         """Settle a just-completed component's conditions.  Everything
         a condition mentions is complete now — this component or one
         below it, already settled — so each literal is True, False, or
-        undecided.  Strike out the true ones, drop conditions with a
-        false one, and repeat, interleaved with answer completion,
-        until nothing changes."""
-        changed = True
-        while changed:
-            changed = False
-            for key in sorted(scc, key=self.order.get):
-                answers = self.tables[key]
-                for tup in list(answers):
-                    conds = answers[tup]
-                    if conds == {UNCONDITIONAL}:
-                        continue
-                    settled = set()
-                    for cond in conds:
-                        values = {lit: self._value(lit) for lit in cond}
-                        if False not in values.values():
-                            settled.add(frozenset(
-                                lit for lit in cond if values[lit] is None))
-                    # minimal again: settling can make one condition a
-                    # subset of another (and the empty one absorbs all)
-                    settled = {c for c in settled
-                               if not any(d < c for d in settled)}
-                    if settled != conds:
-                        changed = True
-                        self.stats["simplifications"] += 1
-                        if settled:
-                            answers[tup] = settled
-                        else:
-                            del answers[tup]
-            if not changed:
-                changed = self._drop_unfounded(scc)
+        undecided.  Strike out the true ones and drop conditions with a
+        false one; when that settles an answer, true or false, revisit
+        the answers whose conditions mention it (a worklist, indexed by
+        literal, so each pass is linear).  Then answer completion, and
+        again, until nothing changes."""
+        uses = defaultdict(dict)    # literal -> answers it is delayed in
+        todo = []
+        for key in sorted(scc, key=self.order.get):
+            for tup, conds in self.tables[key].items():
+                if conds != {UNCONDITIONAL}:
+                    todo.append((key, tup))
+                    for lit in chain.from_iterable(conds):
+                        if lit[1] in scc:
+                            uses[lit][key, tup] = None
+        while todo:
+            while todo:
+                key, tup = todo.pop()
+                if self._resettle(key, tup):        # it settles once
+                    todo += uses.pop(("+", key, tup), ())
+                    if self._value(("-", key)) is not None:
+                        todo += uses.pop(("-", key), ())
+            for key, tup in self._drop_unfounded(scc):
+                todo += uses.pop(("+", key, tup), ())
+                if not self.tables[key]:
+                    todo += uses.pop(("-", key), ())
+
+    def _resettle(self, key, tup):
+        """Simplify one answer's conditions against the tables; returns
+        whether that settled it, true or false."""
+        conds = self.tables[key].get(tup)
+        if not conds or conds == {UNCONDITIONAL}:
+            return False                # settled already
+        settled, why = set(), self.why[key][tup]
+        for cond in conds:
+            values = {lit: self._value(lit) for lit in cond}
+            if False not in values.values():
+                left = frozenset(lit for lit in cond if values[lit] is None)
+                settled.add(left)
+                # the derivation carries over (true from now on, if so)
+                why.setdefault(left, (next(self.ticks),) + why[cond][1:])
+        # minimal again: settling can make one condition a subset of
+        # another (and the empty one absorbs all)
+        settled = {c for c in settled if not any(d < c for d in settled)}
+        if settled == conds:
+            return False
+        self.stats["simplifications"] += 1
+        if settled:
+            self.tables[key][tup] = settled
+        else:
+            del self.tables[key][tup]
+        return not settled or settled == {UNCONDITIONAL}
 
     def _drop_unfounded(self, scc):
         """Answer completion: an answer of this component is supported
@@ -566,27 +589,34 @@ class SLGEngine(TableSpace):
         are undefined by now, and support nothing false).  Unsupported
         answers form an unfounded set — they hold each other up in a
         positive loop and nothing else holds them — so they are false.
-        Returns whether any were dropped."""
-        supported = set()
-        grew = True
-        while grew:
-            grew = False
-            for key in scc:
-                for tup, conds in self.tables[key].items():
-                    if (key, tup) in supported:
-                        continue
-                    if any(all(lit[0] == "-" or lit[1] not in scc
-                               or (lit[1], lit[2]) in supported
-                               for lit in cond) for cond in conds):
-                        supported.add((key, tup))
-                        grew = True
-        dropped = False
+        Support spreads as in a Horn-clause solver: each condition
+        counts the answers it still waits on.  Returns those dropped."""
+        waits = defaultdict(list)       # answer -> conditions waiting on it
+        ready = []
         for key in scc:
-            for tup in list(self.tables[key]):
-                if (key, tup) not in supported:
-                    del self.tables[key][tup]
-                    self.stats["unfounded answers"] += 1
-                    dropped = True
+            for tup, conds in self.tables[key].items():
+                for cond in conds:
+                    inside = {(lit[1], lit[2]) for lit in cond
+                              if lit[0] == "+" and lit[1] in scc}
+                    count = [len(inside), (key, tup)]
+                    for answer in inside:
+                        waits[answer].append(count)
+                    if not inside:
+                        ready.append((key, tup))
+        supported = set()
+        while ready:
+            answer = ready.pop()
+            if answer not in supported:
+                supported.add(answer)
+                for count in waits.pop(answer, ()):
+                    count[0] -= 1
+                    if not count[0]:
+                        ready.append(count[1])
+        dropped = [(key, tup) for key in sorted(scc, key=self.order.get)
+                   for tup in self.tables[key] if (key, tup) not in supported]
+        for key, tup in dropped:
+            del self.tables[key][tup]
+            self.stats["unfounded answers"] += 1
         return dropped
 
 
