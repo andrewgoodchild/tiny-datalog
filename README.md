@@ -94,7 +94,7 @@ Nothing to install:
 
 ```sh
 git clone https://github.com/andrewgoodchild/tiny-datalog && cd tiny-datalog
-python3 tests.py        # 423 tests, ~20s
+python3 tests.py        # 429 tests, ~20s
 ```
 
 ## Why the language choice decides what you can ask later
@@ -295,8 +295,9 @@ quietly:
   body by nested loop, left to right, so the algorithms stay
   one-screen readable. It is also why the magic-sets timing above goes
   the way it does. The only indexes are the ones `slg.py -s` builds
-  for the call patterns it serves, and the one `--explain` uses to
-  find an earlier derivation.
+  for the call patterns it serves, the one `--explain` uses to find
+  an earlier derivation, and the one `slg.py` keeps while it
+  simplifies.
 - **⊤ and role hierarchies** in the classifier — what ships is EL⊥
   (disjointness and unsatisfiability detection included). SNOMED needs
   ELH (EL plus role hierarchies) with right identities, which is what
@@ -395,7 +396,8 @@ tiny_datalog/   the code you read, in three tiers:
   tabling.py    tabled top-down evaluation (iterative QSQR), and the
                 front end both tabled engines share
   tablespace.py the table space both tabled engines keep through
-                updates: incremental tabling, eager or lazy
+                updates: incremental tabling, eager or lazy, and
+                explanations read off the tables
   lattice.py    answer subsumption: recursion through min and max,
                 for both tabled engines
   engines.py    the registry and the interface the five share (the
@@ -427,7 +429,7 @@ benchmarks/     scaled input generators (chain/tree/clique/grid, an EL
                 ontology, and the N-queens puzzle), and mutate.py,
                 which breaks the code one line at a time to measure
                 how much of it the tests would notice (91% at 0.7.0)
-tests.py        423 tests: every shipped program and exercise answer is
+tests.py        429 tests: every shipped program and exercise answer is
                 executed, a conformance suite runs every query through
                 every engine that handles it, and a seeded fuzzer checks
                 the same property on random programs
@@ -457,14 +459,14 @@ Measured in lines, comments, docstrings and blank lines included:
 | the common core (`core.py`: the language, evaluating nothing; about 270 of these lines arrived with comparisons, constraints, value checks and the warnings) | 1,057 |
 | the base engine's evaluator (`datalog.py` up to its CLI section: the module docstring, the import list that re-exports the core, `Program`, `Engine`, aggregation folding, `run_program`) | 423 |
 | `--explain`, why-not, constraint reports, `--assume`, printing and the CLI (the rest of `datalog.py`) | 649 |
-| the other pluggable engines: magic sets (`magic.py`) and tabling (`tabling.py`, with `tablespace.py` and `lattice.py`, the incremental tabling and answer subsumption both tabled engines share), plus the `engines.py` registry (naive evaluation is a flag on the base engine; the fifth engine, SLG, is counted with the extensions) | 1,213 |
-| the nine extensions | 3,526 |
+| the other pluggable engines: magic sets (`magic.py`) and tabling (`tabling.py`, with `tablespace.py` and `lattice.py`, the incremental tabling, explanations and answer subsumption both tabled engines share), plus the `engines.py` registry (naive evaluation is a flag on the base engine; the fifth engine, SLG, is counted with the extensions) | 1,469 |
+| the nine extensions | 3,555 |
 
 So the smallest complete Datalog system here — parse, check, stratify,
 evaluate semi-naively — is the core plus the evaluator, about 1,500
-lines. All of it is 6.9k lines of toolkit (every module but the
+lines. All of it is 7.2k lines of toolkit (every module but the
 re-export list in `__init__.py`), roughly a quarter of it commentary,
-and 5.0k of tests.
+and 5.2k of tests.
 
 "Tiny" is a claim about that core and evaluator, and about each module
 built on them singly: none of the fourteen (`magic.py`, `tabling.py`,

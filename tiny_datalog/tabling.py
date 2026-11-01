@@ -52,12 +52,14 @@ Both engines keep their tables from query to query, and TableSpace
 (tablespace.py) keeps them through a change to the facts: apply()
 rebuilds only the tables that read a changed fact, at once or when a
 query next reads one, and stops at one that comes out unchanged
-(incremental tabling).
+(incremental tabling).  Each answer also records how it was derived,
+and -e prints the derivation tree, read off the tables.
 
 CLI
 ---
     python3 tabling.py programs/reachability.dl -q 'path(n5, X)'
     python3 tabling.py programs/left-recursive.dl -q 'ancestor(abe, X)'
+    python3 tabling.py programs/earliest.dl -e 'arrive(rome, T)'
     python3 tabling.py programs/reachability.dl -q 'path(n3, X)' \
         -u 'edge(n8, n9).' -q 'path(n3, X)'
 
@@ -76,9 +78,9 @@ from tiny_datalog.core import (
     StratificationError, Var, format_fact, match, parse, read_program, sort_key, stratify, validate, aggregate_of, body_order,
     holds, is_comparison)
 from tiny_datalog.datalog import _fold, _print_violations
-from tiny_datalog.lattice import lattices, unfold_lattices
+from tiny_datalog.lattice import lattices, outside, unfold_lattices
 from tiny_datalog.tablespace import (
-    TableSpace, add_steps, head_seed, run_steps)
+    UNCONDITIONAL, TableSpace, add_steps, head_seed, run_steps)
 
 
 # -- shared with slg.py: what a subgoal is, and how a clause meets one ------
@@ -152,16 +154,19 @@ def split_aggregates(clauses):
 
 def index_clauses(clauses):
     """Validate a program for a tabled engine and index it: returns
-    (arity, by_pred, sources, lattice), by_pred mapping (pred, arity)
-    to (head, body) pairs, with aggregate rules split as
-    split_aggregates does, and lattice as lattices() finds it."""
+    (arity, by_pred, sources, lattice, shown), by_pred mapping (pred,
+    arity) to (head, body) pairs, with aggregate rules split as
+    split_aggregates does, lattice as lattices() finds it, and shown
+    mapping each pair to the clause as written, for explain()."""
     arity = validate(clauses)
     for c in clauses:
         if c.retract:
             raise DatalogError("retraction is incremental.py's job: %s" % c)
     lattice = lattices(clauses)
-    clauses, sources = split_aggregates(unfold_lattices(clauses, lattice))
-    by_pred = defaultdict(list)
+    unfolded = unfold_lattices(clauses, lattice)
+    written = dict(zip(unfolded, clauses))
+    clauses, sources = split_aggregates(unfolded)
+    by_pred, shown = defaultdict(list), {}
     for c in clauses:
         # positive literals first: they bind; comparisons and negations
         # then test ground atoms (safety guarantees they are ground by
@@ -176,7 +181,8 @@ def index_clauses(clauses):
             head = Atom(head.pred, head.args[:idx] + (Var("_#fold"),)
                         + head.args[idx + 1:])
         by_pred[(head.pred, len(head.args))].append((head, body))
-    return arity, by_pred, sources, lattice
+        shown[head, body] = written.get(c, c)
+    return arity, by_pred, sources, lattice, shown
 
 
 def fold_answers(rule, aux, tuples, pattern):
@@ -233,8 +239,8 @@ class TabledEngine(TableSpace):
 
     def __init__(self, clauses):
         clauses, self.goals = constraint_goals(clauses)
-        (self.arity, self.by_pred, self.sources,
-         self.lattice) = index_clauses(clauses)
+        (self.arity, self.by_pred, self.sources, self.lattice,
+         self.shown) = index_clauses(clauses)
         # a lattice is read from outside only once complete, as `not` is
         clauses = unfold_lattices(clauses, self.lattice, strict=True)
         try:
@@ -259,6 +265,7 @@ class TabledEngine(TableSpace):
         self.open = {}          # ...and the rest, in creation order (a
                                 # dict: a set's order would vary per run)
         self.rounds = 0
+        self.added = 0          # answers added, ever: what _fixpoint watches
 
     def _table(self, pred, pattern):
         key = (pred, pattern)
@@ -267,6 +274,7 @@ class TabledEngine(TableSpace):
                 self._settled(key)
             self.tables[key] = set()   # discovered a new subgoal, which
             self.open[key] = None      # the fixpoint will now revisit
+            self.why[key] = {}
         return self.tables[key]
 
     # -- one round of top-down solving --------------------------------------
@@ -301,7 +309,7 @@ class TabledEngine(TableSpace):
             if key[1] not in table:     # the pattern is the ground atom
                 yield from self._prove(rest, subst, caller)
             return
-        if key[0] in self.lattice and key[0] != caller[0] and \
+        if outside(self.lattice, caller[0], key[0]) and \
                 key not in self.complete:
             # read from outside, a lattice must be complete: an answer
             # it later dropped would stay in the reader's table
@@ -313,7 +321,8 @@ class TabledEngine(TableSpace):
 
     def _answers_for(self, key):
         """Re-derive a subgoal's answers from its clauses, one step of
-        head unification plus a tabled body proof."""
+        head unification plus a tabled body proof: (answer, clause,
+        substitution), the last two for explain()."""
         pred, pattern = key
         for head, body in self.by_pred.get((pred, len(pattern)), ()):
             seed = head_seed(head, pattern)
@@ -321,12 +330,13 @@ class TabledEngine(TableSpace):
                 continue
             if body and body[0].atom.pred in self.sources:
                 for _s, table in self._prove(body, seed, key):
-                    yield from fold_answers(self.sources[body[0].atom.pred],
-                                            body[0].atom, table, pattern)
+                    for ans in fold_answers(self.sources[body[0].atom.pred],
+                                            body[0].atom, table, pattern):
+                        yield ans, (head, body), seed
                 continue
             for s in self._prove(body, seed, key):
                 yield tuple(a.value if isinstance(a, Const) else s[a.name]
-                            for a in head.args)
+                            for a in head.args), (head, body), s
 
     # -- the fixpoint --------------------------------------------------------
 
@@ -370,23 +380,25 @@ class TabledEngine(TableSpace):
         own fixpoint, whose rounds are the ones counted."""
         changed = True
         while changed:
-            known = len(self.tables)
-            changed = False
+            # a negation's nested fixpoint may fill a table this round
+            # already read, so count every answer added, not just ours
+            known = (len(self.tables), self.added)
             if below is None:
                 self.rounds += 1
             for key in list(self.open):       # complete tables cannot grow
                 if below is not None and self.strata.get(key[0], 0) > below:
                     continue
                 table = self.tables[key]
-                for ans in list(self._answers_for(key)):
+                for ans, clause, s in list(self._answers_for(key)):
                     if ans in table:
                         continue
                     better, old = self._improve(key, ans)
                     if better:
                         table.discard(old)
                         table.add(ans)
-                        changed = True
-            changed = changed or len(self.tables) != known
+                        self._record(key, ans, UNCONDITIONAL, clause, s)
+                        self.added += 1
+            changed = (len(self.tables), self.added) != known
         done = {k for k in self.open
                 if below is None or self.strata.get(k[0], 0) <= below}
         self.complete |= done

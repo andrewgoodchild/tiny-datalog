@@ -1,0 +1,25 @@
+% The widest path: how big a load can reach each depot from the port,
+% when a road carries no more than its limit (tonnes).  A path is as
+% wide as its narrowest road, and the best path is the widest.
+%
+%   python3 tabling.py programs/widest.dl -q 'wide(X, B)'
+%   python3 slg.py programs/widest.dl -q 'wide(dover, B)'
+%
+% wide recurses through max, by answer subsumption (lesson 15).  A
+% path's width is min(B, W), the width so far and the next road's,
+% and with no arithmetic that takes two rules, one per case.  The
+% second is not monotone alone: a wider B could break B < W.
+% lattice.py accepts them as a pair, since one is the other with the
+% test negated, and between them they take min(B, W), which a wider B
+% can only widen.
+
+road(port, bristol, 40).
+road(port, cardiff, 20).
+road(bristol, cardiff, 30).
+road(cardiff, dover, 50).
+road(bristol, exeter, 10).
+road(dover, exeter, 20).
+
+wide(Y, max(W)) :- road(port, Y, W).
+wide(Y, max(W)) :- wide(X, B), road(X, Y, W), W <= B.
+wide(Y, max(B)) :- wide(X, B), road(X, Y, W), B < W.

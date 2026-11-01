@@ -44,8 +44,13 @@ incremental tabling, `tablespace.py`), eagerly or, with `--lazy`,
 only when a query reads a stale table, and check integrity
 constraints, each as one more query. Both run recursion through `min` and `max` by answer
 subsumption (`lattice.py`): a table keeps the best answer per group,
-for rules a monotonicity check accepts. `slg.py` has a higher line
-limit than the other modules' 500: 700.
+for rules a monotonicity check accepts, predicates that recurse
+through each other included, and a pair of rules that splits one test
+into its two cases (the widest path's `min(B, W)`). Both explain their
+answers from the tables (`-e`, `explain()`): each answer records the
+clause and substitution of its first derivation, true or under a
+condition. `slg.py` simplifies by worklist, each pass linear. It has a
+higher line limit than the other modules' 500: 700.
 
 Tried and dropped: sending an answer to its consumers again when it
 turns from conditional to true. A `not` waits for its table to
@@ -56,20 +61,26 @@ where they were (6,527, then 6,529).
 
 Still open:
 
-- **Answer subsumption, further.** `lattice.py` refuses recursion
-  through `min` or `max` that is not direct (two predicates through
-  each other), and its monotonicity check is per rule, so it refuses
-  some monotone programs. A bottleneck path needs two rules, one per
-  case of `min(V, W)`, and the rule for `V < W` fails the check,
-  though the pair together is monotone. Without arithmetic, lattices
-  other than `min` and `max` (intervals, Lesson 13's sign lattice)
-  cannot be written at all. `slg.py` keeps lattices to stratified
-  programs.
-- **A simplification worklist.** `_simplify` rescans every
-  conditional answer on each pass, and `_drop_unfounded` rescans until
-  nothing grows. Indexing answers by the delayed literals they mention
-  would make both linear. No program in the course is slow enough here
-  to show it.
+- **Answer subsumption, further.** The monotonicity check forgives one
+  wrong-side test per read, and only when a partner rule negates it;
+  a case split over two tests is refused, monotone or not. Predicates
+  that recurse through each other must all take the same aggregate.
+  Without arithmetic, lattices other than `min` and `max` (intervals,
+  Lesson 13's sign lattice) cannot be written at all. `slg.py` keeps
+  lattices to stratified programs.
+- **Explanations, further.** `datalog.py --engine tabling` (or `slg`)
+  still refuses `--explain`, though the engine could now answer it, and
+  there is no why-not from the tables. A lattice answer's tree may run
+  through values its table has since bettered; it is a proof, but not
+  the shortest one.
+- **Lazy rebuilding's bookkeeping.** `_settled` scans every stale
+  table's read list each time one is rebuilt, quadratic in a large
+  stale set; a map from each table to the stale tables reading it would
+  make it linear.
+- **SLG's other quadratic steps.** With simplification linear, a long
+  cycle of `win` is dominated by resolving each call against every
+  fact of its predicate (no index on facts, as in the bottom-up
+  engines) and by `_closed_segment`'s scan of the stack.
 - **A step-through debugger** on `slg.py` (parked, with the REPL):
   its suspended frames are already plain data, so stepping them may be
   easier than on `tabling.py`'s generators.

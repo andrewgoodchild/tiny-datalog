@@ -285,6 +285,16 @@ definition, and it is false, not undefined. `slg.py`'s
 answers with outside support is dropped, and simplification runs
 again. Chen and Warren call this step answer completion.
 
+Each pass of either is linear in the size of the conditions. `_simplify`
+indexes the answers by the delayed literals they mention, so an
+answer that settles revisits only the answers that wait on it, not
+every conditional answer in the component. `_drop_unfounded` spreads
+support the way a Horn-clause solver does: each condition counts the
+answers it still waits on, and fires when the count reaches zero. On
+a 1,600-node cycle of `win` with one way out, simplification settles
+the answers one after another, each deciding the next. Rescanning
+took 3.9 seconds; the index takes 0.01.
+
 This program was not written by hand. The test suite's fuzzer, which
 holds `slg.py` to `semantics.py`'s well-founded model on random
 unstratified programs, found it when answer completion was switched
@@ -468,17 +478,19 @@ the answer would depend on the order the engine found the values in.
 
 ```
 $ python3 tabling.py programs/earliest-wrong.dl -q 'arrive(X, T)'
-error: recursion through min needs each rule to be monotone: a smaller value from arrive(From, T) must never cost the head an answer, so it may appear only in the head's min or on the smaller side of a comparison: arrive(To, min(Arr)) :- arrive(From, T), leg(From, To, Dep, Arr), T >= Dep.
+error: recursion through min needs each rule to be monotone: a smaller value from arrive(From, T) must never cost the head an answer, so it may appear only in the head's min, on the smaller side of a comparison, or in a comparison that a rule otherwise the same negates: arrive(To, min(Arr)) :- arrive(From, T), leg(From, To, Dep, Arr), T >= Dep.
 ```
 
-The check is per rule and conservative. The value read may appear
-only in the head's `min` or on the side of a comparison that improving
-it keeps true. It may not be joined on or negated, and it may not
-appear among the head's other arguments. A few more conditions keep
-the semantics simple:
+The check is conservative. The value read may appear only in the
+head's `min` or on the side of a comparison that improving it keeps
+true. It may not be joined on or negated, and it may not appear among
+the head's other arguments. There is one exception, for a pair of
+rules, below. A few more conditions keep the semantics simple:
 
-- The recursion must be direct: `arrive` may read itself, but not
-  through another predicate.
+- Predicates may recurse through each other, but every predicate in
+  the cycle must take the same aggregate: `arrive` may read a
+  `ready(City, min(T))` that reads `arrive`, but not a plain predicate
+  or one that takes `max`. They complete together, as one component.
 - Every rule for the predicate takes the same aggregate at the same
   place, so the table has one notion of "best".
 - Anything else reads the table only once it is complete, the way
@@ -502,6 +514,34 @@ $ python3 slg.py programs/earliest.dl -q 'arrive(rome, T)' -u 'leg(lyon, rome, 1
 ?- arrive(rome, T)   [SLG]
    arrive(rome, 19).
    (1 true, 0 undefined; 14 subgoal tables, 4 completions, 0 delays)
+```
+
+The exception is for a test on the wrong side, as in the widest path
+(`programs/widest.dl`): a path carries as much as its narrowest road,
+and the best path carries the most.
+
+```
+wide(Y, max(W)) :- road(port, Y, W).
+wide(Y, max(W)) :- wide(X, B), road(X, Y, W), W <= B.
+wide(Y, max(B)) :- wide(X, B), road(X, Y, W), B < W.
+```
+
+A path's width is `min(B, W)`, the width so far and the next road's,
+and without arithmetic that takes two rules, one per case. The third
+rule is not monotone on its own, since a wider `B` could break
+`B < W`. But it is the second rule with the test negated, and each
+takes one of the test's operands as its value. Between them they take
+`min(B, W)`, and a wider `B` can only widen that. `lattice.py` accepts
+such a pair:
+
+```
+$ python3 slg.py programs/widest.dl -q 'wide(X, B)'
+?- wide(X, B)   [SLG]
+   wide(bristol, 40).
+   wide(cardiff, 30).
+   wide(dover, 30).
+   wide(exeter, 20).
+   (4 true, 0 undefined; 6 subgoal tables, 1 completion, 0 delays)
 ```
 
 Without arithmetic, Lesson 14's shortest path is out of reach: there
@@ -658,16 +698,80 @@ Eager `apply` is the lazy one followed by revalidating every stale
 table at once, so the two modes share one code path. They live in
 `tablespace.py`, which both engines build on.
 
+### Explanations from the tables
+
+`datalog.py --explain` (Lesson 2) works after the fact. It searches
+the finished relations for a rule instance whose premises were derived
+earlier, using the derivation-order stamps, and repeats the search
+for each premise. A tabled engine already knows the answer, because it
+derived each answer once, from a particular clause with a particular
+substitution. `tablespace.py` keeps that record: when an answer first
+enters a table, `_record` notes the clause, the substitution, and a
+stamp. `-e` (or `explain()` from Python) prints the tree those records
+make, without searching:
+
+```
+$ python3 tabling.py programs/earliest.dl -e 'arrive(paris, T)'
+?- explain arrive(paris, T)
+   arrive(paris, 11)   [via arrive(To, min(Arr)) :- arrive(From, T), leg(From, To, Dep, Arr), T <= Dep.]
+     arrive(london, 7)   [via arrive(City, min(T)) :- start(City, T).]
+       start(london, 7)   (base fact)
+     leg(london, paris, 9, 11)   (base fact)
+     7 <= 9   (comparison)
+```
+
+The tree is well-founded for the same reason Lesson 2's is. Each
+premise was already an answer when it was used, so its record is
+older than the record that cites it, and following premises always
+goes back in time. Three things make the records more than a
+bottom-up trace:
+
+- **An undefined answer explains itself too.** In `slg.py`, an answer
+  derived under a delayed literal records that derivation under its
+  condition. When simplification strikes a literal out, the record
+  carries over to the shorter condition, and gets a new stamp if the
+  answer has just become true. So `-e 'win(X)'` on `programs/win.dl`
+  shows `win(a)` from `move(a, b)` and `not win(b)   (undefined)`.
+  That is the answer's reason, one rule at a time, where the plain
+  query prints only the residual condition.
+- **A lattice answer may rest on a value since bettered.** `slg.py`
+  meets the widest path's cardiff at 20 before it meets it at 30, and
+  dover's first width came from that:
+
+  ```
+  $ python3 slg.py programs/widest.dl -e 'wide(exeter, B)'
+  ?- explain wide(exeter, B)
+     wide(exeter, 20)   [via wide(Y, max(W)) :- wide(X, B), road(X, Y, W), W <= B.]
+       wide(dover, 20)   [via wide(Y, max(B)) :- wide(X, B), road(X, Y, W), B < W.]   (since bettered: wide(dover, 30))
+         wide(cardiff, 20)   [via wide(Y, max(W)) :- road(port, Y, W).]   (since bettered: wide(cardiff, 30))
+           road(port, cardiff, 20)   (base fact)
+         road(cardiff, dover, 50)   (base fact)
+         20 < 50   (comparison)
+       road(dover, exeter, 20)   (base fact)
+       20 <= 20   (comparison)
+  ```
+
+  It is still a proof: every width in it was derived, and the table
+  keeps only the best. A proof through the best values alone need not
+  exist with the stamps in order, so the records keep the values a
+  table dropped.
+- **Records survive an update.** A rebuilt table records afresh. A
+  table put back unchanged keeps its records, stamped again after
+  everything rebuilt below it, so its premises are still older than
+  it is. One case forces a rebuild after all: the tables below came
+  out the same, but a lattice took different steps to reach its
+  best, so a value a record cites was never derived this time.
+
 ### What it costs, and why both modules stay
 
-`slg.py` is about 670 lines to `tabling.py`'s 440, and it borrows
+`slg.py` is about 690 lines to `tabling.py`'s 450, and it borrows
 that module's front end: the clause index, the aggregate split and
 fold, and subsumption's lookup. Both build on `tablespace.py` (the
-call pattern, the head match and incremental tabling) and
+call pattern, the head match, incremental tabling and explanations) and
 `lattice.py` (answer subsumption). `slg.py` is the one module allowed
 more than 500 lines, 700. The extra lines are the bookkeeping iterative QSQR
 avoids: parked consumers, the completion stack, conditions on
-answers, and the simplification loop.
+answers, and simplification.
 In exchange it never repeats work, and it accepts every function-free
 program, stratified or not. The repeated work is what you feel. On a
 300-node chain (`python3 benchmarks/generate.py chain 300`),
@@ -695,7 +799,8 @@ Goal-direction is only half of why the literature keeps building
 top-down evaluators. The other half is that **a bottom-up trace
 follows the data, not the program**: Lesson 2's `--trace` shows deltas
 arriving in rounds, and `--explain` reconstructs a derivation after
-the fact, but neither lets you *step through a rule* the way you step
+the fact (the tabled engines' `-e` reads one off their records), but
+none of these lets you *step through a rule* the way you step
 through a function — watch this subgoal being tried, see that binding
 fail, continue. Interactive Datalog debuggers in the research
 literature are built on top-down semantics for exactly that reason:
