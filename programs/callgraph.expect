@@ -1,0 +1,15 @@
+% What lesson 21's call-graph analysis should say about its eleven
+% lines of Java.  A fact must be derived; `:- fact.` must never be.
+%
+%   python3 diagnose.py programs/callgraph.dl --expect programs/callgraph.expect
+%   python3 mutation.py programs/callgraph.dl --expect programs/callgraph.expect
+
+calls(s1, dog_speak).            % c is a, and a is a Dog
+:- calls(s1, cat_speak).         % points-to knows c is never a Cat
+calls(s2, cat_speak).
+:- calls(S, robot_speak).        % no Robot is ever built
+pt(x, h3).                       % x is what Dog.speak returns
+:- pt(x, h4).
+pt(y, h4).
+calls_cha(s1, cat_speak).        % class hierarchy analysis goes by name alone
+calls_cha(s1, robot_speak).

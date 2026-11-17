@@ -1,0 +1,14 @@
+% Same generation, over programs/kinship.dl: every pair of people the
+% same number of steps below ada (each person with themselves
+% included).  No negative examples, so the world is closed.
+%
+%   python3 foil.py programs/kinship.dl --examples programs/sg.examples
+%   python3 synthesis.py programs/kinship.dl --examples programs/sg.examples \
+%                        --candidates programs/sg.candidates
+
+sg(ada, ada).  sg(ben, ben).  sg(ben, cat).  sg(cat, ben).
+sg(cat, cat).  sg(dov, dov).  sg(dov, eve).  sg(dov, fay).
+sg(eve, dov).  sg(eve, eve).  sg(eve, fay).  sg(fay, dov).
+sg(fay, eve).  sg(fay, fay).  sg(gus, gus).  sg(gus, hal).
+sg(gus, ivy).  sg(hal, gus).  sg(hal, hal).  sg(hal, ivy).
+sg(ivy, gus).  sg(ivy, hal).  sg(ivy, ivy).

@@ -1,0 +1,10 @@
+% What lesson 3's default rule should say.
+% A fact must be derived; `:- fact.` must never be, and may use variables.
+%
+%   python3 diagnose.py programs/tweety.dl --expect programs/tweety.expect
+%   python3 mutation.py programs/tweety.dl --expect programs/tweety.expect
+
+flies(tweety).           % a bird, and nothing says otherwise
+abnormal(opus).          % a penguin
+:- flies(opus).
+:- abnormal(tweety).

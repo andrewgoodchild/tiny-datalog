@@ -1,0 +1,14 @@
+% What lesson 4's two readings of a missing record should say.
+% A fact must be derived; `:- fact.` must never be, and may use variables.
+%
+%   python3 diagnose.py programs/missing-data.dl --expect programs/missing-data.expect
+%   python3 mutation.py programs/missing-data.dl --expect programs/missing-data.expect
+
+eligible(bob).                   % checked, and not employed
+eligible_naive(bob).
+eligible_naive(dana).            % the naive rule's mistake, which is the lesson
+:- eligible(dana).               % never checked: no evidence either way
+pending(dana).                   % ...so she is sent to be checked
+:- pending(bob).
+:- eligible(cyril).              % checked, and employed
+:- eligible_naive(cyril).

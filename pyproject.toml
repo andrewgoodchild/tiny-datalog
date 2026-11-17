@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tiny-datalog"
-version = "0.7.0"
+version = "0.8.0"
 description = "A Datalog engine whose core you can read in an afternoon, and a course built on it"
 readme = "README.md"
 license = "MIT"
@@ -14,7 +14,8 @@ authors = [{name = "Andrew Goodchild"}]
 dependencies = []
 keywords = ["datalog", "logic programming", "deductive database",
             "semi-naive evaluation", "magic sets", "provenance",
-            "stable models", "defeasible logic", "teaching"]
+            "stable models", "defeasible logic", "inductive logic programming",
+            "teaching"]
 # No "License ::" classifier: `license` above is an SPDX expression, and
 # setuptools refuses a build that declares the licence both ways.
 classifiers = [
@@ -54,6 +55,10 @@ tiny-datalog-subsumption = "tiny_datalog.subsumption:main"
 tiny-datalog-containment = "tiny_datalog.containment:main"
 tiny-datalog-defeasible = "tiny_datalog.defeasible:main"
 tiny-datalog-chase = "tiny_datalog.chase:main"
+tiny-datalog-foil = "tiny_datalog.foil:main"
+tiny-datalog-synthesis = "tiny_datalog.synthesis:main"
+tiny-datalog-diagnose = "tiny_datalog.diagnose:main"
+tiny-datalog-mutation = "tiny_datalog.mutation:main"
 
 [tool.setuptools.packages.find]
 include = ["tiny_datalog*"]

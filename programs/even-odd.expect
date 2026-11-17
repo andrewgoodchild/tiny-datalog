@@ -1,0 +1,12 @@
+% What mutual recursion over a five-node chain should say (lesson 2).
+% A fact must be derived; `:- fact.` must never be.
+%
+%   python3 diagnose.py programs/even-odd.dl --expect programs/even-odd.expect
+%   python3 mutation.py programs/even-odd.dl --expect programs/even-odd.expect
+
+odd(n1, n2).             % one step
+even(n1, n3).            % two
+odd(n1, n4).             % three
+even(n1, n5).            % four
+:- even(n1, n2).         % a chain has one path, so parity is exclusive
+:- odd(n1, n3).

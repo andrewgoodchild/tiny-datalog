@@ -35,7 +35,8 @@ Semantics
 Stratifiability is a *syntactic* condition; rejection by the stratified
 engine does not by itself mean a program is semantically paradoxical.
 For small programs, `--models` grounds the program and reports the
-semantic story: all stable models (by exhaustive search) and the
+semantic story: all stable models (a SAT solver proposes, the
+definition checks) and the
 well-founded (three-valued) model.  (Implementation: semantics.py.)
 
 The Under the hood sections of lessons 1-3 are a guided tour of how it
@@ -470,10 +471,13 @@ def _format_atoms(atoms):
                      for p, t in sorted(atoms, key=_atom_sort_key))
 
 
-def _print_models(clauses):
-    """Report the semantic story: stable models and the well-founded model."""
+def _print_models(clauses, trace=False, queries=()):
+    """Report the semantic story: stable models and the well-founded
+    model.  With `trace`, also what the stable-model search tried; with
+    `queries`, only the atoms of each model that match one of them."""
     from tiny_datalog.semantics import (
         ground_program, stable_models, well_founded)
+    wanted = [parse_query_atom(q, validate(clauses)) for q in queries]
     try:
         stratify(clauses)
         print("Syntactic check: stratifiable.")
@@ -483,25 +487,43 @@ def _print_models(clauses):
               "stable models.)")
     grounding = ground_program(clauses)
     facts = grounding[0]
+    hidden = set() if wanted else facts     # a query may ask about a fact
+
+    def shown(atoms):
+        return _format_atoms(
+            a for a in atoms if not wanted or any(
+                w.pred == a[0] and match(w.args, a[1], {}) is not None
+                for w in wanted))
+    log = []
     try:
-        models = stable_models(clauses, grounding=grounding)
+        models = stable_models(clauses, grounding=grounding, log=log)
     except DatalogError as exc:
-        # too big for exhaustive search -- but the well-founded model
-        # below takes polynomial time, so it is still worth reporting
-        print("Stable models: search skipped (%s)." % exc)
+        # too many models to list -- but the well-founded model below
+        # takes polynomial time, so it is still worth reporting
+        print("Stable models: search stopped (%s)." % exc)
         models = None
+    if trace:
+        print("Search: %d candidate atom%s, %d candidate model%s proposed"
+              % (len(grounding[2]), "" if len(grounding[2]) == 1 else "s",
+                 len(log), "" if len(log) == 1 else "s"))
+        for i, (kind, atoms) in enumerate(log, 1):
+            print("  %d: %s" % (i, "stable" if kind == "stable" else
+                                "refused: only each other to support %s"
+                                % ", ".join(format_atom(p, t) for p, t in
+                                            sorted(atoms, key=_atom_sort_key))))
     if models == []:
         print("Stable models: none — no consistent two-valued model exists.")
     elif models:
         print("Stable models: %d" % len(models))
         for i, m in enumerate(
                 sorted(models, key=lambda m: _format_atoms(m - facts)), 1):
-            print("  model %d: %s" % (i, _format_atoms(m - facts)
-                                      or "(EDB facts only)"))
+            print("  model %d: %s" % (i, shown(m - hidden) or (
+                "(nothing asked for)" if wanted else "(EDB facts only)")))
     true, undef = well_founded(clauses, grounding=grounding)
     print("Well-founded model (three-valued):")
-    print("  true:      %s" % (_format_atoms(true - facts) or "(EDB facts only)"))
-    print("  undefined: %s" % (_format_atoms(undef) or "(none)"))
+    print("  true:      %s" % (shown(true - hidden) or (
+        "(nothing asked for)" if wanted else "(EDB facts only)")))
+    print("  undefined: %s" % (shown(undef) or "(none)"))
     return 0
 
 
@@ -929,9 +951,9 @@ def main(argv=None):
                     help="query, e.g. 'eats_in_cafe(X)' (repeatable)")
     ap.add_argument("-m", "--models", action="store_true",
                     help="skip stratified evaluation; instead ground the "
-                         "program and report all stable models (exhaustive "
-                         "search, small programs only) and the well-founded "
-                         "three-valued model")
+                         "program and report its stable models (up to 256) "
+                         "and the well-founded three-valued model; --trace "
+                         "shows the search, -q picks the atoms to print")
     ap.add_argument("--naive", action="store_true",
                     help="evaluate naively (no delta discipline); with "
                          "--trace, prints tuples-derived per round so the "
@@ -989,7 +1011,7 @@ def main(argv=None):
         clauses = rules
 
     if args.models:
-        return _print_models(clauses)
+        return _print_models(clauses, args.trace, args.query)
 
     if goal_directed:
         flag = "--magic" if args.magic else "--engine %s" % engine_name

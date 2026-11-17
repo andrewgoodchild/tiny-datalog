@@ -1,0 +1,11 @@
+% What lesson 8's route graph should say, weights aside.
+% A fact must be derived; `:- fact.` must never be, and may use variables.
+%
+%   python3 diagnose.py programs/routes.dl --expect programs/routes.expect
+%   python3 mutation.py programs/routes.dl --expect programs/routes.expect
+
+path(a, e).              % by any of three routes
+path(b, d).
+:- path(e, a).           % a DAG: nothing leads back
+:- path(c, b).
+:- path(X, X).

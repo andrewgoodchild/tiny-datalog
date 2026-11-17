@@ -102,6 +102,19 @@ with the same head mean "or".
 - **Abstain honestly:** zero answers means the facts do not support
   the claim. Say "not known", and explain the ground atom to show what
   is missing.
+- **A wrong answer:** do not hunt for the bad rule by reading.
+  `python3 diagnose.py program.dl --wrong 'pred(a, b)'` (or
+  `--missing`) follows the derivation to the rule at fault, and says
+  which further fact it needs judged if it cannot tell. Keep what
+  should be true in a separate file, `fact.` for must hold and
+  `:- fact.` for must not, and pass it with `--expect`. See
+  `lessons/27-validating-rules.md`.
+- **Rules you proposed yourself:** check them against examples you did
+  not write them from. `python3 mutation.py program.dl --expect file`
+  lists the mistakes no constraint or expectation would notice. To
+  choose among several guesses at a rule, put them in a file and let
+  `python3 synthesis.py facts.dl --examples file --candidates guesses`
+  pick the subset that fits (positive rules only).
 - **Cost and confidence:** weight facts with `@ w` and run
   `semiring.py --semiring minplus|viterbi|why` (positive programs).
 

@@ -94,7 +94,7 @@ Nothing to install:
 
 ```sh
 git clone https://github.com/andrewgoodchild/tiny-datalog && cd tiny-datalog
-python3 tests.py        # 429 tests, ~20s
+python3 tests.py        # 487 tests, ~30s
 ```
 
 ## Why the language choice decides what you can ask later
@@ -153,7 +153,10 @@ catches circularity, `--models` catches contradiction and ambiguity,
 `containment.py` catches redundancy, integrity constraints catch a rule
 set that breaks the policy stated another way, warnings catch the typo
 that silently empties a relation, and `--explain` produces the
-derivation somebody has to sign off on.
+derivation somebody has to sign off on. When an answer is wrong,
+`diagnose.py` walks that derivation to the rule at fault, and
+`mutation.py` measures whether the checks you wrote would notice a
+broken rule at all.
 
 Two limits. An engine checks coherence, not intent: a rule set can pass
 every check above and still be the wrong policy. And the trade only
@@ -163,7 +166,7 @@ the better tool, and that covers most problems.
 
 ## What else you can ask it
 
-The worked example above is one row of a table. The full version — 32
+The worked example above is one row of a table. The full version — 45
 questions, each with the command that answers it and the lesson that
 builds the machinery — is in
 [getting started](https://github.com/andrewgoodchild/tiny-datalog/blob/main/lessons/getting-started.md), beside the reading
@@ -238,6 +241,13 @@ work: [authorization](https://github.com/andrewgoodchild/tiny-datalog/blob/main/
 [knowledge graphs and the chase](https://github.com/andrewgoodchild/tiny-datalog/blob/main/lessons/22-knowledge-graphs.md),
 [time and history](https://github.com/andrewgoodchild/tiny-datalog/blob/main/lessons/23-time.md),
 and [memory for a language-model agent](https://github.com/andrewgoodchild/tiny-datalog/blob/main/lessons/24-memory.md).
+Three more run the course backwards:
+[learning rules from examples](https://github.com/andrewgoodchild/tiny-datalog/blob/main/lessons/25-finding-rules.md) with
+FOIL, the classic algorithm,
+[learning them by rule selection](https://github.com/andrewgoodchild/tiny-datalog/blob/main/lessons/26-synthesis.md), after
+recent research in which the engine's provenance steers a SAT solver,
+and [validating rules](https://github.com/andrewgoodchild/tiny-datalog/blob/main/lessons/27-validating-rules.md), whoever or
+whatever wrote them.
 And it is built to be
 inherited: `git clone`, no dependencies, no hosted anything, and every
 quoted transcript re-verified by CI — the exercises cannot rot. (For where each
@@ -277,7 +287,8 @@ regression test without writing Python.
 ## What this is not, and what is missing on purpose
 
 Not an engine to build a product on. The bottom-up engines join by
-nested loop with no join planning, stable-model search is exhaustive,
+nested loop with no join planning, stable-model search grounds the
+whole program and uses a forty-line SAT solver,
 and evaluation starts from scratch, apart from `incremental.py` and
 the tabled engines' incremental tabling. For real
 workloads see Soufflé, clingo, RDFox or Feldera; for Datalog inside a
@@ -371,8 +382,8 @@ skills directory.
 
 The command-line interface installs too, as `tiny-datalog` (and
 `tiny-datalog-semiring`, `-tabling`, `-slg`, `-incremental`, `-subsumption`,
-`-containment`, `-defeasible`, `-prolog` for the other engines and the
-extensions):
+`-containment`, `-defeasible`, `-prolog`, `-chase`, `-foil`, `-synthesis`,
+`-diagnose`, `-mutation` for the other engines and the extensions):
 
 ```sh
 tiny-datalog -q 'exposed(S, C)' supply-chain.dl
@@ -404,7 +415,10 @@ tiny_datalog/   the code you read, in three tiers:
                 fifth is SLG, from slg.py below, held to stratified
                 programs)
  extensions — other questions asked of the same programs:
-  semantics.py  grounding, stable models, the well-founded model
+  semantics.py  grounding, stable models (a SAT solver proposes, the
+                definition checks), the well-founded model
+  sat.py        the forty-line SAT solver that semantics.py and
+                synthesis.py share
   slg.py        SLG resolution: the well-founded model, top-down
   semiring.py   semiring-valued evaluation (costs, counts, provenance,
                 probabilities)
@@ -415,11 +429,18 @@ tiny_datalog/   the code you read, in three tiers:
   defeasible.py   defeasible logic: exceptions, priorities, defeaters
   chase.py      existential rules: the chase, labelled nulls, weak
                 acyclicity
+  foil.py       learning rules from examples: FOIL
+  synthesis.py  learning rules by selection: a SAT solver, steered by
+                why and why-not provenance
+  diagnose.py   algorithmic debugging: from a wrong or missing answer
+                to the rule at fault
+  mutation.py   mutation testing for rules, with equivalent mutants
+                proved by containment
 *.py            three-line launchers, so `python3 datalog.py ...` works
                 straight from a checkout with nothing installed
 programs/       teaching programs, named for what they model; each
                 lesson says which ones it runs
-lessons/        getting started, glossary, and lessons 0–24
+lessons/        getting started, glossary, and lessons 0–27
 exercises/      worked answers, verified by the test suite
 cases/          golden test cases — add one without writing Python
 skills/         an Agent Skill that teaches coding agents to use the engine
@@ -429,8 +450,10 @@ benchmarks/     scaled input generators (chain/tree/clique/grid, an EL
                 ontology, and the N-queens puzzle), and mutate.py,
                 which breaks the code one line at a time to measure
                 how much of it the tests would notice (91% at 0.7.0)
-tests.py        429 tests: every shipped program and exercise answer is
-                executed, a conformance suite runs every query through
+tests.py        487 tests: every shipped program and exercise answer is
+                executed, every program is held to the expectations
+                file beside it (programs/*.expect, lesson 27) and
+                mutation-tested, a conformance suite runs every query through
                 every engine that handles it, and a seeded fuzzer checks
                 the same property on random programs
 ```
@@ -446,7 +469,7 @@ This project started as an attempt at a tiny implementation of
 Datalog, small enough to read in an afternoon. It grew with the
 course. Each lesson that taught a new technique — magic sets, stable models,
 semirings, incremental maintenance, tabling, SLG resolution, subsumption, containment,
-defeasible logic, the chase — brought a module to run it, and the repository is
+defeasible logic, the chase, rule learning, rule debugging — brought a module to run it, and the repository is
 now several thousand lines. The core idea stayed small, and the code
 is laid out so you can still read just that: the common core and the
 base engine, below, are the original tiny Datalog. Everything else is
@@ -458,23 +481,23 @@ Measured in lines, comments, docstrings and blank lines included:
 |---|---|
 | the common core (`core.py`: the language, evaluating nothing; about 270 of these lines arrived with comparisons, constraints, value checks and the warnings) | 1,057 |
 | the base engine's evaluator (`datalog.py` up to its CLI section: the module docstring, the import list that re-exports the core, `Program`, `Engine`, aggregation folding, `run_program`) | 423 |
-| `--explain`, why-not, constraint reports, `--assume`, printing and the CLI (the rest of `datalog.py`) | 649 |
+| `--explain`, why-not, constraint reports, `--assume`, printing and the CLI (the rest of `datalog.py`) | 669 |
 | the other pluggable engines: magic sets (`magic.py`) and tabling (`tabling.py`, with `tablespace.py` and `lattice.py`, the incremental tabling, explanations and answer subsumption both tabled engines share), plus the `engines.py` registry (naive evaluation is a flag on the base engine; the fifth engine, SLG, is counted with the extensions) | 1,469 |
-| the nine extensions | 3,555 |
+| the thirteen extensions, and the SAT solver two of them share (`sat.py`) | 5,052 |
 
 So the smallest complete Datalog system here — parse, check, stratify,
 evaluate semi-naively — is the core plus the evaluator, about 1,500
-lines. All of it is 7.2k lines of toolkit (every module but the
+lines. All of it is 8.7k lines of toolkit (every module but the
 re-export list in `__init__.py`), roughly a quarter of it commentary,
-and 5.2k of tests.
+and 6.2k of tests.
 
 "Tiny" is a claim about that core and evaluator, and about each module
-built on them singly: none of the fourteen (`magic.py`, `tabling.py`,
-`tablespace.py`, `lattice.py`, `engines.py` and the nine extensions)
+built on them singly: none of the nineteen (`magic.py`, `tabling.py`,
+`tablespace.py`, `lattice.py`, `engines.py`, `sat.py` and the thirteen extensions)
 exceeds 500 lines, except `slg.py`, allowed 700 because it is tabling
 plus a scheduler. A test asserts the limits. It is not a
-claim about the repository, which is a dozen modules because it
-teaches a dozen things.
+claim about the repository, which is a score of modules because it
+teaches a score of things.
 
 There is no dead code to golf away (checked); shrinking further means
 deleting either a technique or an explanation.

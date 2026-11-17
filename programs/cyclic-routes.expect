@@ -1,0 +1,10 @@
+% What lesson 8's cyclic graph should say.  With e linked back to a,
+% every node reaches every node, so there is nothing to forbid, and
+% mutation.py reports the edits that this graph cannot tell apart.
+%
+%   python3 diagnose.py programs/cyclic-routes.dl --expect programs/cyclic-routes.expect
+%   python3 mutation.py programs/cyclic-routes.dl --expect programs/cyclic-routes.expect
+
+path(a, e).              % the long way round
+path(a, a).              % the loop
+path(d, b).              % only through e and a

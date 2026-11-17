@@ -1,0 +1,18 @@
+% What lesson 1's family tree should say.  A fact must be derived;
+% `:- fact.` must never be.
+%
+% One thing is left unsaid on purpose.  The program's sibling rule is
+% lesson 1's deliberate bug (everyone with a parent is their own
+% sibling), and `:- sibling(X, X).` would fail.
+%
+%   python3 diagnose.py programs/family.dl --expect programs/family.expect
+%   python3 mutation.py programs/family.dl --expect programs/family.expect
+
+grandparent(abe, carl).
+grandparent(abe, dana).
+:- grandparent(abe, bob).        % a parent is not a grandparent
+sibling(bob, ann).               % abe's children
+:- sibling(carl, dana).          % cousins
+ancestor(abe, carl).
+ancestor(abe, dana).
+:- ancestor(carl, abe).          % not the other way round

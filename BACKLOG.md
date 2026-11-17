@@ -98,9 +98,15 @@ Still open:
   that lesson 10 discusses.
 - **Stable-model and well-founded semantics with aggregates**
   (`semantics.py`). Refused as "still debated in the literature".
-- **Smarter stable-model search.** The search enumerates every
-  candidate model. [Lesson 5](lessons/05-beyond-stratification.md)
-  points to clingo's conflict-driven learning as the real approach.
+- **Stable-model search, further.** A SAT solver now proposes
+  candidates and each refused one teaches it a loop formula
+  ([lesson 5](lessons/05-beyond-stratification.md)), so the limit is
+  the number of models, not of atoms. Still missing: the program is
+  grounded in full first; `sat.py` learns nothing from its own dead
+  ends (clingo's conflict-driven learning) and restarts from scratch
+  for every proposal; and integrity constraints are still refused,
+  where answer set programming would read `:- body.` as a filter on
+  models (the lesson writes one as a deliberate paradox).
 - **The chase** (`chase.py`, [lesson 22](lessons/22-knowledge-graphs.md))
   refuses negation, aggregates, comparisons and integrity constraints.
 
@@ -124,6 +130,36 @@ Still missing:
 - nominals and datatypes;
 - an ABox: the classifier reasons about definitions, never about
   individuals.
+
+## Finding and validating rules
+
+From lessons [25](lessons/25-finding-rules.md),
+[26](lessons/26-synthesis.md) and [27](lessons/27-validating-rules.md).
+
+- **FOIL without comparisons or a stopping rule.** `foil.py` offers
+  predicates and their negations, so `sibling` (which needs `X != Y`)
+  is out of reach, and there is no description-length test, so one
+  mislabelled example warps a rule. Recursive literals are kept to
+  bound variables; Quinlan's argument ordering is not implemented.
+- **Candidates for synthesis.** `synthesis.py` enumerates every rule up
+  to a size, which stops being practical at three body atoms and two
+  extra variables (562 candidates for one binary target). Mode
+  declarations or metarules would bound the space by meaning instead of
+  by size. Candidates must be positive: with negation the why-not
+  constraint is unsound.
+- **Why-not by evaluation.** A why-not clause costs a run of the engine
+  per batch of candidates tried (219 runs for five rounds on the
+  lesson's example), each from scratch. Maintaining one evaluation as
+  rules are switched on would avoid most of that work; `incremental.py`
+  maintains under a change of facts, not of rules.
+- **Divide and query.** `diagnose.py` asks the oracle top-down, one
+  question per step of the chain. Shapiro's halving needs the weight of
+  each subtree; `--explain`'s tree already has it.
+- **Mutation testing on one database.** `mutation.py` runs every mutant
+  against the facts in the program file. A guard that those facts never
+  exercise survives, and the fix is a second database, which the tool
+  has no way to take. It has no mutant that swaps one predicate for
+  another of the same arity, a realistic mistake.
 
 ## Smaller threads
 

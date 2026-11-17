@@ -1,0 +1,10 @@
+% What lesson 8's two-derivation program should say, provenance aside.
+% A fact must be derived; `:- fact.` must never be, and may use variables.
+%
+%   python3 diagnose.py programs/two-derivations.dl --expect programs/two-derivations.expect
+%   python3 mutation.py programs/two-derivations.dl --expect programs/two-derivations.expect
+
+p(a, c).                 % two hops
+q(a, c).                 % by either rule
+:- p(a, b).              % one hop is not two
+:- q(c, a).

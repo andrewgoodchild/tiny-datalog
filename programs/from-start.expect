@@ -1,0 +1,10 @@
+% What lesson 15's sixty-node chain should say.
+% A fact must be derived; `:- fact.` must never be, and may use variables.
+%
+%   python3 diagnose.py programs/from-start.dl --expect programs/from-start.expect
+%   python3 mutation.py programs/from-start.dl --expect programs/from-start.expect
+
+from_start(n60).         % the far end
+from_start(n2).
+:- from_start(n1).       % the chain does not come back to its start
+:- path(n60, N).         % and nothing follows the last node

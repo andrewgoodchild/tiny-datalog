@@ -1,0 +1,11 @@
+% A family tree with nothing derived from it: the background facts
+% that lessons 25 and 26 learn rules over.  parent(Parent, Child).
+%
+%   python3 foil.py programs/kinship.dl --examples programs/grandparent.examples
+%   python3 foil.py programs/kinship.dl --examples programs/ancestor.examples
+
+parent(ada, ben).     parent(ada, cat).
+parent(ben, dov).     parent(ben, eve).
+parent(cat, fay).
+parent(dov, gus).
+parent(fay, hal).     parent(fay, ivy).

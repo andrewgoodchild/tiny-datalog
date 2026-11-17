@@ -1,0 +1,16 @@
+% What foil.py learned from programs/ancestor-sparse.examples, written
+% down next to the facts it learned them over.  The three rules fit all
+% twelve examples, and none of them is recursive (lessons 25 and 27).
+%
+%   python3 datalog.py --assume 'parent(zed, yan).' -q 'ancestor(ada, yan)' programs/ancestor-foil.dl
+%   python3 mutation.py programs/ancestor-foil.dl --expect programs/ancestor-sparse.examples
+
+parent(ada, ben).     parent(ada, cat).
+parent(ben, dov).     parent(ben, eve).
+parent(cat, fay).
+parent(dov, gus).
+parent(fay, hal).     parent(fay, ivy).
+
+ancestor(X, Y) :- parent(X, Y).
+ancestor(X, Y) :- parent(X, Z), parent(Z, U), parent(U, V), parent(W, Y).
+ancestor(X, Y) :- parent(X, Z), parent(Z, Y).

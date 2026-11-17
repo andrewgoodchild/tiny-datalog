@@ -1,0 +1,9 @@
+% Every grandparent pair in programs/kinship.dl: positive examples for
+% lesson 25.  No negative examples are given, so the world is closed:
+% every other pair of people is one.
+%
+%   python3 foil.py programs/kinship.dl --examples programs/grandparent.examples
+
+grandparent(ada, dov).  grandparent(ada, eve).
+grandparent(ada, fay).  grandparent(ben, gus).
+grandparent(cat, hal).  grandparent(cat, ivy).

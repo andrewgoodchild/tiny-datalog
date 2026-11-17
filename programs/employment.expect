@@ -1,0 +1,18 @@
+% What lesson 23's employment history should say on its two dates.
+% A fact must be derived; `:- fact.` must never be, and may use variables.
+%
+%   python3 diagnose.py programs/employment.dl --expect programs/employment.expect
+%   python3 mutation.py programs/employment.dl --expect programs/employment.expect
+
+holds_at(alice, works_at, acme, "2021-06-30").
+holds_at(alice, works_at, globex, "2024-01-01").
+:- holds_at(alice, works_at, acme, "2024-01-01").     % superseded in 2022
+holds_at(alice, lives_in, leeds, "2021-06-30").
+:- holds_at(alice, lives_in, york, "2021-06-30").     % not until 2023
+:- holds_at(alice, lives_in, leeds, "2024-01-01").
+holds_at(alice, knows, bob, "2024-01-01").            % not functional: never superseded
+until(bob, works_at, acme, "2020-05-01", "2021-09-01").   % ends when initech begins
+colleagues(alice, bob, acme).                         % 2020-05 to 2021-09
+colleagues(alice, carol, globex).                     % from 2022-07
+:- colleagues(X, X, C).                               % nobody is their own colleague
+:- colleagues(bob, carol, C).                         % never at the same employer

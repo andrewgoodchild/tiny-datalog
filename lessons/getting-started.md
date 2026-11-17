@@ -6,7 +6,7 @@ beyond Python 3.9+.
 ```sh
 git clone https://github.com/andrewgoodchild/tiny-datalog
 cd tiny-datalog
-python3 tests.py                     # 429 tests, should all pass
+python3 tests.py                     # 487 tests, should all pass
 python3 datalog.py programs/reachability.dl
 ```
 
@@ -24,7 +24,9 @@ Everything lives in `tiny_datalog/`, in three tiers:
   resolution (`slg.py`, which is also an extension). `engines.py` lists them and states the interface they share.
 - **the extensions**: modules that ask a program a different question —
   `semantics.py`, `slg.py`, `semiring.py`, `incremental.py`, `prolog.py`,
-  `subsumption.py`, `containment.py`, `defeasible.py`, `chase.py`.
+  `subsumption.py`, `containment.py`, `defeasible.py`, `chase.py`, and
+  four that work on the rules themselves: `foil.py` and `synthesis.py`
+  find them, `diagnose.py` and `mutation.py` check them.
 
 The `.py` files at the repo root are three-line launchers so that every
 command in these lessons runs straight from a checkout. When a lesson
@@ -64,7 +66,7 @@ input facts). The other modes:
 | `python3 datalog.py -q 'ancestor(abe, X)' prog.dl` | evaluate, answer a query |
 | `python3 datalog.py --magic -q '...' prog.dl` | answer the query *goal-directedly* (magic sets) |
 | `python3 datalog.py --trace prog.dl` | show strata and per-round derivation counts |
-| `python3 datalog.py --models prog.dl` | stable models + well-founded model (small programs) |
+| `python3 datalog.py --models prog.dl` | stable models + well-founded model; `--trace` shows the search, `-q` picks the atoms printed |
 | `python3 datalog.py --naive --trace prog.dl` | naive evaluation with per-round derivation counts |
 | `python3 datalog.py --explain 'path(a, d)' prog.dl` | print a derivation tree — *why* is this fact true? |
 | `python3 datalog.py --assume 'edge(a, z).' prog.dl` | what if? evaluate as though facts were added (or, with `fact~.`, removed) |
@@ -79,6 +81,10 @@ input facts). The other modes:
 | `python3 containment.py prog.dl` | minimise conjunctive queries; `--contains` tests containment |
 | `python3 defeasible.py theory.dfl` | defeasible logic: strict `->`, defeasible `=>`, defeaters `~>`, priorities `r1 > r2` |
 | `python3 chase.py prog.dl` | existential rules: head variables the body does not bind are invented as labelled nulls |
+| `python3 foil.py facts.dl --examples file` | learn rules for one predicate from examples, a literal at a time (FOIL) |
+| `python3 synthesis.py facts.dl --examples file` | learn rules by choosing among candidates, guided by provenance; `--candidates` takes them from a file |
+| `python3 diagnose.py prog.dl --expect file` | trace wrong and missing answers to the rule at fault; also `--against ref.dl`, `--wrong`, `--missing`, `--ask` |
+| `python3 mutation.py prog.dl --expect file` | mutation-test the rules: which mistakes would the constraints and expectations notice? |
 
 ## Syntax reference
 
@@ -99,6 +105,11 @@ input facts). The other modes:
 - **Warnings** on stderr flag legal mistakes: a predicate nothing
   defines (with the nearest name), a missing base case, and
   comparisons that contradict each other.
+- **Examples and expectations** are separate files in the same
+  syntax, read by the four tools of lessons 25–27: a fact must be
+  derived, and `:- fact.` must not be.
+  Each program in `programs/` has one beside it (`family.dl`,
+  `family.expect`), which is a quick way to see what it is for.
 
 ## Using it from Python
 
@@ -146,6 +157,7 @@ and the lesson that builds the machinery:
 | What holds *unless* something else does? | `python3 datalog.py programs/tweety.dl` | [3](03-negation.md) |
 | Answer just this query — don't compute everything | `python3 datalog.py --magic -q 'path(n5, X)' programs/reachability.dl` | [7](07-magic-sets.md) |
 | Is this rule set self-contradictory? | `python3 datalog.py --models programs/eligibility-paradox.dl` | [5](05-beyond-stratification.md) |
+| What are all the ways to satisfy these rules? | `python3 datalog.py --models -q 'painted(R, C)' programs/colouring.dl` | [5](05-beyond-stratification.md) |
 | Why did you conclude that? | `python3 datalog.py --explain 'eligible(bob)' programs/eligibility.dl` | [1](01-first-steps.md), [2](02-recursion.md) |
 | Which facts does the conclusion rest on? | `python3 semiring.py -s why programs/routes.dl` | [8](08-semirings.md) |
 | What's the cheapest route? How many ways? | `python3 semiring.py -s minplus programs/routes.dl` | [8](08-semirings.md) |
@@ -179,6 +191,12 @@ and the lesson that builds the machinery:
 | What was true on a given date? Who overlapped with whom? | `python3 datalog.py -q 'colleagues(X, Y, C)' programs/employment.dl` | [23](23-time.md) |
 | What did we know then, as against now? | `python3 datalog.py -q 'holds_at(bob, works_at, C, "2021-09-30", K)' programs/employment-bitemporal.dl` | [23](23-time.md) |
 | What does the assistant remember, and from which conversation? | `python3 datalog.py --explain 'reports_to(user, marco)' programs/memory.dl` | [24](24-memory.md) |
+| What rule would explain these examples? | `python3 foil.py programs/kinship.dl --examples programs/ancestor.examples` | [25](25-finding-rules.md) |
+| ...from only a dozen examples, recursion included? | `python3 synthesis.py programs/kinship.dl --examples programs/ancestor-sparse.examples` | [26](26-synthesis.md) |
+| Which of these candidate rules fit the evidence? | `python3 synthesis.py programs/kinship.dl --examples programs/sg.examples --candidates programs/sg.candidates` | [26](26-synthesis.md) |
+| This answer is wrong. Which rule is at fault? | `python3 diagnose.py programs/lending-draft2.dl --wrong 'may_borrow(kim)'` | [27](27-validating-rules.md) |
+| I changed a rule. What changed, and which line did it? | `python3 diagnose.py programs/access-draft.dl --against programs/access.dl` | [27](27-validating-rules.md) |
+| Would my tests notice if a rule were wrong? | `python3 mutation.py programs/access.dl --expect programs/access.expect` | [27](27-validating-rules.md) |
 
 Provenance, in full:
 
@@ -216,6 +234,8 @@ a given purpose.
 | reason over a knowledge graph | 4, 12, then 22 (knowledge graphs and the chase) |
 | reason about time and history | 3, 13, 14, then 23 (time) |
 | give an agent a memory it can explain | 8, 17, 23, then 24 (memory) |
+| learn rules from examples | 4, 8, 16, then 25 (FOIL) and 26 (synthesis) |
+| check rules you did not write, or a model did | 16, 17, then 27 (validating), with 26 for where candidates come from |
 
 **The full list:**
 
@@ -244,8 +264,11 @@ a given purpose.
 22. [Knowledge graphs: ontologies over data, and the chase](22-knowledge-graphs.md)
 23. [Time: facts that stop being true](23-time.md)
 24. [Memory: the model writes the facts, the rules decide](24-memory.md)
+25. [Finding rules: FOIL, and what greed costs](25-finding-rules.md)
+26. [Finding rules by selection: provenance tells the search why](26-synthesis.md)
+27. [Validating rules: which rule is wrong, and would anyone notice](27-validating-rules.md)
 
-Four groupings worth knowing about, because each is a single idea told
+Five groupings worth knowing about, because each is a single idea told
 across several lessons: **3, 6 and 13** share one thesis (finish a
 relation before you negate or summarise it); **7 and 15** are one
 argument about top-down evaluation; **4 and 12** are one contrast
@@ -253,7 +276,9 @@ met twice — 4 shows closed against open worlds from the data side,
 and 12 builds the reasoner living on the other side of it; and
 **4, 20 and 22** keep asking lesson 4's question — what an empty
 revocation list means (20), and what a fact nobody recorded means in a
-knowledge graph (22).
+knowledge graph (22); and **25, 26 and 27** are one arc run backwards,
+from the facts that should hold to rules that derive them, and then
+to whether those rules deserve trust.
 
 Hit a word you don't know? [glossary.md](glossary.md) defines every
 technical term the course uses, with the lesson that introduces it.

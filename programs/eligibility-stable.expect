@@ -1,0 +1,12 @@
+% What the register-based eligibility policy should say (lesson 3).
+% A fact must be derived; `:- fact.` must never be.
+%
+%   python3 diagnose.py programs/eligibility-stable.dl --expect programs/eligibility-stable.expect
+%   python3 mutation.py programs/eligibility-stable.dl --expect programs/eligibility-stable.expect
+
+qualifying_household(oak_house).     % cyril's pension, and no claim on record
+:- qualifying_household(elm_house).  % a claim is already on file
+eligible(bob).
+eligible(cyril).
+:- eligible(edith).                  % elm_house does not qualify
+:- eligible(dana).

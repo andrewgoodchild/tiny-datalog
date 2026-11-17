@@ -1,0 +1,6 @@
+% Lesson 25, exercise 2: the six sibling pairs in programs/kinship.dl.
+%
+%   python3 foil.py programs/kinship.dl --examples exercises/25-sibling.examples
+
+sibling(ben, cat). sibling(cat, ben). sibling(dov, eve).
+sibling(eve, dov). sibling(hal, ivy). sibling(ivy, hal).

@@ -304,4 +304,7 @@ your agent's skills directory to use it, for example
    and what would the extractor have to write, for an allergy to stop
    being current?
 
-Back to [the index](getting-started.md).
+Next: [finding rules](25-finding-rules.md) — the last three lessons
+run the course backwards, from the facts that should hold to the rules
+that derive them, and then ask how far to trust rules found that way.
+Or back to [the index](getting-started.md).

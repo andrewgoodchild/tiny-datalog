@@ -1,0 +1,13 @@
+% What the Foodary resolution of the café paradox should say (lesson
+% 5).  A fact must be derived; `:- fact.` must never be.
+%
+%   python3 diagnose.py programs/cafe-foodary.dl --expect programs/cafe-foodary.expect
+%   python3 mutation.py programs/cafe-foodary.dl --expect programs/cafe-foodary.expect
+
+eats_at_home(alan).              % alice cooks for house_a
+eats_at_home(alice).
+eats_in_cafe(bob).               % nobody local cooks the café's meals now
+eats_in_cafe(carol).
+:- eats_at_home(bob).
+:- conclusion1_violated(P).      % both of the policy's conclusions hold
+:- conclusion2_violated(P).

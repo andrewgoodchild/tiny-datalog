@@ -1,0 +1,10 @@
+% What lesson 9's flaky network should say, probabilities aside.
+% A fact must be derived; `:- fact.` must never be, and may use variables.
+%
+%   python3 diagnose.py programs/prob-reach.dl --expect programs/prob-reach.expect
+%   python3 mutation.py programs/prob-reach.dl --expect programs/prob-reach.expect
+
+reach(s, t).
+reach(a, b).
+:- reach(t, s).                  % links have a direction
+:- reach(b, a).

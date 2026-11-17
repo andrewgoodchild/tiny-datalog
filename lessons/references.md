@@ -55,6 +55,17 @@ be defended.
 - B. Russell — the 1902 letter to Frege and the barber are standard
   history; any edition of *From Frege to Gödel* (van Heijenoort)
   carries the primary documents.
+- K. L. Clark, *Negation as Failure*, in *Logic and Data Bases*,
+  Plenum 1978 — the completion, whose models are the supported ones.
+- F. Lin and Y. Zhao, *ASSAT: Computing Answer Sets of a Logic Program
+  by SAT Solvers*, Artificial Intelligence 157, 2004 — the completion
+  plus loop formulas added as the SAT solver's proposals fail; the
+  search `--models` runs.
+- F. Fages, *Consistency of Clark's Completion and Existence of Stable
+  Models*, Methods of Logic in Computer Science 1, 1994 — without
+  recursion through positive literals, supported and stable coincide.
+- M. Gebser, B. Kaufmann, A. Neumann and T. Schaub, *Conflict-Driven
+  Answer Set Solving*, IJCAI 2007 — clasp, the solver inside clingo.
 - T. Soininen and I. Niemelä, 1998 — answer set programming applied to
   product configuration; descriptive.
 - D. Abels, J. Jordi, M. Ostrowski, T. Schaub, A. Toletti and
@@ -305,6 +316,79 @@ be defended.
   results use; descriptive.
 - The Agent Skills format (agentskills.io), which
   `skills/tiny-datalog/SKILL.md` follows. Descriptive.
+
+## Lesson 25 — finding rules: FOIL
+
+- J. R. Quinlan, *Learning Logical Definitions from Relations*,
+  Machine Learning 5, 1990 — FOIL: the covering loop, information
+  gain over bindings, and the ordering that keeps learned recursion
+  terminating.
+- G. D. Plotkin, *A Note on Inductive Generalization*, Machine
+  Intelligence 5, 1970 — θ-subsumption and least general
+  generalisation.
+- S. Muggleton, *Inductive Logic Programming*, New Generation
+  Computing 8, 1991 — the paper that named the field.
+- S. Muggleton, *Inverse Entailment and Progol*, New Generation
+  Computing 13, 1995 — the most specific clause for one example, and
+  search above it. Aleph is A. Srinivasan's later system in the same
+  line; descriptive.
+- L. Galárraga, C. Teflioudi, K. Hose and F. Suchanek, *AMIE:
+  Association Rule Mining under Incomplete Evidence in Ontological
+  Knowledge Bases*, WWW 2013 — rule mining under the open-world
+  assumption, and the partial-completeness confidence measure.
+
+## Lesson 26 — finding rules by selection
+
+- M. Raghothaman, J. Mendelson, D. Zhao, M. Naik and B. Scholz,
+  *Provenance-Guided Synthesis of Datalog Programs*, POPL 2020 —
+  ProSynth: rule selection by a SAT solver, with why and why-not
+  provenance as the constraints. The lesson's loop follows its outline;
+  the details here (provenance by a tagged semiring, why-not by growing
+  the failing rule set in halves) are this repository's reading of it,
+  made to fit one file.
+- A. Solar-Lezama, L. Tancau, R. Bodík, S. Seshia and V. Saraswat,
+  *Combinatorial Sketching for Finite Programs*, ASPLOS 2006 —
+  counterexample-guided inductive synthesis.
+- M. Davis, G. Logemann and D. Loveland, *A Machine Program for
+  Theorem-Proving*, CACM 5(7), 1962 — DPLL.
+- R. Nieuwenhuis, A. Oliveras and C. Tinelli, *Solving SAT and SAT
+  Modulo Theories: From an Abstract Davis–Putnam–Logemann–Loveland
+  Procedure to DPLL(T)*, JACM 53(6), 2006 — a SAT solver paired with a
+  theory solver that explains conflicts, the outline the lesson's loop
+  shares.
+- A. Zeller and R. Hildebrandt, *Simplifying and Isolating
+  Failure-Inducing Input*, IEEE Transactions on Software Engineering
+  28(2), 2002 — delta debugging.
+- X. Si, W. Lee, R. Zhang, A. Albarghouthi, P. Koutris and M. Naik,
+  *Syntax-Guided Synthesis of Datalog Programs*, ESEC/FSE 2018 —
+  ALPS.
+- X. Si, M. Raghothaman, K. Heo and M. Naik, *Synthesizing Datalog
+  Programs Using Numerical Relaxation*, IJCAI 2019 — Difflog.
+- A. Cropper and R. Morel, *Learning Programs by Learning from
+  Failures*, Machine Learning 110, 2021 — Popper.
+- Z. Li, J. Huang and M. Naik, *Scallop: A Language for Neurosymbolic
+  Programming*, PLDI 2023.
+- T. J. Green, G. Karvounarakis and V. Tannen, *Provenance Semirings*,
+  PODS 2007 — cited under lesson 8, and the reason rule provenance is
+  six lines.
+
+## Lesson 27 — validating rules
+
+- E. Y. Shapiro, *Algorithmic Program Debugging*, MIT Press 1983 (his
+  1982 Yale thesis) — the wrong-answer and missing-answer algorithms,
+  the oracle, and divide and query.
+- J. W. Lloyd, *Declarative Error Diagnosis*, New Generation Computing
+  5, 1987, and L. Naish's work on declarative debugging — the
+  extension to programs with negation, where the two searches call
+  each other. Descriptive.
+- R. A. DeMillo, R. J. Lipton and F. G. Sayward, *Hints on Test Data
+  Selection: Help for the Practicing Programmer*, IEEE Computer 11(4),
+  1978 — mutation testing.
+- T. A. Budd and D. Angluin, *Two Notions of Correctness and Their
+  Relation to Testing*, Acta Informatica 18, 1982 — that equivalent
+  mutants cannot be decided in general.
+- A. K. Chandra and P. M. Merlin (1977), cited under lesson 16 — why
+  they can be decided here.
 
 ## Elsewhere
 

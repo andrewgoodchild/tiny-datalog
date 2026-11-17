@@ -1,0 +1,11 @@
+% What lesson 14's addition-by-rules should say.  A fact must be
+% derived; `:- fact.` must never be, and may use variables.
+%
+%   python3 diagnose.py programs/bounded-arithmetic.dl --expect programs/bounded-arithmetic.expect
+%   python3 mutation.py programs/bounded-arithmetic.dl --expect programs/bounded-arithmetic.expect
+
+plus(n2, n3, n5).        % the lesson's own query
+plus(n2, n0, n2).        % zero on the right
+plus(n0, n9, n9).        % zero on the left, at the top of the domain
+:- plus(n2, n3, n6).     % addition is a function
+:- plus(n9, n1, Z).      % past n9 there is no answer: the overflow flag

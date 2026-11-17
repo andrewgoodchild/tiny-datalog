@@ -1,0 +1,14 @@
+% What synthesis.py learned from programs/ancestor-sparse.examples,
+% written down next to the facts it learned them over, so that lesson
+% 27 can ask how far twelve examples pin two rules down.
+%
+%   python3 mutation.py programs/ancestor-learned.dl --expect programs/ancestor-sparse.examples
+
+parent(ada, ben).     parent(ada, cat).
+parent(ben, dov).     parent(ben, eve).
+parent(cat, fay).
+parent(dov, gus).
+parent(fay, hal).     parent(fay, ivy).
+
+ancestor(X, Y) :- parent(X, Y).
+ancestor(X, Y) :- ancestor(X, Z), ancestor(Z, Y).

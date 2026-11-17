@@ -1,0 +1,10 @@
+% What lesson 15's left-recursive ancestor should say, whichever strategy runs it.
+% A fact must be derived; `:- fact.` must never be, and may use variables.
+%
+%   python3 diagnose.py programs/left-recursive.dl --expect programs/left-recursive.expect
+%   python3 mutation.py programs/left-recursive.dl --expect programs/left-recursive.expect
+
+ancestor(abe, dee).              % three generations down
+ancestor(abe, ann).
+:- ancestor(ann, bob).           % siblings
+:- ancestor(dee, abe).           % not the other way round
