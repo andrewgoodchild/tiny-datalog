@@ -18,8 +18,10 @@ question of a program: `semantics` (stable and well-founded models),
 `semiring` (provenance-weighted evaluation), `incremental` (maintenance
 under updates), `subsumption` (KL-ONE style classification),
 `containment` (query containment), `defeasible` (rules with exceptions
-and priorities), `chase` (existential rules and labelled nulls), and
-`prolog` (a Prolog reader for the same syntax).
+and priorities), `chase` (existential rules and labelled nulls),
+`prolog` (a Prolog reader for the same syntax), `foil` and `synthesis`
+(learning rules from examples), and `diagnose` and `mutation` (finding
+the rule at fault, and testing the tests).
 Import those by name: `from tiny_datalog import semiring`.
 """
 
@@ -38,7 +40,7 @@ from tiny_datalog.datalog import (
     format_atom, format_fact,
 )
 
-__version__ = "0.7.0"
+__version__ = "0.8.0"
 
 __all__ = [
     "Var", "Const", "Struct", "Atom", "Literal", "Rule",

@@ -1,0 +1,11 @@
+% A dozen things known about ancestry in programs/kinship.dl: six
+% pairs that are ancestor and descendant, six that are not.  Far from
+% complete, which is the point (lessons 25 and 26).
+%
+%   python3 foil.py programs/kinship.dl --examples programs/ancestor-sparse.examples
+%   python3 synthesis.py programs/kinship.dl --examples programs/ancestor-sparse.examples
+
+ancestor(ada, ben). ancestor(ben, dov). ancestor(fay, hal).
+ancestor(ada, gus). ancestor(cat, ivy). ancestor(ada, hal).
+:- ancestor(gus, ada). :- ancestor(ben, cat). :- ancestor(eve, dov).
+:- ancestor(hal, ivy). :- ancestor(dov, ben). :- ancestor(ben, fay).

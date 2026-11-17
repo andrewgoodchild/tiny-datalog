@@ -1,0 +1,13 @@
+% What lesson 21's taint analysis should report.
+% A fact must be derived; `:- fact.` must never be, and may use variables.
+%
+%   python3 diagnose.py programs/taint.dl --expect programs/taint.expect
+%   python3 mutation.py programs/taint.dl --expect programs/taint.expect
+
+flow(p, q).                      % call c1 passes q to id's parameter
+flow(p, lit).                    % call c2 passes a literal
+flow(t, p).                      % ...and id returns its parameter
+tainted(t).
+finding(sink1, t).               % user input reaches the query
+:- finding(sink3, safe).         % the sanitizer's result is clean
+:- tainted(safe).

@@ -1,0 +1,13 @@
+% What lesson 2's supply chain should say: which deployed services reach the CVE?
+% A fact must be derived; `:- fact.` must never be, and may use variables.
+%
+%   python3 diagnose.py programs/supply-chain.dl --expect programs/supply-chain.expect
+%   python3 mutation.py programs/supply-chain.dl --expect programs/supply-chain.expect
+
+exposed(pkg0, cve_2026_0001).
+exposed(pkg4, cve_2026_0001).
+exposed(pkg5, cve_2026_0001).
+exposed(pkg8, cve_2026_0001).
+:- exposed(pkg1, C).             % a service that does not reach pkg21
+:- exposed(pkg13, C).            % reaches it, but is not a deployed service
+:- exposed(pkg21, C).            % the vulnerable package itself is a library

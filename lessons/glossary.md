@@ -29,6 +29,13 @@ conjunctive query's output can be given its relation sizes. Pairwise
 join plans can exceed it asymptotically on intermediate results;
 **worst-case optimal joins** cannot. *(Lesson 7)*
 
+**Algorithmic debugging.** Shapiro's method (1982) for finding the
+rule at fault from a wrong or missing answer, by asking an **oracle**
+about one fact at a time. A wrong answer is followed down its
+derivation to a rule whose premises are right and whose conclusion is
+not; a missing one is followed to an **uncovered fact**. `diagnose.py`
+is it. *(Lesson 27)*
+
 **Alternating fixpoint.** Van Gelder's method for computing the
 well-founded model: iterate the (antimonotone) Gelfond–Lifschitz
 operator twice, which is monotone, and read the undefined atoms off the
@@ -106,6 +113,11 @@ call graph in turn, so precise analyses compute both in one fixpoint.
 program can be run without coordination exactly when it is monotone,
 which for Datalog means negation-free. *(Lesson 0)*
 
+**Candidate rule.** One of the rules a **rule selection** search may
+switch on or off. The candidates are written down before the search
+starts, by enumeration up to a size or by hand, and the answer can
+only be a subset of them. *(Lesson 26)*
+
 **Canonical instance.** A query's own body, with its variables frozen
 into fresh constants: the smallest, most hostile database satisfying
 the query. Testing against it stands in for testing against all
@@ -131,6 +143,12 @@ rule's body matches and its head is not yet satisfied, invent a
 Introduced by Maier, Mendelzon and Sagiv (1979) for reasoning about
 dependencies; `chase.py` implements the restricted and oblivious
 variants. *(Lesson 22)*
+
+**Choice (in stable models).** Two rules that block each other
+through `not`, such as `in(X) :- p(X), not out(X).` with
+`out(X) :- p(X), not in(X).` Each way of settling them is a stable
+model, so a choice is how a program comes to have several, and how a
+search problem is written as rules. *(Lesson 5)*
 
 **Class hierarchy analysis (CHA).** Resolving a virtual call by
 method name alone, with no **points-to** information. Cheap, and it
@@ -195,6 +213,17 @@ for precision. *(Lesson 21)*
 body: a set of facts showing the property fails. Printed as the body
 made ground, so each fact in it can be explained. *(Lesson 17)*
 
+**Counterexample-guided inductive synthesis (CEGIS).** A loop: a
+solver proposes a program, a checker runs it, and each failure becomes
+a constraint on what the solver may propose next. Only as good as the
+constraint a failure yields; in `synthesis.py` it comes from
+provenance. *(Lesson 26)*
+
+**Covering loop.** The outer loop of **FOIL**: learn one rule, set
+aside the positive examples it covers, and repeat until none are left.
+Each rule must exclude every negative example and need only cover some
+positive ones. *(Lesson 25)*
+
 **DAG (directed acyclic graph).** A directed graph with no cycles.
 Transitive closure over one always terminates quickly; the interesting
 cases in this course are the graphs that are *not* acyclic. *(Lesson 8)*
@@ -247,9 +276,20 @@ blocks `flies` without proving `~flies`. *(Lesson 18)*
 central object of semi-naive evaluation and of incremental
 maintenance. *(Lessons 2, 10)*
 
+**Delta debugging.** Zeller's method for shrinking a failing input by
+testing it in halves. `synthesis.py` uses it to grow a set of rules
+that still fails to derive a fact, so that many irrelevant rules cost
+one run. *(Lesson 26)*
+
 **Dependency graph.** Predicates as nodes, "uses in a rule body" as
 edges, labelled positive, negative, or aggregating. Stratification is a
 question about its cycles. *(Lesson 3)*
+
+**DPLL.** The classic procedure for **SAT**, deciding whether a set
+of clauses over yes/no variables can all be satisfied: assign what a
+clause forces, otherwise guess a variable, and back up on a
+contradiction. `sat.py`'s `solve` is forty lines of it, used to find
+stable models and to choose among candidate rules. *(Lessons 5, 26)*
 
 **DRed (delete and rederive).** The 1993 algorithm for deleting from a
 materialised view: over-delete everything reachable from the removed
@@ -271,10 +311,34 @@ conversations that caused it. *(Lesson 24)*
 
 **Equivalence.** See **Containment**.
 
+**Equivalent mutant.** A **mutant** that behaves exactly like the
+original on every input, so no test can kill it. Undecidable to detect
+in a general-purpose language; for a rule without negation it is
+**containment** both ways, so `mutation.py` proves these and leaves
+them out of the score. *(Lesson 27)*
+
+**Example (positive, negative).** The input to rule learning: a fact
+the learned rules must derive, or one they must not. Written `fact.`
+and `:- fact.`; with no negative examples given, every other tuple
+over the program's constants is taken as one (the **closed-world
+assumption** used as training data). *(Lesson 25)*
+
 **Existential rule.** A rule with a head variable no body literal
 binds, read as "there exists": `works_in(E, D) :- employee(E).`
 Plain Datalog's safety check forbids it, and the **chase** evaluates
 it. Also called a tuple-generating dependency (TGD). *(Lesson 22)*
+
+**Expectation.** A statement of what a program should derive, kept
+in a file apart from it: `fact.` must hold, `:- fact.` must not. Apart,
+because a positive expectation written into the program would simply
+make itself true. Contrast **integrity constraint**, which lives in
+the program and can only forbid. *(Lesson 27)*
+
+**Extensional evaluation.** Judging a recursive literal by looking
+it up among the positive examples, because the rules that would
+derive it are still being learned. Sound only when the examples are
+complete, and unable to tell a rule that is true of the examples from
+one that derives them. *(Lesson 25)*
 
 **Extraction boundary.** The line between a language model and a rule
 engine in a memory system: the model turns text into stated facts, and
@@ -299,6 +363,11 @@ loaded refuses everyone (fails closed). *(Lesson 20)*
 **Fixpoint.** A set unchanged by applying the rules again; the point
 at which evaluation stops. The **least fixpoint** is the smallest such
 set, and is what a Datalog program means. *(Lesson 2)*
+
+**FOIL.** Quinlan's rule learner (1990): build a rule by adding the
+body literal with the best **information gain** until no negative
+example is covered, and build a rule set by the **covering loop**.
+Greedy, so fast, and so unable to reconsider. `foil.py`. *(Lesson 25)*
 
 **Free object.** An algebraic structure satisfying only the equations
 it must: any assignment of its generators into another structure of
@@ -371,10 +440,25 @@ query next reads it. *(Lesson 15)*
 input changes, rather than recomputing. Insertions resume semi-naive;
 deletions need **DRed**. *(Lesson 10)*
 
+**Inductive logic programming (ILP).** Learning rules from examples:
+given background facts, positive examples and negative examples, find
+rules that derive all of the first and none of the second. Evaluation
+run backwards. *(Lessons 25, 26)*
+
+**Information gain.** **FOIL**'s score for a candidate literal: how
+many fewer bits it takes to say that a binding is positive once the
+literal is added, times the number of positive bindings that survive
+it. *(Lesson 25)*
+
 **Integrity constraint.** A rule with no head, `:- body.`, whose body
 must never hold. It derives nothing; after evaluation, every match is
 reported as a **counterexample**, and the CLI exits with status 3. A
 check on the data in hand, not a proof for all data. *(Lesson 17)*
+
+**Intended interpretation.** The set of facts a program's author
+meant it to derive. A program is wrong exactly where its model differs
+from it: a wrong answer is in the model and not intended, a missing
+one the reverse. Known only through an **oracle**. *(Lesson 27)*
 
 **Join.** Combining two relations on shared variables. In this engine
 a rule body *is* a join, performed by folding `match` over its
@@ -407,6 +491,12 @@ existential rules, and printed by `chase.py` as `_:n1` (RDF calls the
 same thing a blank node). `subsumption.py`'s `gen_N` names are
 miniature ones. *(Lessons 4, 19, 22)*
 
+**Language bias.** The limits placed on the rules a learner may
+consider: which predicates, how many body atoms, how many variables,
+whether `not` or comparisons. A learner can only find a rule its bias
+contains, so choosing the bias is most of what a person contributes.
+*(Lessons 25, 26)*
+
 **Lattice.** A partially ordered set where any two elements have a
 meet and a join; here, all possible fact-sets ordered by ⊆. The stage
 on which Knaster–Tarski performs. *(Lesson 2)*
@@ -418,6 +508,12 @@ it. *(Lesson 15)*
 
 **Literal.** An atom, a negated atom (`not p(X)`), or a **comparison**
 (`X < Y`). *(Lessons 3, 23)*
+
+**Loop formula.** The constraint learned from an **unfounded set**:
+an atom of the set may be true only if some rule for an atom of the
+set has a true body that does not use the set. Added to the clauses
+for **supported models**, loop formulas leave exactly the stable ones
+(Lin and Zhao, 2004). *(Lesson 5)*
 
 **Magic sets.** A program rewriting that makes bottom-up evaluation
 goal-directed, by adding **magic predicates** recording which bindings
@@ -436,6 +532,13 @@ is the smallest one, and is the meaning of a positive program.
 **Monotone / non-monotone.** Monotone means adding facts can only add
 conclusions. Positive Datalog is monotone; negation and aggregation are
 not, which is why both need stratification. *(Lessons 3, 13, 4)*
+
+**Mutation testing.** Measuring a test suite by breaking the program
+on purpose. Each **mutant** is the program with one small edit; it is
+**killed** if some test fails on it and **survives** otherwise. The
+survivors are mistakes nothing would notice. For rules, the tests are
+integrity constraints and **expectations**. `mutation.py`.
+*(Lesson 27)*
 
 **Naive evaluation.** Applying every rule to the whole database every
 round, rediscovering everything each time. The baseline semi-naive
@@ -458,6 +561,11 @@ Prolog usually skips it for speed. *(Lesson 11)*
 **Open-world assumption (OWA).** Absence means unknown: unstated facts
 are neither true nor false. Description logics assume it; consequently
 they are **monotone** and cannot express defaults. *(Lesson 4)*
+
+**Oracle.** Whatever answers "should this fact hold?" during
+**algorithmic debugging**: an expectations file, a reference program,
+or a person at the terminal. May be silent on a fact, and the
+debugger then says which unanswered question matters. *(Lesson 27)*
 
 **OWL 2 RL.** The profile of the W3C ontology language designed to be
 evaluated by forward-chaining rules over data. Its semantics is
@@ -524,6 +632,16 @@ more often. *(Lesson 22)*
 A **role hierarchy** relates roles to each other; not supported here.
 *(Lesson 12)*
 
+**Rule provenance.** **Why-provenance** with rules for tokens where
+base facts were: the minimal sets of rules sufficient to derive a
+fact. Computed by lesson 8's why semiring after giving each rule one
+tagged body literal. *(Lesson 26)*
+
+**Rule selection.** Learning recast as choosing a subset of
+**candidate rules**: one yes/no variable per candidate, and a search
+for an assignment whose rules reproduce the examples. The formulation
+ProSynth uses. *(Lesson 26)*
+
 **Safety (range restriction).** Every variable in a rule head, under
 `not`, or in a comparison must also appear in a positive body literal.
 What keeps every derived relation finite. *(Lessons 1, 3, 23)*
@@ -573,7 +691,8 @@ sanitizer's output is treated as clean. *(Lesson 21)*
 **Stable model.** A set of facts that justifies itself: the
 Gelfond–Lifschitz reduct with respect to it derives exactly it. A
 program may have one (determinate), none (contradictory), or several
-(underspecified). *(Lesson 5)*
+(underspecified). Found by letting a SAT solver propose **supported
+models** and refusing those with an **unfounded set**. *(Lesson 5)*
 
 **Stratification.** Partitioning predicates into **strata** so that
 nothing depends on its own negation (or aggregation), then evaluating
@@ -610,6 +729,12 @@ a **functional relation** bounds the validity of the earlier one, which
 stays on record. Non-monotone, since a new fact retracts a conclusion.
 *(Lesson 23)*
 
+**Supported model.** A set of facts in which every rule holds and
+every true atom is the head of some rule with a true body (Clark's
+completion). Every **stable model** is supported; a supported model
+can still be circular, each atom's only reason being another's.
+*(Lesson 5)*
+
 **Tabling.** Top-down evaluation that memoises each subgoal's answers
 in a **table**, so recursive calls read the table instead of
 descending. Gives Prolog-style goal direction with Datalog-style
@@ -634,6 +759,12 @@ necessarily the one that supports q. *(Lesson 18)*
 **Term.** A constant, a variable, or (outside Datalog) a compound
 term. *(Lesson 1)*
 
+**Theta-subsumption (θ-subsumption).** Plotkin's ordering of rules
+from general to specific (1970): one rule subsumes another if a
+substitution maps its body into the other's. The learning
+literature's name for the homomorphism behind **containment**, and
+the ordering a rule learner's search walks. *(Lesson 25)*
+
 **Top-down evaluation.** Start from the query and work backwards to
 the facts. Natively goal-directed; see **SLD resolution** and
 **tabling**. *(Lessons 11, 15)*
@@ -645,11 +776,21 @@ was true (**valid time**). See **Bitemporal**. *(Lesson 23)*
 graph**. In Datalog, a graph is the single relation
 `triple(S, P, O)`. *(Lesson 22)*
 
+**Uncovered fact.** A fact that should hold although no rule has a
+body that is true for it in the **intended interpretation**. Where
+the search for a missing answer ends: a rule is absent or too strict,
+and the fault is a predicate's, not one rule's. *(Lesson 27)*
+
 **Undecidable.** No terminating procedure can answer it in general.
 Whether an arbitrary Horn-clause program halts (Lesson 11), and whether
 one *recursive* Datalog program contains another (Shmueli 1993, Lesson
 16), are both undecidable, which is precisely why this engine bans
 function symbols and `containment.py` refuses recursion. *(Lessons 11, 16)*
+
+**Unfounded set.** Atoms that are true in a candidate model only
+because of each other: no rule for any of them has a true body from
+outside the set. Forward chaining from the facts never reaches them,
+which is why the candidate is not a **stable model**. *(Lesson 5)*
 
 **Unification.** Making two terms equal by binding variables, where
 *both* sides may contain variables. Matching against a ground database
@@ -690,6 +831,12 @@ is genuinely circular. *(Lesson 5)*
 (`edge(a, z).`) or removed (`edge(a, b)~.`), without editing the
 program. Constraints are checked against the hypothetical database, so
 a batch can be tried before it is stored. *(Lesson 24)*
+
+**Why-not.** An explanation of an absence. For one fact under fixed
+rules: per rule, the first body literal the join dies at (`--explain`
+on an underived fact). For a search over rule sets: the rules of which
+at least one must be switched on, justified by monotonicity.
+*(Lessons 17, 26)*
 
 **Witness.** A minimal set of base facts sufficient to derive a
 conclusion; why-provenance returns the set of them. *(Lesson 8)*

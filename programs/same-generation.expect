@@ -1,0 +1,11 @@
+% What lesson 7's same-generation program should say.  parent(Child, Parent).
+% A fact must be derived; `:- fact.` must never be, and may use variables.
+%
+%   python3 diagnose.py programs/same-generation.dl --expect programs/same-generation.expect
+%   python3 mutation.py programs/same-generation.dl --expect programs/same-generation.expect
+
+sg(ann, bob).            % siblings
+sg(cal, dee).            % cousins: the header's example
+sg(pam, pam).            % everyone is in their own generation
+:- sg(ann, cal).         % a parent and her child
+:- sg(pam, ann).

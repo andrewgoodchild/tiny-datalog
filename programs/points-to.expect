@@ -1,0 +1,12 @@
+% What lesson 2's five-statement pointer analysis should say.
+% A fact must be derived; `:- fact.` must never be, and may use variables.
+%
+%   python3 diagnose.py programs/points-to.dl --expect programs/points-to.expect
+%   python3 mutation.py programs/points-to.dl --expect programs/points-to.expect
+
+pt(v3, h1).                      % v3 = v1
+hpt(h1, h2).                     % *v3 = v2
+pt(v4, h2).                      % v4 = *v3
+:- pt(v4, h1).
+:- hpt(h1, h1).
+:- hpt(h2, H).                   % nothing is stored through v2

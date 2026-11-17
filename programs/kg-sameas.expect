@@ -1,0 +1,16 @@
+% What lesson 22's five names for one supplier should come to.
+% A fact must be derived; `:- fact.` must never be, and may use variables.
+%
+%   python3 diagnose.py programs/kg-sameas.dl --expect programs/kg-sameas.expect
+%   python3 mutation.py programs/kg-sameas.dl --expect programs/kg-sameas.expect
+
+same(acme, s_1187).                              % four sameAs links, closed up
+:- same(order_77, acme).                         % an order is not its supplier
+copy(order_77, placedWith, acme).                % equality as rules: every triple on every name
+copy(duns_04412, locatedIn, leeds).
+canon(s_1187, acme).                             % the rewrite: the least name stands for all
+ctriple(acme, contact, "ops@acme.example").
+ctriple(order_77, placedWith, acme).
+:- ctriple(s_1187, P, O).                        % ...and only that name is kept
+:- ctriple(S, P, s_1187).
+:- copy(contact, P, O).                         % a property never turns up as a subject

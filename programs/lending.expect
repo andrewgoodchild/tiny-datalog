@@ -1,0 +1,10 @@
+% What lesson 17's lending policy should say about its four people
+% (lesson 27).  A fact must be derived; `:- fact.` must never be.
+%
+%   python3 diagnose.py programs/lending-draft2.dl --expect programs/lending.expect
+%   python3 mutation.py programs/lending-checked.dl --expect programs/lending.expect
+
+may_borrow(iris).        % a member in good standing
+may_borrow(lena).        % staff, overdue, borrowing anyway
+:- may_borrow(jon).      % an overdue member waits
+:- may_borrow(kim).      % suspension applies to everybody

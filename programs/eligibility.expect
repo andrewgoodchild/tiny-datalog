@@ -1,0 +1,11 @@
+% What the meal-assistance policy should say about its four people
+% (lesson 0).  A fact must be derived; `:- fact.` must never be.
+%
+%   python3 diagnose.py programs/eligibility.dl --expect programs/eligibility.expect
+%   python3 mutation.py programs/eligibility.dl --expect programs/eligibility.expect
+
+eligible(bob).                       % cyril's pension qualifies oak_house
+eligible(cyril).
+qualifying_household(elm_house).     % edith cares for a pensioner
+eligible(edith).
+:- eligible(dana).                   % employed

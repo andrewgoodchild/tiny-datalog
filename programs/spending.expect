@@ -1,0 +1,17 @@
+% What lesson 13's aggregates should come to.
+% A fact must be derived; `:- fact.` must never be, and may use variables.
+%
+%   python3 diagnose.py programs/spending.dl --expect programs/spending.expect
+%   python3 mutation.py programs/spending.dl --expect programs/spending.expect
+
+total(alice, 180).               % 120 + 60
+total(bob, 990).
+howmany(alice, 2).
+cheapest(alice, 60).
+biggest(alice, 120).
+biggest(bob, 900).
+connected(alice, carol).         % through bob
+:- connected(carol, alice).
+reach(alice, 3).                 % bob, carol, dana
+reach(carol, 1).
+:- reach(dana, N).               % no group, so no row: there is no count of zero

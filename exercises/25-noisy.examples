@@ -1,0 +1,12 @@
+% Lesson 25, exercise 4: programs/ancestor.examples plus one false
+% positive example, the last line.
+%
+%   python3 foil.py programs/kinship.dl --examples exercises/25-noisy.examples
+
+ancestor(ada, ben).  ancestor(ada, cat).  ancestor(ada, dov).
+ancestor(ada, eve).  ancestor(ada, fay).  ancestor(ada, gus).
+ancestor(ada, hal).  ancestor(ada, ivy).  ancestor(ben, dov).
+ancestor(ben, eve).  ancestor(ben, gus).  ancestor(cat, fay).
+ancestor(cat, hal).  ancestor(cat, ivy).  ancestor(dov, gus).
+ancestor(fay, hal).  ancestor(fay, ivy).
+ancestor(gus, ada).

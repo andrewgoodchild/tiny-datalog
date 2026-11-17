@@ -1,0 +1,10 @@
+% What lesson 10's chain-with-a-shortcut should say before anything is
+% deleted.  A fact must be derived; `:- fact.` must never be.
+%
+%   python3 diagnose.py programs/dred-graph.dl --expect programs/dred-graph.expect
+%   python3 mutation.py programs/dred-graph.dl --expect programs/dred-graph.expect
+
+path(n1, n5).            % end to end
+path(n2, n4).            % the shortcut
+:- path(n5, n1).         % edges have a direction
+:- path(X, X).           % and there is no cycle

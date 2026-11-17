@@ -1,0 +1,11 @@
+% What lesson 20's attenuated token should decide about one request: write file1.
+% A fact must be derived; `:- fact.` must never be, and may use variables.
+%
+%   python3 diagnose.py programs/token.dl --expect programs/token.expect
+%   python3 mutation.py programs/token.dl --expect programs/token.expect
+
+allow.                           % the authority block grants write on file1
+failed(only_reads).              % ...but the holder's block says reads only
+some_check_failed.
+:- passes(C).
+:- authorized.                   % every check must pass

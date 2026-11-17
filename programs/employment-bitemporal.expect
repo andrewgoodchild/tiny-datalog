@@ -1,0 +1,12 @@
+% What lesson 23's two-clock history should say: as known on K, what held on T?
+% A fact must be derived; `:- fact.` must never be, and may use variables.
+%
+%   python3 diagnose.py programs/employment-bitemporal.dl --expect programs/employment-bitemporal.expect
+%   python3 mutation.py programs/employment-bitemporal.dl --expect programs/employment-bitemporal.expect
+
+holds_at(bob, works_at, acme, "2021-09-30", "2021-10-01").        % the October payroll run, as it ran
+:- holds_at(bob, works_at, initech, "2021-09-30", "2021-10-01").  % the move had not been filed yet
+holds_at(bob, works_at, initech, "2021-09-30", "2024-01-01").     % the same day, as known now
+:- holds_at(bob, works_at, acme, "2021-09-30", "2024-01-01").
+until(bob, works_at, acme, "2020-05-01", "2024-01-01", "2021-09-01").
+holds_at(carol, works_at, globex, "2021-09-30", "2021-10-01").    % nothing about carol changed

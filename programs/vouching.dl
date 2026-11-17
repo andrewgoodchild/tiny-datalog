@@ -1,0 +1,19 @@
+% Trust by vouching, with one open question: is ann's invitation
+% still active?  ann and bob vouch for each other, which is support of
+% a kind, and lesson 5 is about why it is not enough.
+%
+%   python3 datalog.py --models --trace programs/vouching.dl
+
+person(ann). person(bob).
+invited(ann).
+vouches(ann, bob). vouches(bob, ann).
+
+% the open question, as a choice
+active(P)  :- invited(P), not revoked(P).
+revoked(P) :- invited(P), not active(P).
+
+trusted(P) :- active(P).
+trusted(P) :- vouches(Q, P), trusted(Q).
+
+% the policy: everybody must be trusted (the barber, as a filter)
+breach :- person(P), not trusted(P), not breach.

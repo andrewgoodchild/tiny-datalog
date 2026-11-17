@@ -1,0 +1,22 @@
+% Three colours for four regions of a map, no two neighbours alike:
+% a search problem written as rules.  Every stable model is one valid
+% colouring (lesson 5).
+%
+%   python3 datalog.py --models programs/colouring.dl
+
+region(wa). region(nt). region(sa). region(qld).
+colour(red). colour(green). colour(blue).
+
+border(wa, nt).  border(wa, sa).  border(nt, sa).
+border(nt, qld). border(sa, qld).
+
+% A choice: each region takes a colour unless it has taken another.
+% The two rules lean on each other through `not`, which is what lets
+% a program have several models (eligibility-choice.dl, larger).
+painted(R, C) :- region(R), colour(C), not other(R, C).
+other(R, C)   :- region(R), colour(C), painted(R, D), C != D.
+
+% A test: no model may paint neighbours alike.  `clash` is the barber
+% on purpose.  Where a border has one colour on both sides the rule
+% says clash holds exactly if it does not, so that model cannot exist.
+clash :- border(R, S), painted(R, C), painted(S, C), not clash.

@@ -28,6 +28,10 @@ from tiny_datalog import subsumption
 from tiny_datalog import containment
 from tiny_datalog import defeasible
 from tiny_datalog import chase
+from tiny_datalog import diagnose
+from tiny_datalog import mutation
+from tiny_datalog import foil
+from tiny_datalog import synthesis
 from tiny_datalog.tabling import TabledEngine
 from tiny_datalog.slg import SLGEngine
 from tiny_datalog.engines import ENGINES
@@ -2413,7 +2417,9 @@ class RepositoryClaimTests(unittest.TestCase):
                   "tablespace.py", "slg.py",
                   "semantics.py", "semiring.py", "defeasible.py",
                   "incremental.py", "prolog.py",
-                  "subsumption.py", "containment.py", "chase.py"]
+                  "subsumption.py", "containment.py", "chase.py",
+                  "diagnose.py", "mutation.py", "foil.py", "synthesis.py",
+                  "sat.py"]
 
     # slg.py is allowed more: SLG is tabling plus a scheduler, local
     # completion and tabled aggregation (lesson 15)
@@ -3383,10 +3389,15 @@ class SatelliteRefusalTests(unittest.TestCase):
         clauses = parse("\n".join("p(c%d)." % i for i in range(30))
                         + "\nq(X) :- p(X), not r(X). r(X) :- p(X), not q(X).")
         with self.assertRaises(DatalogError) as cm:
-            stable_models(clauses)
+            stable_models(clauses, limit_models=8)
         msg = str(cm.exception)
-        self.assertIn("limited to", msg)
+        self.assertIn("limited to 8 models", msg)
         self.assertIn("60", msg)         # what this program actually grounds to
+        with self.assertRaises(DatalogError) as cm:
+            stable_models(clauses, exhaustive=True)
+        msg = str(cm.exception)
+        self.assertIn("limited to 16 candidate atoms", msg)
+        self.assertIn("60", msg)
 
     def test_semantics_refuses_aggregation(self):
         with self.assertRaises(DatalogError) as cm:
@@ -3454,7 +3465,7 @@ class CLIErrorReportingTests(unittest.TestCase):
     SCRIPTS = ["datalog.py", "semiring.py", "tabling.py", "slg.py",
                "incremental.py",
                "containment.py", "prolog.py", "subsumption.py",
-               "defeasible.py"]
+               "defeasible.py", "diagnose.py", "mutation.py"]
 
     @staticmethod
     def cli(script, *args):
@@ -4528,9 +4539,17 @@ class CoreReviewFixTests(unittest.TestCase):
             parse("p(٣).")
 
     def test_models_still_reports_well_founded_when_search_too_big(self):
+        # 29 candidate atoms were once too many to search; one model
         code, out, _ = self.run_cli(chain(30) + "r(X) :- edge(X, Y).", "-m")
         self.assertEqual(code, 0)
-        self.assertIn("Stable models: search skipped", out)
+        self.assertIn("Stable models: 1\n", out)
+        # nine independent choices are 512 models: too many to list
+        code, out, _ = self.run_cli(
+            "".join("p(c%d). " % i for i in range(9))
+            + "q(X) :- p(X), not r(X). r(X) :- p(X), not q(X).", "-m")
+        self.assertEqual(code, 0)
+        self.assertIn("Stable models: search stopped (stable-model search "
+                      "is limited to 256 models", out)
         self.assertIn("Well-founded model", out)
 
     def test_usage_names_the_invoked_program(self):
@@ -5152,6 +5171,1042 @@ class ValueSafetyTests(unittest.TestCase):
     def test_program_strings_are_checked_with_a_line_number(self):
         with self.assertRaisesRegex(ParseError, "line 2: string contains U\\+202E"):
             parse('p(a).\np("x‮y").')
+
+
+class StableModelSearchTests(unittest.TestCase):
+    """Stable models by SAT (lesson 5): the solver proposes, the
+    Gelfond-Lifschitz check disposes, and the exhaustive search is the
+    definition both must agree with."""
+
+    @staticmethod
+    def key(models):
+        return sorted(sorted(map(repr, m)) for m in models)
+
+    def test_agrees_with_exhaustive_search_on_random_programs(self):
+        rng = random.Random(11)
+        found = unfounded = 0
+        for _ in range(1500):
+            k = rng.randint(2, 7)
+            atoms = ["a%d" % i for i in range(k)]
+            rules = []
+            for _r in range(rng.randint(1, 10)):
+                body = [("not " if rng.random() < .45 else "") + a
+                        for a in rng.sample(atoms, rng.randint(0, min(3, k)))]
+                head = rng.choice(atoms)
+                rules.append("%s :- %s." % (head, ", ".join(body))
+                             if body else "%s." % head)
+            clauses = parse(" ".join(rules))
+            log = []
+            sat = stable_models(clauses, log=log)
+            self.assertEqual(self.key(sat),
+                             self.key(stable_models(clauses, exhaustive=True)),
+                             " ".join(rules))
+            self.assertEqual(sum(k == "stable" for k, _a in log), len(sat))
+            found += len(sat)
+            unfounded += sum(k == "unfounded" for k, _a in log)
+        # the sample must exercise both outcomes of the check
+        self.assertGreater(found, 500)
+        self.assertGreater(unfounded, 20)
+
+    def test_agrees_on_the_shipped_programs(self):
+        for name in ("barber", "win", "eligibility-choice",
+                     "eligibility-paradox", "eligibility-stable",
+                     "cafe-paradox", "cafe-foodary", "tweety", "even-odd",
+                     "vouching"):
+            with self.subTest(program=name):
+                clauses = parse(load(name + ".dl"))
+                self.assertEqual(
+                    self.key(stable_models(clauses)),
+                    self.key(stable_models(clauses, exhaustive=True)))
+
+    def test_a_circular_argument_is_proposed_and_refused(self):
+        log = []
+        models = stable_models(parse(load("vouching.dl")), log=log)
+        self.assertEqual(log[0], ("unfounded", {("trusted", ("ann",)),
+                                                ("trusted", ("bob",))}))
+        self.assertEqual([k for k, _a in log], ["unfounded", "stable"])
+        derived = {a for a in models[0] if a[0] in ("active", "revoked",
+                                                    "trusted", "breach")}
+        self.assertEqual(derived, {("active", ("ann",)),
+                                   ("trusted", ("ann",)),
+                                   ("trusted", ("bob",))})
+        # require trust with no invitation at all, and nothing is left
+        log = []
+        self.assertEqual(stable_models(parse(
+            "person(ann). person(bob). vouches(ann, bob). vouches(bob, ann). "
+            "maybe(ann). in(P) :- maybe(P), not out(P). "
+            "out(P) :- maybe(P), not in(P). "
+            "trusted(P) :- in(P), out(P). "
+            "trusted(P) :- vouches(Q, P), trusted(Q). "
+            "breach :- person(P), not trusted(P), not breach."), log=log), [])
+
+    def test_more_atoms_than_exhaustive_search_could_try(self):
+        clauses = parse(load("colouring.dl"))
+        log = []
+        models = stable_models(clauses, log=log)
+        self.assertEqual(len(models), 6)
+        self.assertEqual([k for k, _a in log], ["stable"] * 6)
+        for m in models:
+            paint = dict(t for p, t in m if p == "painted")
+            self.assertEqual(len(paint), 4)
+            for p, (r, s) in ((p, t) for p, t in m if p == "border"):
+                self.assertNotEqual(paint[r], paint[s])
+            self.assertNotIn(("clash", ()), m)
+        with self.assertRaisesRegex(DatalogError, "grounds to 25"):
+            stable_models(clauses, exhaustive=True)
+
+    def test_completion_simplifies_what_is_already_settled(self):
+        from tiny_datalog.semantics import _completion, ground_program
+        facts, rules, cands = ground_program(parse(
+            "f(a). p(X) :- f(X), not q(X). q(X) :- f(X), not p(X). "
+            "r(X) :- f(X), not f(X). s(X) :- f(X), not z(X)."))
+        atoms = sorted(cands)
+        number = {a: i + 1 for i, a in enumerate(atoms)}
+        cnf, bodies = _completion(facts, rules, number)
+        # r's rule negates a fact and is dropped, so r(a) has no support;
+        # s's rule negates an atom nothing derives and has an empty body
+        self.assertIn([-number[("r", ("a",))]], cnf)
+        self.assertEqual(len(bodies), 3)
+        from tiny_datalog.sat import solve
+        s_body = [b for h, _p, b in bodies if h == ("s", ("a",))][0]
+        self.assertIn([s_body], cnf)
+        self.assertIn(number[("s", ("a",))], solve(cnf))
+
+    def test_cli_trace_and_query_filter(self):
+        cli = CLIErrorReportingTests.cli
+        r = cli("datalog.py", "--models", "--trace", "programs/vouching.dl")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("Search: 5 candidate atoms, 2 candidate models "
+                      "proposed\n  1: refused: only each other to support "
+                      "trusted(ann), trusted(bob)\n  2: stable\n", r.stdout)
+        r = cli("datalog.py", "--models", "-q", "painted(wa, C)",
+                "programs/colouring.dl")
+        self.assertIn("Stable models: 6\n  model 1: painted(wa, green).\n",
+                      r.stdout)
+        self.assertIn("  true:      (nothing asked for)\n", r.stdout)
+        self.assertNotIn("other(", r.stdout)
+        # a query may ask about a stated fact, in every model
+        r = cli("datalog.py", "--models", "-q", "border(wa, X)",
+                "programs/colouring.dl")
+        self.assertIn("  model 1: border(wa, nt).  border(wa, sa).\n",
+                      r.stdout)
+        # a bad query is refused before any work is reported
+        r = cli("datalog.py", "--models", "-q", "painted(wa)",
+                "programs/colouring.dl")
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("arity", r.stderr)
+        self.assertEqual(r.stdout, "")
+
+
+class DiagnoseTests(unittest.TestCase):
+    """Algorithmic debugging (lesson 27): a wrong or missing answer is
+    traced to the rule at fault, and the search says so when the oracle
+    cannot settle it."""
+
+    @staticmethod
+    def oracle(text, true=(), false=(), reference=None, ask=None):
+        engine = diagnose.run(parse(text))
+        ref = diagnose.run(parse(reference)) if reference else None
+        return diagnose.Oracle(
+            engine, true, [query_atom(q) for q in false], ref, ask)
+
+    def test_wrong_answer_with_true_premises_convicts_its_rule(self):
+        o = self.oracle(load("lending-draft2.dl"),
+                        false=["may_borrow(kim)"])
+        f = diagnose.locate(o, "wrong", "may_borrow", ("kim",))
+        self.assertEqual((f.kind, str(f.rule), f.subst),
+                         ("rule", "may_borrow(P) :- staff(P).", {"P": "kim"}))
+        self.assertEqual(diagnose.verdict_lines(f), [
+            "may_borrow(kim) should not hold   [via may_borrow(P) :- "
+            "staff(P).]",
+            "=> the rule at fault: may_borrow(P) :- staff(P).",
+            "   its body is true and its head is false at P = kim"])
+
+    def test_blame_descends_through_wrong_premises_to_the_culprit(self):
+        o = self.oracle(load("access-draft.dl"),
+                        reference=load("access.dl"))
+        f = diagnose.locate(o, "wrong", "can", ("alice", "delete", "company"))
+        self.assertEqual(f.kind, "rule")
+        self.assertEqual(str(f.rule),
+                         "has(U, R, F) :- parent(O, F), has(U, R, O).")
+        self.assertEqual(len(f.trail), 3)       # can, has, has
+        self.assertEqual(f.subst, {"U": "alice", "R": "owner",
+                                   "F": "eng_folder", "O": "roadmap"})
+
+    def test_missing_answer_ends_at_an_uncovered_fact(self):
+        o = self.oracle(load("access-draft.dl"),
+                        reference=load("access.dl"))
+        f = diagnose.locate(o, "missing", "can", ("bob", "view", "roadmap"))
+        self.assertEqual((f.kind, f.pred, f.tup),
+                         ("uncovered", "has", ("bob", "viewer", "roadmap")))
+        self.assertEqual(f.unsure, [])
+        self.assertIn("no rule for has/3 has a true body", f.trail[-1])
+
+    def test_one_edit_is_two_findings_however_many_symptoms(self):
+        o = self.oracle(load("access-draft.dl"),
+                        reference=load("access.dl"))
+        wrong, missing = o.symptoms()
+        self.assertEqual((len(wrong), len(missing)), (18, 19))
+        groups = diagnose.diagnose(o)
+        self.assertEqual([(g[0].kind, len(g[1]), len(g[2])) for g in groups],
+                         [("rule", 18, 0), ("uncovered", 0, 19)])
+        # the reference agrees with itself
+        same = self.oracle(load("access.dl"), reference=load("access.dl"))
+        self.assertEqual(same.symptoms(), ([], []))
+
+    def test_a_silent_oracle_is_reported_not_guessed_at(self):
+        true, false = diagnose.read_expectations(load("access.expect"))
+        engine = diagnose.run(parse(load("access-draft.dl")))
+        o = diagnose.Oracle(engine, true, false)
+        wrong, missing = o.symptoms()
+        self.assertEqual(wrong, [("can", ("alice", "delete", "company"))])
+        self.assertEqual(missing, [("can", ("bob", "view", "roadmap"))])
+        f = diagnose.locate(o, "wrong", *wrong[0])
+        self.assertEqual(f.kind, "unsure")
+        self.assertEqual(f.unsure, ["has(alice, owner, company) is wrong"])
+        self.assertIn("unless the fault is one step further down",
+                      diagnose.verdict_lines(f)[-1])
+        f = diagnose.locate(o, "missing", *missing[0])
+        self.assertEqual((f.kind, f.pred), ("uncovered", "can"))
+        self.assertEqual(f.unsure, ["has(bob, viewer, roadmap) is missing"])
+
+    def test_a_silent_oracle_on_a_negated_premise_is_reported_too(self):
+        engine = diagnose.run(parse(
+            "item(a). flag(b). bad(X) :- flag(X). "
+            "ok(X) :- item(X), not bad(X)."))
+        o = diagnose.Oracle(engine, false=[query_atom("ok(a)")])
+        f = diagnose.locate(o, "wrong", "ok", ("a",))
+        # nobody has said whether bad(a) should hold, and it has a rule
+        self.assertEqual((f.kind, f.unsure), ("unsure", ["bad(a) is missing"]))
+
+    def test_asking_settles_what_the_expectations_left_open(self):
+        truth = diagnose.run(parse(load("access.dl")))
+        asked = []
+
+        def ask(question):
+            asked.append(question)
+            atom = query_atom(question)
+            return tuple(a.value for a in atom.args) in truth.rels[atom.pred]
+
+        true, false = diagnose.read_expectations(load("access.expect"))
+        o = diagnose.Oracle(diagnose.run(parse(load("access-draft.dl"))),
+                            true, false, ask=ask)
+        groups = diagnose.diagnose(o)
+        self.assertEqual([(g[0].kind, g[0].unsure) for g in groups],
+                         [("rule", []), ("uncovered", [])])
+        self.assertEqual(str(groups[0][0].rule),
+                         "has(U, R, F) :- parent(O, F), has(U, R, O).")
+        self.assertEqual(groups[1][0].pred, "has")
+        # only derived facts are asked about: the data is taken as given
+        self.assertEqual(asked, [
+            "has(alice, owner, company)", "has(alice, owner, eng_folder)",
+            "has(alice, owner, roadmap)", "has(bob, viewer, roadmap)",
+            "has(bob, editor, roadmap)"])
+
+    def test_negation_sends_the_search_to_the_other_side(self):
+        # ok(a) is wrong because bad(a) is missing; bad has no rule that
+        # covers it
+        text = ("item(a). flag(b). bad(X) :- flag(X). "
+                "ok(X) :- item(X), not bad(X).")
+        o = self.oracle(text, true=[("bad", ("a",))], false=["ok(a)"])
+        f = diagnose.locate(o, "wrong", "ok", ("a",))
+        self.assertEqual((f.kind, f.pred, f.tup), ("uncovered", "bad", ("a",)))
+        self.assertEqual(len(f.trail), 2)
+        # ok(b) is missing because bad(b) is wrongly derived
+        o = self.oracle(text, true=[("ok", ("b",))], false=["bad(b)"])
+        # (ok(b) has no item(b): state it, so the body can be true)
+        o = self.oracle("item(b). " + text, true=[("ok", ("b",))],
+                        false=["bad(b)"])
+        f = diagnose.locate(o, "missing", "ok", ("b",))
+        self.assertEqual((f.kind, str(f.rule)),
+                         ("rule", "bad(X) :- flag(X)."))
+
+    def test_wrong_data_is_told_apart_from_wrong_rules(self):
+        text = "e(a, b). e(b, c). p(X, Y) :- e(X, Y). p(X, Z) :- e(X, Y), p(Y, Z)."
+        # the reference lacks e(b, c): the draft's fact is the fault
+        o = self.oracle(text, reference="e(a, b). p(X, Y) :- e(X, Y). "
+                                        "p(X, Z) :- e(X, Y), p(Y, Z).")
+        f = diagnose.locate(o, "wrong", "p", ("a", "c"))
+        self.assertEqual((f.kind, f.pred, f.tup), ("fact", "e", ("b", "c")))
+        self.assertIn("the data is wrong, not a rule",
+                      diagnose.verdict_lines(f)[-1])
+        # an expected fact of a predicate with no rules is simply absent
+        o = self.oracle(text, true=[("e", ("c", "d"))])
+        f = diagnose.locate(o, "missing", "e", ("c", "d"))
+        self.assertEqual(f.kind, "absent")
+        self.assertIn("the data is incomplete",
+                      diagnose.verdict_lines(f)[-1])
+
+    def test_aggregates_end_the_search_honestly(self):
+        o = self.oracle("c(a, 1). c(a, 2). t(X, sum(V)) :- c(X, V).",
+                        false=["t(a, 3)"])
+        f = diagnose.locate(o, "wrong", "t", ("a", 3))
+        self.assertEqual(f.kind, "aggregate")
+        self.assertIn("--explain t(a, 3)", diagnose.verdict_lines(f)[-1])
+
+    def test_a_long_chain_of_blame_is_a_loop_not_a_recursion(self):
+        n = 1200                    # deeper than Python's recursion limit
+        text = chain(n) + "reach(n1). reach(Y) :- reach(X), edge(X, Y)."
+        engine = diagnose.run(parse(text))
+        # nothing should be reachable: the blame runs the whole chain
+        # back to the one stated fact
+        o = diagnose.Oracle(engine, false=[query_atom("reach(X)")])
+        f = diagnose.locate(o, "wrong", "reach", ("n%d" % n,))
+        self.assertEqual((f.kind, f.tup), ("fact", ("n1",)))
+        self.assertEqual(len(f.trail), n)
+
+    def test_expectations_are_facts_and_single_atom_denials(self):
+        true, false = diagnose.read_expectations(
+            "p(a). :- p(b). :- q(X, c).", {"p": 1, "q": 2})
+        self.assertEqual(true, {("p", ("a",))})
+        self.assertEqual([str(a) for a in false], ["p(b)", "q(X, c)"])
+        for bad in ("p(X) :- q(X).", ":- p(a), q(a).", ":- not p(a).",
+                    "p(a)~.", ":- X < 3."):
+            with self.subTest(text=bad):
+                with self.assertRaises(DatalogError):
+                    diagnose.read_expectations(bad)
+        with self.assertRaises(SafetyError):        # arity is checked
+            diagnose.read_expectations("p(a, b).", {"p": 1})
+
+    def test_cli_reports_and_exit_codes(self):
+        cli = CLIErrorReportingTests.cli
+        r = cli("diagnose.py", "programs/access-draft.dl",
+                "--against", "programs/access.dl")
+        self.assertEqual(r.returncode, 3, r.stderr)
+        self.assertIn("18 wrong answers, 19 missing", r.stdout)
+        self.assertIn("and 15 more", r.stdout)
+        r = cli("diagnose.py", "programs/lending-checked.dl",
+                "--expect", "programs/lending.expect")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("agrees with everything stated", r.stdout)
+        # a symptom has to be one: derived if wrong, absent if missing,
+        # and not contradicted by the reference
+        for args, message in (
+                (["--wrong", "may_borrow(jon)"], "is not derived"),
+                (["--missing", "may_borrow(iris)"], "is derived"),
+                (["--wrong", "may_borrow(P)"], "one ground fact"),
+                (["--against", "programs/lending.dl",
+                  "--wrong", "may_borrow(iris)"], "is called wrong, but")):
+            with self.subTest(args=args):
+                r = cli("diagnose.py", "programs/lending.dl", *args)
+                self.assertEqual(r.returncode, 1)
+                self.assertIn(message, r.stderr)
+                self.assertNotIn("Traceback", r.stderr)
+        r = cli("diagnose.py", "programs/lending.dl")
+        self.assertEqual(r.returncode, 2)       # nothing to check against
+        self.assertIn("say what should be true", r.stderr)
+
+    def test_cli_asks_on_the_terminal_and_survives_end_of_input(self):
+        cmd = [sys.executable, os.path.join(HERE, "diagnose.py"),
+               "programs/access-draft.dl", "--expect",
+               "programs/access.expect", "--ask"]
+        r = subprocess.run(cmd, input="n\nmaybe\nn\ny\ny\nn\n",
+                           capture_output=True, text=True, cwd=HERE)
+        self.assertEqual(r.returncode, 3, r.stderr)
+        self.assertEqual(r.stdout.count("true? [y/n]"), 6)   # one re-asked
+        self.assertIn("F = eng_folder, O = roadmap, R = owner, U = alice",
+                      r.stdout)
+        self.assertNotIn("unless the fault", r.stdout)
+        r = subprocess.run(cmd, input="", capture_output=True, text=True,
+                           cwd=HERE)
+        self.assertEqual(r.returncode, 3, r.stderr)
+        self.assertIn("unless the fault is one step further down", r.stdout)
+
+
+class MutationTests(unittest.TestCase):
+    """Mutation testing for rules (lesson 27): what the tests would
+    notice, and the equivalent mutants containment proves away."""
+
+    def test_every_kind_of_edit_is_made(self):
+        clauses = parse("e(1, 2). :- p(X, X). "
+                        "p(X, Y) :- e(X, Y), not q(Y), X < Y.")
+        found = list(mutation.mutants(clauses))
+        self.assertEqual({(kind, i) for kind, i, _new in found},
+                         {(k, 2) for k in ("drop-rule", "swap-args",
+                                           "drop-literal", "negate",
+                                           "comparison")})
+        texts = {str(new) for _k, _i, new in found if new}
+        for expected in ("p(Y, X) :- e(X, Y), not q(Y), X < Y.",
+                         "p(X, Y) :- e(Y, X), not q(Y), X < Y.",
+                         "p(X, Y) :- not q(Y), X < Y.",
+                         "p(X, Y) :- e(X, Y), q(Y), X < Y.",
+                         "p(X, Y) :- not e(X, Y), not q(Y), X < Y.",
+                         "p(X, Y) :- e(X, Y), not q(Y), X <= Y.",
+                         "p(X, Y) :- e(X, Y), not q(Y)."):
+            self.assertIn(expected, texts)
+        # a one-literal body is not dropped to nothing, an aggregate
+        # head is not rearranged, and repeated arguments do not swap
+        texts = {str(new) for _k, _i, new in mutation.mutants(parse(
+            "t(X, sum(V)) :- c(X, V). r(X) :- s(X, X)."))if new}
+        self.assertEqual(texts, {"t(X, sum(V)) :- c(V, X).",
+                                 "t(X, sum(V)) :- not c(X, V).",
+                                 "r(X) :- not s(X, X)."})
+
+    def test_constraints_alone_cannot_see_a_missing_rule(self):
+        clauses = parse(load("lending-checked.dl"))
+        result = mutation.mutation_test(clauses)
+        self.assertEqual((result["killed"], len(result["survived"]),
+                          len(result["equivalent"]), result["stillborn"]),
+                         (6, 4, 0, 5))
+        self.assertEqual(mutation.score(result), 60)
+        self.assertEqual([m[0] for m in result["survived"]],
+                         ["drop-rule", "swap-args", "drop-rule", "drop-rule"])
+        self.assertEqual(mutation.cover(result["survived"]),
+                         [("has_overdue(jon).", 2), ("may_borrow(iris).", 1),
+                          ("may_borrow(lena).", 1)])
+        true, false = diagnose.read_expectations(load("lending.expect"))
+        result = mutation.mutation_test(clauses, true, false)
+        self.assertEqual((result["killed"], result["survived"]), (10, []))
+        self.assertEqual(mutation.score(result), 100)
+
+    def test_survivors_come_in_two_kinds_and_a_short_cover(self):
+        clauses = parse(load("access.dl"))
+        true, false = diagnose.read_expectations(load("access.expect"))
+        result = mutation.mutation_test(clauses, true, false)
+        self.assertEqual((result["killed"], len(result["survived"]),
+                          result["stillborn"]), (44, 27, 26))
+        silent = [m for m in result["survived"] if not m[3]]
+        self.assertEqual([str(m[2]) for m in silent], [
+            "can(U, delete, O) :- has(U, owner, O).",
+            "allowed(U, A, O) :- can(U, A, O), not suspended(U)."])
+        picks = mutation.cover(result["survived"])
+        self.assertEqual(picks, [("allowed(dana, view, payroll).", 16),
+                                 ("allowed_open(alice, view, handbook).", 8),
+                                 (":- allowed_open(bob, view, company).", 1)])
+        # the cover does what it says: with those three expectations
+        # added, only the two silent mutants are left
+        more_true, more_false = diagnose.read_expectations(
+            " ".join(p for p, _n in picks))
+        result = mutation.mutation_test(clauses, true | more_true,
+                                        false + more_false)
+        self.assertEqual([m[3] for m in result["survived"]], [set(), set()])
+
+    def test_equivalent_mutants_are_proved_and_not_scored(self):
+        result = mutation.mutation_test(parse(load("minimise.dl")))
+        self.assertEqual(
+            [(m[0], str(m[2])) for m in result["equivalent"]],
+            [("drop-literal", "has_edge(X, Y) :- edge(X, Y)."),
+             ("drop-literal", "two_hop(X) :- edge(X, Y), edge(Y, Z).")])
+        self.assertEqual((result["killed"], len(result["survived"])), (0, 28))
+        self.assertEqual(mutation.score(result), 0)
+        # a rule another rule contains can be dropped, on any database
+        result = mutation.mutation_test(parse(
+            "e(a, b). p(X) :- e(X, Y). p(X) :- e(X, Y), e(Y, Z)."))
+        self.assertIn(("drop-rule", "p(X) :- e(X, Y), e(Y, Z).", None),
+                      [(m[0], str(m[1]), m[2]) for m in result["equivalent"]])
+        # ...but negation and comparisons are outside the theory, so an
+        # edit there is never called equivalent
+        clauses = parse("e(a, b). p(X) :- e(X, Y), X != Y.")
+        self.assertFalse(mutation.proved_same(
+            clauses, 1, parse("p(X) :- e(X, Y), X != Y.")[0]))
+        self.assertEqual(mutation.mutation_test(clauses)["equivalent"], [])
+
+    def test_an_empty_score_and_a_failing_program(self):
+        self.assertEqual(mutation.score(
+            {"killed": 0, "survived": [], "equivalent": []}), 100)
+        with self.assertRaisesRegex(DatalogError, "diagnose it first"):
+            mutation.mutation_test(parse(load("lending-draft2-checked.dl")))
+        true, false = diagnose.read_expectations(load("lending.expect"))
+        with self.assertRaisesRegex(DatalogError, "diagnose it first"):
+            mutation.mutation_test(parse(load("lending-draft2.dl")),
+                                   true, false)
+
+    def test_cli(self):
+        cli = CLIErrorReportingTests.cli
+        r = cli("mutation.py", "programs/lending-checked.dl")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("10 mutants: 6 killed, 4 survived, 0 equivalent   "
+                      "(score 60%)", r.stdout)
+        self.assertIn("% kills 2", r.stdout)
+        self.assertNotIn("drop-rule", r.stdout)
+        r = cli("mutation.py", "programs/lending-checked.dl", "-v")
+        self.assertIn("  swap-args     has_overdue(P) :- overdue(P, _).\n"
+                      "            ->  has_overdue(P) :- overdue(_, P).",
+                      r.stdout)
+        r = cli("mutation.py", "programs/minimise.dl")
+        self.assertIn("2 equivalent on every database, by containment",
+                      r.stdout)
+        self.assertIn("5 survived by changing no answer", r.stdout)
+        r = cli("mutation.py", "programs/lending-draft2-checked.dl")
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("error: the program fails its own", r.stderr)
+
+
+class FoilTests(unittest.TestCase):
+    """FOIL (lesson 25): rules learned a literal at a time by
+    information gain, and the ways that goes wrong."""
+
+    @staticmethod
+    def learn(program, examples, **kw):
+        import contextlib, io
+        clauses = parse(program)
+        engine = diagnose.run(clauses)
+        target, pos, neg, closed = foil.read_examples(examples, engine)
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            rules, left = foil.Foil(engine, target, pos, neg, **kw).learn()
+        got, bad = foil.check(clauses, rules, target, pos, neg)
+        return ([str(r) for r in rules], left, (len(got), len(bad)),
+                out.getvalue(), (len(pos), len(neg), closed))
+
+    def test_examples_of_two_arities_are_refused(self):
+        engine = diagnose.run(parse("q(a)."))
+        with self.assertRaisesRegex(DatalogError, "more than one arity"):
+            foil.read_examples("p(a). :- p(a, b).", engine)
+
+    def test_learned_rules_are_held_to_the_programs_constraints(self):
+        import contextlib, io
+        clauses = parse("q(a). q(b). t(c). old(a). :- p(b). :- old(a).")
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            fits = foil.report(clauses, parse("p(X) :- q(X)."), "p",
+                               {("a",)}, {("c",)})
+            fine = foil.report(clauses, parse("p(a) :- q(a)."), "p",
+                               {("a",)}, {("c",)})
+        # every example is reproduced, and the program's own test fails;
+        # a constraint that was broken before learning is not blamed
+        self.assertEqual((fits, fine), (False, True))
+        self.assertEqual(
+            [l for l in out.getvalue().splitlines() if "violates" in l],
+            ["violates the program's constraint: :- p(b)."])
+
+    def test_grandparent_and_its_gains(self):
+        rules, left, ran, out, sizes = self.learn(
+            load("kinship.dl"), load("grandparent.examples"))
+        self.assertEqual(rules,
+                         ["grandparent(X, Y) :- parent(X, Z), parent(Z, Y)."])
+        self.assertEqual((left, ran, sizes), (set(), (6, 0), (6, 75, True)))
+        # the numbers the lesson works through by hand
+        self.assertIn("+ parent(X, Z)             gain   5.44   10+ 62-", out)
+        self.assertIn("+ parent(Z, Y)             gain  17.09   6+ 0-", out)
+
+    def test_recursion_is_learned_from_complete_examples(self):
+        rules, left, ran, out, sizes = self.learn(
+            load("kinship.dl"), load("ancestor.examples"), trace=5)
+        self.assertEqual(rules, [
+            "ancestor(X, Y) :- parent(X, Y).",
+            "ancestor(X, Y) :- parent(X, Z), ancestor(Z, Y)."])
+        self.assertEqual((left, ran, sizes), (set(), (17, 0), (17, 64, True)))
+        self.assertIn("  parent(X, Y)             gain  18.02   8+ 0-", out)
+        self.assertIn("  ancestor(Z, Y)           gain  16.72   9+ 0-", out)
+
+    def test_a_true_rule_that_derives_nothing(self):
+        rules, left, ran, _out, sizes = self.learn(
+            load("kinship.dl"), load("sg.examples"))
+        self.assertEqual(rules, ["sg(X, Y) :- sg(Y, X)."])
+        # FOIL believes it covered everything; running it says otherwise
+        self.assertEqual((left, ran, sizes), (set(), (0, 0), (23, 58, True)))
+        r = CLIErrorReportingTests.cli(
+            "foil.py", "programs/kinship.dl", "--examples",
+            "programs/sg.examples")
+        self.assertEqual(r.returncode, 3)
+        self.assertIn("warning: sg can never hold", r.stdout)
+        self.assertIn("0 of 23 positive examples derived", r.stdout)
+
+    def test_sparse_examples_are_fitted_without_recursion(self):
+        rules, left, ran, out, sizes = self.learn(
+            load("kinship.dl"), load("ancestor-sparse.examples"))
+        # every example is covered, case by case, with no recursion
+        self.assertEqual(rules, [
+            "ancestor(X, Y) :- parent(X, Y).",
+            "ancestor(X, Y) :- parent(X, Z), parent(Z, U), parent(U, V), "
+            "parent(W, Y).",
+            "ancestor(X, Y) :- parent(X, Z), parent(Z, Y)."])
+        self.assertEqual((left, ran, sizes), (set(), (6, 0), (6, 6, False)))
+        # once no negative is covered, the literal that binds Y is the
+        # one keeping the most positives, whatever its name
+        self.assertIn("+ parent(W, Y)             gain   0.00   6+ 0-", out)
+        # the shipped copy is what was learned, it is right on this
+        # tree, and one fact from another family shows it is not right
+        shipped = [str(c) for c in parse(load("ancestor-foil.dl")) if c.body]
+        self.assertEqual(shipped, rules)
+        truth = {t for _p, t in diagnose.read_expectations(
+            load("ancestor.examples"))[0]}
+        self.assertEqual(run_program(load("ancestor-foil.dl"))
+                         .rels["ancestor"], truth)
+        for name, answers in (("ancestor-foil.dl", 1),
+                              ("ancestor-learned.dl", 0)):
+            e = run_program(load(name) + "parent(zed, yan).")
+            self.assertEqual(len(e.query("ancestor(ada, yan)")), answers)
+
+    def test_pruning_drops_a_literal_a_later_one_replaced(self):
+        engine = diagnose.run(parse(load("kinship.dl")))
+        f = foil.Foil(engine, "t", {("ada", "dov")}, {("ben", "ada")})
+        lits = [Literal(query_atom(a)) for a in
+                ("parent(X, Z)", "parent(Z, U)", "parent(Z, Y)")]
+        import contextlib, io
+        with contextlib.redirect_stdout(io.StringIO()) as out:
+            kept = f._prune(list(lits))
+        self.assertEqual([str(l) for l in kept],
+                         ["parent(X, Z)", "parent(Z, Y)"])
+        self.assertIn("- parent(Z, U)", out.getvalue())
+
+    def test_learned_rules_are_always_safe(self):
+        # six negatives are excluded before Y is bound; the search must
+        # go on until it is, or the engine would refuse the rule
+        for name in ("ancestor-sparse.examples", "ancestor.examples",
+                     "grandparent.examples", "sg.examples"):
+            rules = self.learn(load("kinship.dl"), load(name))[0]
+            validate(parse(load("kinship.dl") + " ".join(rules)))
+        # `not` is offered over bound variables only, and is used
+        rules, left, ran, _out, _s = self.learn(
+            "p(a). p(b). p(c). q(a). z(d).", "r(b). r(c).")
+        self.assertEqual(rules, ["r(X) :- p(X), not q(X)."])
+        self.assertEqual((left, ran), (set(), (2, 0)))
+
+    def test_candidates_respect_the_search_space(self):
+        engine = diagnose.run(parse("e(a, b). u(a)."))
+        f = foil.Foil(engine, "t", {("a", "b")}, {("b", "a")})
+        texts = {str(l) for l in f.candidates([], ["X", "Y"])}
+        self.assertIn("e(X, Z)", texts)            # one new variable
+        self.assertIn("not e(X, Y)", texts)
+        self.assertIn("t(Y, X)", texts)            # recursion, bound only
+        for absent in ("t(X, Y)",                  # the head itself
+                       "t(X, Z)",                  # recursion on a new variable
+                       "not t(Y, X)",              # negating the target
+                       "not e(X, Z)",              # unsafe
+                       "e(Z, U)",                  # says nothing about X or Y
+                       "e(X, X)"):
+            self.assertNotIn(absent, texts)
+        self.assertEqual(len(texts), 2 + 4 + 4 + 2 + 1)  # u, not u, e, not e, t
+
+    def test_examples_are_checked(self):
+        engine = diagnose.run(parse(load("kinship.dl")))
+        for text, message in (
+                ("p(a). q(b).", "one predicate"),
+                (":- p(a).", "at least one of them positive"),
+                ("p(a). :- p(X).", "one ground fact"),
+                ("p(a). :- p(a).", "both positive and negative")):
+            with self.subTest(text=text):
+                with self.assertRaisesRegex(DatalogError, message):
+                    foil.read_examples(text, engine)
+        with self.assertRaisesRegex(DatalogError, "already has rules"):
+            foil.read_examples("ancestor(abe, bob).",
+                               diagnose.run(parse(load("family.dl"))))
+        with self.assertRaisesRegex(DatalogError, "closed world has 9\\*\\*2"):
+            foil.read_examples("p(ada, ben).", engine, limit=80)
+        target, pos, neg, closed = foil.read_examples(
+            "p(ada, ben). :- p(ben, ada).", engine)
+        self.assertEqual((target, pos, neg, closed),
+                         ("p", {("ada", "ben")}, {("ben", "ada")}, False))
+
+    def test_max_body_bounds_the_rule(self):
+        rules, left, _ran, out, _s = self.learn(
+            load("kinship.dl"), load("grandparent.examples"), max_body=1)
+        self.assertEqual((rules, len(left)), ([], 6))
+        self.assertIn("giving up", out)
+
+
+class SynthesisTests(unittest.TestCase):
+    """Rule selection guided by provenance (lesson 26)."""
+
+    def test_provenance_of_a_deep_derivation_has_no_round_budget(self):
+        n = 230         # the semiring engine alone gives up at 200 rounds
+        facts = parse("start(n0). " + " ".join(
+            "next(n%d, n%d)." % (i, i + 1) for i in range(n)))
+        rules = parse("r(X) :- start(X). r(Y) :- r(X), next(X, Y). "
+                      "r(X) :- next(X, Y).")
+        job = synthesis.Synthesiser(facts, rules, "r", {("n%d" % n,)},
+                                    set(), False)
+        self.assertEqual(job.why({1, 2}, [("n%d" % n,)]),
+                         {("n%d" % n,): frozenset({frozenset({1, 2})})})
+
+    def test_cli_fails_when_the_chosen_rules_break_a_constraint(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            prog, ex = (os.path.join(tmp, f) for f in ("p.dl", "p.examples"))
+            with open(prog, "w") as fh:
+                fh.write("parent(a, b). parent(b, c). :- anc(b, c).")
+            with open(ex, "w") as fh:
+                fh.write("anc(a, b). :- anc(c, a).")
+            r = CLIErrorReportingTests.cli("synthesis.py", prog,
+                                           "--examples", ex)
+        self.assertEqual(r.returncode, 3, r.stderr)
+        self.assertIn("run for real: 1 of 1 positive examples derived, "
+                      "0 of 1 negative\nviolates the program's constraint: "
+                      ":- anc(b, c).\n", r.stdout)
+
+    def test_sat_solver(self):
+        solve = synthesis.solve
+        self.assertEqual(solve([]), set())
+        self.assertEqual(solve([[1, 2, 3]]), {1})      # off first, top down
+        self.assertEqual(solve([[1, 2, 3], [-1]]), {2})
+        self.assertEqual(solve([[1, 2], [-1, -2], [1, 3], [-3]]), {1})
+        self.assertIsNone(solve([[1], [-1]]))
+        self.assertIsNone(solve([[1, 2], [-1], [-2]]))
+        self.assertIsNone(solve([[]]))
+        # against brute force, on random small instances
+        import itertools as _it
+        rng = random.Random(7)
+        for _ in range(300):
+            n = rng.randint(1, 6)
+            clauses = [[rng.choice((-1, 1)) * v for v in rng.sample(
+                range(1, n + 1), rng.randint(1, min(3, n)))]
+                for _ in range(rng.randint(1, 12))]
+            models = [set(v for v, bit in zip(range(1, n + 1), bits) if bit)
+                      for bits in _it.product((0, 1), repeat=n)
+                      if all(any((l > 0) == (abs(l) in
+                                 {v for v, b in zip(range(1, n + 1), bits)
+                                  if b}) for l in c) for c in clauses)]
+            got = solve(clauses)
+            if not models:
+                self.assertIsNone(got, clauses)
+            else:
+                self.assertIn(got, models, clauses)
+
+    def test_candidates_are_safe_connected_minimal_and_counted(self):
+        arity = {"parent": 2, "sg": 2}
+        sizes = {(b, v): len(synthesis.candidates(arity, "sg", b, v))
+                 for b, v in ((1, 1), (2, 1), (2, 2), (3, 1))}
+        self.assertEqual(sizes, {(1, 1): 3, (2, 1): 40, (2, 2): 56,
+                                 (3, 1): 185})
+        rules = synthesis.candidates(arity, "sg", 2, 2)
+        texts = [str(r) for r in rules]
+        self.assertEqual(len(set(texts)), len(texts))
+        validate(parse("parent(a, b). sg(a, b).") + rules)
+        for r in rules:
+            self.assertEqual(len(containment.minimise(r)), len(r.body))
+        self.assertIn("sg(X, Y) :- parent(X, Z), parent(Z, Y).", texts)
+        for absent in ("sg(X, Y) :- sg(X, Y).",              # the head
+                       "sg(X, Y) :- parent(X, Y), parent(X, Z).",  # redundant
+                       "sg(X, Y) :- parent(X, Y), parent(Z, U).",  # unconnected
+                       "sg(X, Y) :- parent(X, U), parent(U, Y).",  # a renaming
+                       "sg(X, Y) :- parent(X, Z)."):               # unsafe
+            self.assertNotIn(absent, texts)
+
+    def test_rule_provenance_is_why_provenance_over_rules(self):
+        facts = parse("e(a, b). e(b, c).")
+        rules = parse("p(X, Y) :- e(X, Y). p(X, Y) :- e(Y, X). "
+                      "p(X, Z) :- p(X, Y), p(Y, Z).")
+        job = synthesis.Synthesiser(facts, rules, "p", set(), set())
+        why = job.why({1, 2, 3}, [("a", "b"), ("a", "c"), ("b", "a"),
+                                  ("a", "a")])
+        fs = lambda *sets: frozenset(frozenset(s) for s in sets)
+        self.assertEqual(why[("a", "b")], fs({1}))
+        self.assertEqual(why[("a", "c")], fs({1, 3}))
+        self.assertEqual(why[("b", "a")], fs({2}))
+        self.assertEqual(why[("a", "a")], fs({1, 2, 3}))
+        # switched off, a rule appears in nobody's provenance
+        self.assertEqual(job.why({1, 3}, [("b", "a")])[("b", "a")],
+                         frozenset())
+
+    def test_why_not_is_a_sound_and_tight_clause(self):
+        facts = parse("e(a, b). e(b, c).")
+        rules = parse("p(X, Y) :- e(X, Y). p(X, Y) :- e(Y, X). "
+                      "p(X, Z) :- p(X, Y), p(Y, Z). p(X, Y) :- p(Y, X).")
+        job = synthesis.Synthesiser(facts, rules, "p", set(), set())
+        clause = job.why_not(set(), ("b", "a"))
+        self.assertEqual(clause, [2, 4])        # the reverse edge, or symmetry
+        self.assertEqual(job.why_not(set(), ("a", "c")), [3])
+        # sound: without both, nothing derives it; tight: adding either
+        # to everything else does
+        rest = {1, 3}
+        self.assertNotIn(("b", "a"), job.derived(rest))
+        for i in clause:
+            self.assertIn(("b", "a"), job.derived(rest | {i}))
+        # a fact no subset derives gets the empty clause
+        self.assertEqual(job.why_not(set(), ("a", "z")), [])
+
+    def learn(self, examples, rules=None, **kw):
+        clauses = parse(load("kinship.dl"))
+        engine = diagnose.run(clauses)
+        target, pos, neg, _closed = foil.read_examples(load(examples), engine)
+        if rules is None:
+            rules = synthesis.candidates({"parent": 2, target: 2}, target,
+                                         **kw)
+        job = synthesis.Synthesiser(clauses, rules, target, pos, neg)
+        chosen = job.search()
+        if chosen is None:
+            return None, job
+        picked = [rules[i - 1] for i in sorted(chosen)]
+        self.assertEqual(foil.check(clauses, picked, target, pos, neg),
+                         (pos, set()))
+        return [str(r) for r in picked], job
+
+    def test_recursion_from_a_dozen_examples(self):
+        rules, job = self.learn("ancestor-sparse.examples")
+        self.assertEqual(rules, [
+            "ancestor(X, Y) :- parent(X, Y).",
+            "ancestor(X, Y) :- ancestor(X, Z), ancestor(Z, Y)."])
+        self.assertEqual((job.rounds, len(job.clauses), job.runs),
+                         (5, 7, 219))
+        # ...and they are right about the eleven pairs never shown
+        engine = diagnose.run(parse(load("kinship.dl")) + parse(
+            " ".join(rules)))
+        truth = {t for _p, t in diagnose.read_expectations(
+            load("ancestor.examples"))[0]}
+        self.assertEqual(engine.rels["ancestor"], truth)
+
+    def test_complete_examples_and_a_non_recursive_target(self):
+        rules, _job = self.learn("ancestor.examples")
+        self.assertEqual(len(rules), 2)
+        rules, _job = self.learn("grandparent.examples")
+        self.assertEqual(rules,
+                         ["grandparent(X, Y) :- parent(X, Z), parent(Z, Y)."])
+
+    def test_the_rule_that_fooled_foil_is_inert_here(self):
+        candidates = [c for c in parse(load("sg.candidates")) if c.body]
+        self.assertEqual(str(candidates[2]), "sg(X, Y) :- sg(Y, X).")
+        rules, job = self.learn("sg.examples", candidates)
+        self.assertEqual(rules, [
+            "sg(X, X) :- parent(X, Y).",
+            "sg(X, Y) :- parent(P, X), parent(Q, Y), sg(P, Q)."])
+        self.assertEqual((job.rounds, len(job.clauses)), (4, 3))
+        self.assertFalse(any(3 in map(abs, c) for c in job.clauses))
+
+    def test_no_fit_is_a_proof_about_the_candidates(self):
+        rules, job = self.learn("ancestor-sparse.examples", max_body=1)
+        self.assertIsNone(rules)
+        self.assertEqual((job.rounds, len(job.clauses)), (2, 2))
+        rules, job = self.learn("sg.examples")
+        self.assertIsNone(rules)
+        self.assertEqual(job.rounds, 32)
+
+    def test_cli(self):
+        cli = CLIErrorReportingTests.cli
+        r = cli("synthesis.py", "programs/kinship.dl", "--examples",
+                "programs/ancestor-sparse.examples", "-t")
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("   r6   ancestor(X, Y) :- ancestor(X, Z), "
+                      "ancestor(Z, Y).", r.stdout)
+        self.assertIn("round 3: try {r2, r5}: 3 wrong, 3 missing", r.stdout)
+        self.assertIn("wrong ancestor(dov, ben), derived by {r3}: forbid "
+                      "that set", r.stdout)
+        self.assertIn("run for real: 6 of 6 positive examples derived, "
+                      "0 of 6 negative", r.stdout)
+        r = cli("synthesis.py", "programs/kinship.dl", "--examples",
+                "programs/ancestor-sparse.examples", "--max-body", "1")
+        self.assertEqual(r.returncode, 3)
+        self.assertIn("no subset of the candidates fits", r.stdout)
+        path = CLIErrorReportingTests.program(
+            "sg(X, Y) :- parent(P, X), parent(P, Y), not sg(Y, P).")
+        try:
+            r = cli("synthesis.py", "programs/kinship.dl", "--examples",
+                    "programs/sg.examples", "--candidates", path)
+            self.assertEqual(r.returncode, 1)
+            self.assertIn("candidates must be positive rules", r.stderr)
+        finally:
+            os.unlink(path)
+
+
+class ProgramExpectationTests(unittest.TestCase):
+    """Lesson 27 turned on the course itself.  Every program in
+    programs/ states what it should derive, in an expectations file
+    next to it, or says here why it cannot; and no one-edit mistake
+    that changes an answer of a tested program goes unnoticed."""
+
+    # expectations kept under another name: a sibling's, or a lesson's
+    SHARED = {"lending-checked.dl": "lending.expect",
+              "ancestor-learned.dl": "ancestor.examples",
+              "ancestor-foil.dl": "ancestor-sparse.examples"}
+    # drafts with a bug in them, which the expectations must catch
+    WRONG = {"access-draft.dl": "access.expect",
+             "lending-draft2.dl": "lending.expect",
+             "lending-typo.dl": "lending.expect"}
+    # refused by the engine, which is what their lesson is about
+    REFUSED = {
+        "ancestors-forever.dl", "late-unsafe.dl", "lending-draft1.dl",
+        "org-chart.dl",                                    # unsafe
+        "no-arithmetic.dl", "family-ontology.dl",          # not Datalog
+        "barber.dl", "cafe-paradox.dl", "colouring.dl",
+        "eligibility-choice.dl", "eligibility-paradox.dl", "vouching.dl",
+        "win.dl",                                # negation in a cycle
+        "cyclic-agg.dl", "earliest.dl", "earliest-wrong.dl",
+        "widest.dl"}                             # aggregation in a cycle
+    # shipped violating a constraint, on purpose
+    VIOLATING = {"memory.dl", "lending-draft2-checked.dl"}
+    EXEMPT = {
+        "kinship.dl": "facts only: the rules are what lessons 25-26 learn",
+        "employment-typo.dl": "its one rule can never fire; lint says so",
+        "queens.dl": "minutes bottom-up; lesson 15 runs it goal-directed"}
+    # lesson 27 teaches from these survivors, so they are left alive
+    GAPS = {"access.dl"}
+    SLOW = {"from-start.dl", "supply-chain.dl"}
+
+    @classmethod
+    def setUpClass(cls):
+        folder = os.path.join(HERE, "programs")
+        cls.files = sorted(os.listdir(folder))
+        cls.programs = [f for f in cls.files if f.endswith(".dl")]
+        cls.tested = {}
+        for name in cls.programs:
+            expect = cls.SHARED.get(name, name[:-3] + ".expect")
+            if expect in cls.files and name not in cls.WRONG:
+                cls.tested[name] = expect
+
+    def read(self, name, expect):
+        clauses = parse(load(name))
+        true, false = diagnose.read_expectations(
+            load(expect), Program(clauses).arity)
+        return clauses, true, false
+
+    def test_every_program_is_tested_or_says_why_not(self):
+        groups = [set(self.tested), set(self.WRONG), self.REFUSED,
+                  self.VIOLATING, set(self.EXEMPT)]
+        self.assertEqual(sorted(n for g in groups for n in g),
+                         self.programs)
+        used = set(self.tested.values()) | set(self.WRONG.values())
+        self.assertEqual({f for f in self.files if f.endswith(".expect")}
+                         - used, set())
+        for name in self.REFUSED:
+            with self.subTest(name), self.assertRaises(DatalogError):
+                diagnose.run(parse(load(name)))
+        for name in self.VIOLATING:
+            with self.subTest(name):
+                self.assertTrue(run_program(load(name)).violations())
+
+    def test_programs_derive_what_they_should(self):
+        for name, expect in sorted(self.tested.items()):
+            with self.subTest(name):
+                clauses, true, false = self.read(name, expect)
+                self.assertTrue(true or false)
+                oracle = diagnose.Oracle(diagnose.run(clauses), true, false)
+                self.assertEqual(oracle.symptoms(), ([], []))
+
+    def test_the_drafts_are_caught(self):
+        for name, expect in sorted(self.WRONG.items()):
+            with self.subTest(name):
+                clauses, true, false = self.read(name, expect)
+                oracle = diagnose.Oracle(diagnose.run(clauses), true, false)
+                self.assertTrue(any(oracle.symptoms()))
+
+    def survivors(self, name):
+        result = mutation.mutation_test(*self.read(name, self.tested[name]))
+        return [m for m in result["survived"] if m[3]]
+
+    def test_no_changed_answer_goes_unnoticed(self):
+        for name in sorted(set(self.tested) - self.SLOW):
+            with self.subTest(name):
+                loud = self.survivors(name)
+                if name in self.GAPS:
+                    self.assertTrue(loud)
+                else:
+                    self.assertEqual(
+                        [(k, str(old), str(new)) for k, old, new, _ in loud],
+                        [])
+
+    @unittest.skipUnless(os.environ.get("TINY_DATALOG_LESSONS"),
+                         "set TINY_DATALOG_LESSONS=1 to run")
+    def test_no_changed_answer_goes_unnoticed_in_the_big_programs(self):
+        for name in sorted(self.SLOW):
+            with self.subTest(name):
+                self.assertEqual(self.survivors(name), [])
+
+
+class LearningLessonExerciseTests(unittest.TestCase):
+    """The runnable answers of lessons 25-27, and the numbers their
+    answer files quote."""
+
+    cli = staticmethod(CLIErrorReportingTests.cli)
+
+    def test_lesson25_sibling_and_noise(self):
+        r = self.cli("foil.py", "programs/kinship.dl", "--examples",
+                     "exercises/25-sibling.examples")
+        self.assertEqual(r.returncode, 3)
+        self.assertIn("+ sibling(Y, X)            gain  22.53   6+ 0-",
+                      r.stdout)
+        self.assertIn("0 of 6 positive examples derived, 0 of 75 negative",
+                      r.stdout)
+        r = self.cli("foil.py", "programs/kinship.dl", "--examples",
+                     "exercises/25-noisy.examples")
+        self.assertEqual(r.returncode, 3)
+        self.assertIn("+ ancestor(Z, Y)           gain  15.35   9+ 1-",
+                      r.stdout)
+        self.assertIn("ancestor(X, Y) :- parent(X, Z), ancestor(Z, Y), "
+                      "parent(U, Y).   covers 9", r.stdout)
+        self.assertIn("17 of 18 positive examples derived, 0 of 63 negative",
+                      r.stdout)
+
+    def test_lesson25_specialising_is_containment(self):
+        rule = lambda s: parse(s)[0]
+        general = rule("grandparent(X, Y) :- parent(X, Z), parent(U, Y).")
+        learned = rule("grandparent(X, Y) :- parent(X, Z), parent(Z, Y).")
+        self.assertTrue(containment.contains(general, learned))
+        self.assertFalse(containment.contains(learned, general))
+        right = rule("ancestor(X, Y) :- parent(X, Z), ancestor(Z, Y).")
+        left = rule("ancestor(X, Y) :- ancestor(X, Z), parent(Z, Y).")
+        self.assertFalse(containment.contains(right, left))
+        self.assertFalse(containment.contains(left, right))
+
+    def test_lesson26_round_one_and_the_missing_rule(self):
+        engine = diagnose.run(parse(load("kinship.dl")))
+        _t, pos, neg, _c = foil.read_examples(
+            load("ancestor-sparse.examples"), engine)
+        rules = synthesis.candidates({"parent": 2, "ancestor": 2}, "ancestor")
+        job = synthesis.Synthesiser(parse(load("kinship.dl")), rules,
+                                    "ancestor", pos, neg)
+        clause = job.why_not(set(), ("ada", "ben"))
+        self.assertEqual(clause, [2, 3, 33, 34, 35, 36, 37, 38, 39, 40])
+        only_parent = [i for i, r in enumerate(rules, 1)
+                       if all(l.atom.pred == "parent" for l in r.body)]
+        self.assertEqual(only_parent, [2, 3] + list(range(32, 41)))
+        self.assertEqual(str(rules[31]),
+                         "ancestor(X, Y) :- parent(X, Y), parent(Y, X).")
+        self.assertEqual(str(rules[28]),
+                         "ancestor(X, Y) :- ancestor(Z, Y), parent(X, Z).")
+        r = self.cli("synthesis.py", "programs/kinship.dl", "--examples",
+                     "programs/sg.examples", "--candidates",
+                     "exercises/26-sg.candidates", "-t")
+        self.assertEqual(r.returncode, 3)
+        self.assertIn("8 rounds, 15 constraints, 64 evaluations", r.stdout)
+        self.assertIn("missing sg(dov, fay): require one of {r8}", r.stdout)
+
+    def test_lesson27_chain_refusal_and_silent_mutants(self):
+        r = self.cli("diagnose.py", "programs/access-draft.dl", "--against",
+                     "programs/access.dl", "--wrong",
+                     "allowed(alice, delete, company)")
+        self.assertEqual(r.stdout.count("should not hold"), 4)
+        self.assertIn("=> the rule at fault: has(U, R, F) :- parent(O, F), "
+                      "has(U, R, O).", r.stdout)
+        r = self.cli("diagnose.py", "programs/access-draft.dl", "--against",
+                     "programs/access.dl", "--wrong",
+                     "can(alice, view, company)")
+        self.assertIn("is called wrong, but programs/access.dl derives it",
+                      r.stderr)
+        # each silent mutant differs from the original once its fact is
+        # there (or gone)
+        from tiny_datalog.datalog import assume
+        base = parse(load("access.dl"))
+        for script, old, new, fact in (
+                ("grant(payroll, owner, eng).",
+                 "can(U, delete, O) :- user(U), has(U, owner, O).",
+                 "can(U, delete, O) :- has(U, owner, O).",
+                 ("can", ("eng", "delete", "payroll"))),
+                ("hr_feed_current~.",
+                 "allowed(U, A, O) :- can(U, A, O), hr_feed_current, "
+                 "not suspended(U).",
+                 "allowed(U, A, O) :- can(U, A, O), not suspended(U).",
+                 ("allowed", ("alice", "delete", "roadmap")))):
+            with self.subTest(script=script):
+                changed = assume(base, script)
+                mutant = [parse(new)[0] if str(c) == old else c
+                          for c in changed]
+                self.assertNotIn(fact[1], diagnose.run(changed).rels.get(
+                    fact[0], ()))
+                self.assertIn(fact[1], diagnose.run(mutant).rels[fact[0]])
+
+    def test_lesson27_comparisons_and_a_second_family(self):
+        with open(os.path.join(HERE, "exercises", "27-sibling.dl")) as fh:
+            result = mutation.mutation_test(parse(fh.read()))
+        self.assertEqual((result["killed"], len(result["survived"]),
+                          result["equivalent"], result["stillborn"]),
+                         (0, 17, [], 13))
+        self.assertIn(("comparison", "sibling(X, Y) :- parent(P, X), "
+                       "parent(P, Y), X = Y."),
+                      [(m[0], str(m[2])) for m in result["survived"]])
+        e = run_program(load("kinship.dl") + "parent(zed, yan). "
+                        "sg(X, X) :- parent(X, Y). "
+                        "sg(X, Y) :- parent(P, X), parent(Q, Y), sg(P, Q).")
+        self.assertEqual({t for t in e.rels["sg"] if "yan" in t or "zed" in t},
+                         {("yan", "yan"), ("zed", "zed")})
+        # the learned rules, held against examples they never saw
+        true, false = diagnose.read_expectations(load("ancestor.examples"))
+        o = diagnose.Oracle(diagnose.run(parse(load("ancestor-learned.dl"))),
+                            true, false)
+        self.assertEqual(o.symptoms(), ([], []))
+        result = mutation.mutation_test(
+            parse(load("ancestor-learned.dl")),
+            *diagnose.read_expectations(load("ancestor-sparse.examples")))
+        self.assertEqual((result["killed"], result["survived"]), (7, []))
 
 
 if __name__ == "__main__":

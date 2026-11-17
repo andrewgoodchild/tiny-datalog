@@ -1,0 +1,17 @@
+% What lesson 6's subtyping of recursive records should say.
+% A fact must be derived; `:- fact.` must never be, and may use variables.
+%
+%   python3 diagnose.py programs/record-subtyping.dl --expect programs/record-subtyping.expect
+%   python3 mutation.py programs/record-subtyping.dl --expect programs/record-subtyping.expect
+
+sub(int, int).
+:- sub(int, str).                % distinct primitives
+sub(rich, stream).               % the lesson's query: extra fields are allowed
+:- sub(stream, rich).            % ...missing ones are not
+nsub(brok, stream).              % val is a str where an int is wanted
+:- sub(brok, ping).
+sub(rich, ping).                 % cyclic types, compared coinductively
+sub(ping, pong).
+nsub(ping, rich).                % ping has no meta
+nsub(brok, int).                 % a record is not a primitive
+:- nsub(int, meta).              % a field name is not a type

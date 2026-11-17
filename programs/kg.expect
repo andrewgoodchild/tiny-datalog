@@ -1,0 +1,20 @@
+% What lesson 22's RDFS and OWL 2 RL rules should entail.
+% A fact must be derived; `:- fact.` must never be, and may use variables.
+%
+%   python3 diagnose.py programs/kg.dl --expect programs/kg.expect
+%   python3 mutation.py programs/kg.dl --expect programs/kg.expect
+
+triple(dana, type, manager).             % domain of manages
+triple(dana, type, person).              % ...and up the class hierarchy
+triple(manager, subClassOf, person).     % subClassOf is transitive
+triple(dana, memberOf, sales).           % manages is a subproperty of memberOf
+triple(sales, type, team).               % range of memberOf
+triple(alice, reportsTo, erin).          % reportsTo is transitive
+triple(sales, managedBy, dana).          % the inverse of manages
+:- triple(sales, manages, dana).         % an inverse swaps the ends, once
+:- triple(inverseOf, P, O).              % vocabulary and individuals keep to their columns
+:- triple(S, dana, O).
+:- triple(S, sales, O).
+clash(sales, person, team).              % the data-entry slip: a team that reports to someone
+:- clash(alice, C, D).                   % nobody else is in two disjoint classes
+:- clash(dana, C, D).

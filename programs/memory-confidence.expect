@@ -1,0 +1,10 @@
+% What lesson 24's reporting chain should say, weights aside.
+% A fact must be derived; `:- fact.` must never be, and may use variables.
+%
+%   python3 diagnose.py programs/memory-confidence.dl --expect programs/memory-confidence.expect
+%   python3 mutation.py programs/memory-confidence.dl --expect programs/memory-confidence.expect
+
+reports_to(user, sam).
+reports_to(user, marco).         % by way of sam, or of dana
+:- reports_to(marco, user).
+:- reports_to(sam, dana).        % two managers of the user, unrelated to each other

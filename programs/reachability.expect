@@ -1,0 +1,11 @@
+% What lesson 2's transitive closure should say about its forked chain.
+% A fact must be derived; `:- fact.` must never be, and may use variables.
+%
+%   python3 diagnose.py programs/reachability.dl --expect programs/reachability.expect
+%   python3 mutation.py programs/reachability.dl --expect programs/reachability.expect
+
+path(n1, n8).            % down the long branch
+path(n1, n10).           % and down the side branch from n3
+:- path(n4, n9).         % the branches do not meet again
+:- path(n8, n1).         % edges have a direction
+:- path(X, X).           % and there is no cycle

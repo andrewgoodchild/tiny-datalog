@@ -1,0 +1,12 @@
+% What lesson 16's four conjunctive queries should answer on a two-edge chain.
+% A fact must be derived; `:- fact.` must never be, and may use variables.
+%
+%   python3 diagnose.py programs/minimise.dl --expect programs/minimise.expect
+%   python3 mutation.py programs/minimise.dl --expect programs/minimise.expect
+
+has_edge(a, b).
+has_edge(b, c).
+two_hop(a).                      % a -> b -> c
+:- two_hop(b).                   % c goes nowhere
+:- mutual(X).                    % a chain has no 2-cycle
+:- triangle(X).                  % and no triangle

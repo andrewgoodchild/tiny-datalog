@@ -1,0 +1,15 @@
+% What lesson 20's access policy should say, as far as anyone has
+% written it down (lesson 27).  A fact must be derived; `:- fact.`
+% must never be, and may use variables.
+%
+%   python3 diagnose.py programs/access-draft.dl --expect programs/access.expect
+%   python3 mutation.py programs/access.dl --expect programs/access.expect
+
+can(alice, delete, roadmap).     % she owns it
+can(alice, edit, roadmap).       % ...and owners edit
+can(carol, view, handbook).      % granted to contractors
+can(bob, view, roadmap).         % sales is staff; staff view the company folder
+:- can(alice, delete, company).  % owning a document is not owning its folder
+:- can(carol, view, roadmap).    % contractors see the handbook only
+:- can(eng, A, O).               % groups are not people
+:- allowed(bob, A, O).           % bob is suspended

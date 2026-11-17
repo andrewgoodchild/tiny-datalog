@@ -1,0 +1,17 @@
+% Nine guesses at the rules for same-generation, of the kind a person
+% or a language model might brainstorm: some right, some plausible and
+% wrong, one that fools FOIL.  synthesis.py chooses among them
+% (lesson 26).
+%
+%   python3 synthesis.py programs/kinship.dl --examples programs/sg.examples \
+%                        --candidates programs/sg.candidates
+
+sg(X, X) :- parent(X, Y).
+sg(X, X) :- parent(Y, X).
+sg(X, Y) :- sg(Y, X).
+sg(X, Y) :- parent(P, X), parent(P, Y).
+sg(X, Y) :- parent(X, P), parent(Y, P).
+sg(X, Y) :- sg(X, Z), sg(Z, Y).
+sg(X, Y) :- parent(P, X), parent(Q, Y), sg(P, Q).
+sg(X, Y) :- parent(X, P), parent(Y, Q), sg(P, Q).
+sg(X, Y) :- parent(P, X), sg(P, Y).

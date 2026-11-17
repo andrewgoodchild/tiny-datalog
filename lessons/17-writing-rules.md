@@ -301,6 +301,12 @@ The fourth is the one people skip. A redundant rule is rarely harmless:
 it usually means you wrote the same condition twice in different words,
 and only one of them will get updated when the policy changes.
 
+Two of these rows have a mechanical sequel in
+[lesson 27](27-validating-rules.md). Reading a derivation to find the
+rule at fault becomes a search (`diagnose.py`), and "does it break the
+policy, stated another way?" gets a companion question: would your
+constraints notice if the rules *were* broken (`mutation.py`)?
+
 ## A performance habit: the guard, and where to put it
 
 One habit is about speed rather than correctness, nobody teaches it,

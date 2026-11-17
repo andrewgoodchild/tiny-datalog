@@ -1,0 +1,13 @@
+% What the direct reading of the café paradox should say (lesson 5).
+% A fact must be derived; `:- fact.` must never be.
+%
+%   python3 diagnose.py programs/cafe-constraint.dl --expect programs/cafe-constraint.expect
+%   python3 mutation.py programs/cafe-constraint.dl --expect programs/cafe-constraint.expect
+
+eats_at(bob, cafe_house).        % his home is the café
+violation(bob).                  % ...and his household cooks: the paradox, in the data
+eats_at(carol, cafe_house).      % nobody cooks in house_b
+:- eats_at(carol, house_b).
+:- eats_at(alan, cafe_house).    % alice cooks for house_a
+:- violation(carol).             % eating in the café is fine if nobody cooks for you
+:- violation(alan).

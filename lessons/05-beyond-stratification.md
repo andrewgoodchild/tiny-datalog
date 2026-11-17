@@ -203,21 +203,198 @@ worth trusting detects all of this rather than silently picking an
 answer.
 
 
+## Models as solutions
+
+The well-founded section made a promise: several stable models are
+what let a program's models *be* the solutions to a search problem.
+Here is the smallest honest example. Colour four regions of a map with
+three colours so that no two neighbours match:
+
+```prolog
+% programs/colouring.dl
+region(wa). region(nt). region(sa). region(qld).
+colour(red). colour(green). colour(blue).
+border(wa, nt).  border(wa, sa).  border(nt, sa).
+border(nt, qld). border(sa, qld).
+
+painted(R, C) :- region(R), colour(C), not other(R, C).
+other(R, C)   :- region(R), colour(C), painted(R, D), C != D.
+
+clash :- border(R, S), painted(R, C), painted(S, C), not clash.
+```
+
+Two idioms, and you have met both. The first pair of rules is a
+**choice**: a region takes a colour unless it has taken another one,
+and the two rules lean on each other through `not`, exactly as
+`eligibility-choice.dl` did. Each way of settling them is a model, so
+there is one model per way of painting the map.
+
+The last rule is a **test**, and it is the barber on purpose. Where
+two neighbours share a colour it says `clash` holds exactly if it does
+not, and a set of facts containing that knot cannot be a model. The
+paradox this lesson spent four sections diagnosing is, used
+deliberately, a filter: it deletes the models you do not want.
+
+```
+$ python3 datalog.py --models -q 'painted(R, C)' programs/colouring.dl
+Syntactic check: not stratifiable (clash --not--> clash).
+  (Syntactic only — an unstratifiable program may still have stable models.)
+Stable models: 6
+  model 1: painted(nt, red).  painted(qld, green).  painted(sa, blue).  painted(wa, green).
+  model 2: painted(nt, red).  painted(qld, blue).  painted(sa, green).  painted(wa, blue).
+  model 3: painted(nt, green).  painted(qld, red).  painted(sa, blue).  painted(wa, red).
+  model 4: painted(nt, green).  painted(qld, blue).  painted(sa, red).  painted(wa, blue).
+  model 5: painted(nt, blue).  painted(qld, red).  painted(sa, green).  painted(wa, red).
+  model 6: painted(nt, blue).  painted(qld, green).  painted(sa, red).  painted(wa, green).
+```
+
+Six colourings, which is every one there is. Nothing in the program
+says how to search. (`-q` only chooses which atoms of each model to
+print; the models are the same.)
+
+## Finding the models: propose, check, learn
+
+The definition of a stable model is a *check*. Hand it a set M and it
+says yes or no. It does not say where to look.
+
+The obvious search is to try every subset of the atoms that could
+possibly be true. That is the definition run as written, the library
+still offers it (`stable_models(..., exhaustive=True)`), and it is
+hopeless: the map has 25 such atoms, so 2²⁵ candidate sets, about
+thirty-three million, to find six. One more region doubles it six
+times over.
+
+What `--models` does instead is hand the guessing to something built
+for guessing, and keep the definition as the judge. Three steps.
+
+**Say what any model must look like, as yes/no constraints.** One
+variable per atom, true or false. Two kinds of constraint are certain.
+*Every rule holds*: if a rule's body is true, so is its head. And
+*every true atom has a reason*: at least one rule for it has a true
+body. A set satisfying both is called a **supported** model. Every
+stable model is supported, so nothing is lost, and almost all of those
+thirty-three million sets are not.
+
+**Let a SAT solver propose one.** Finding an assignment that satisfies
+a pile of yes/no constraints is the most studied search problem there
+is. The solver here is forty lines (`tiny_datalog/sat.py`; lesson 26
+reads it line by line), and it knows nothing about Datalog.
+
+**Check the proposal with the definition.** Simplify every `not`
+against it, forward-chain what is left, and see whether the same set
+comes back. If it does, that is a stable model: record it and ask for
+another. On the map that is the whole story:
+
+```
+$ python3 datalog.py --models --trace -q 'painted(R, C)' programs/colouring.dl
+...
+Search: 25 candidate atoms, 6 candidate models proposed
+  1: stable
+  2: stable
+  3: stable
+  4: stable
+  5: stable
+  6: stable
+Stable models: 6
+...
+```
+
+Six proposals, six models, and then the solver reports that nothing
+else satisfies the constraints.
+
+So when is a supported model *not* stable? When its reasons go round
+in a circle.
+
+```prolog
+% programs/vouching.dl
+person(ann). person(bob).
+invited(ann).
+vouches(ann, bob). vouches(bob, ann).
+
+active(P)  :- invited(P), not revoked(P).      % a choice: is the
+revoked(P) :- invited(P), not active(P).       % invitation still good?
+
+trusted(P) :- active(P).
+trusted(P) :- vouches(Q, P), trusted(Q).
+
+breach :- person(P), not trusted(P), not breach.   % a test: all trusted
+```
+
+```
+$ python3 datalog.py --models --trace programs/vouching.dl
+Syntactic check: not stratifiable (active --not--> revoked --not--> active).
+  (Syntactic only — an unstratifiable program may still have stable models.)
+Search: 5 candidate atoms, 2 candidate models proposed
+  1: refused: only each other to support trusted(ann), trusted(bob)
+  2: stable
+Stable models: 1
+  model 1: active(ann).  trusted(ann).  trusted(bob).
+```
+
+The first proposal was: Ann's invitation is revoked, and Ann and Bob
+are both trusted. Go through the constraints. Every rule holds. Every
+true atom has a reason: Ann is trusted because Bob vouches for her
+and Bob is trusted; Bob is trusted because Ann vouches for him and Ann
+is trusted. It is a supported model, and it is nonsense.
+
+The definition catches it. With the invitation revoked, `active(ann)`
+is gone, and forward chaining from the facts never reaches
+`trusted(ann)` or `trusted(bob)`: each needs the other first. This is
+Lesson 2's least fixpoint doing the job it was chosen for. A
+derivation has to *start* somewhere, and "true because of each other"
+starts nowhere. The atoms that failed to come back are called an
+**unfounded set**.
+
+The refusal is then turned into a constraint, and this is the step
+that makes the search more than trial and error. Not "never this
+proposal", which would rule out one set. Instead: *Ann or Bob may be
+trusted only if some rule for one of them has a true body that does
+not itself rely on the other.* There is one such rule,
+`trusted(ann) :- active(ann)`. So the solver now knows that trust
+needs an active invitation, proposes exactly that, and the check
+passes. Every later proposal resting on the same circle is ruled out
+before it is made. (The constraint is called a *loop formula*; the
+method is Lin and Zhao's, 2004.)
+
+The map never needed this step, and that is not luck. Its rules have
+no recursion through positive literals, so nothing can hold itself
+up, and for such programs supported and stable are the same thing.
+
+Two limits, as usual. The program is still grounded in full before
+any of this starts, so the size of the grounding is the real ceiling.
+And the solver is the textbook one: an industrial system such as
+clingo learns a constraint from every dead end *inside* the solver
+too, and works over millions of atoms. `--models` stops after 256
+models, since a program with that many is asking a question other
+than "list them".
+
+The loop itself, propose, check, and turn each failure into a
+constraint that rules out many candidates at once, comes back in
+Lesson 26, with rules where this has atoms and provenance where this
+has unfounded sets.
+
+
 ## Under the hood: `semantics.py` in three functions
 
 **`semantics.py` is two short functions and two one-liners** once you
 see the shape:
 `ground_program` instantiates rules over an envelope (the least model
 with all negations granted — provably a superset of every stable model,
-which is what makes exhaustive search sound), `_gamma` is the
+which is what makes searching inside it sound), `_gamma` is the
 Gelfond–Lifschitz operator (delete rules whose negated atoms are in the
 candidate; forward-chain the rest), and both semantics are one-liners
 over it: stable = "Γ(M) == M", well-founded = the least fixpoint of Γ∘Γ
 with the undefined zone read off the gap.
 
-That exhaustive search is the teaching simplification: clingo, the
-industrial stable-model engine, finds models by conflict-driven
-learning instead of enumeration.
+The search adds two more. `_completion` writes the ground program as
+clauses: a variable per atom and one per rule body, "the rule holds",
+and "a true atom has a true body". `_search` is the loop: `solve`
+proposes, `_gamma` checks, and a refusal becomes the clauses for its
+unfounded set. A stable model, once found, is fenced off with one
+clause saying "not all of these again", which is enough because no
+stable model contains another. The exhaustive search is still there
+behind `exhaustive=True`, and the test suite holds the two to the same
+answers on random programs.
 
 ## Exercises
 
@@ -238,6 +415,17 @@ learning instead of enumeration.
    models, and explain why the set-of-models route stays cheap per
    model while reasoning over stored disjunctions jumps a complexity
    class.
+
+5. `programs/colouring.dl` has six models. Predict the number after
+   `--assume 'region(tas).'`, an island with no borders, and after
+   `--assume 'border(wa, qld).'` instead. Run both with `--trace`. In
+   the second, how many candidate models does the search propose, and
+   what does that tell you about where the work was done?
+6. In `programs/vouching.dl` the circular proposal was refused and a
+   model was found anyway. Withdraw the invitation
+   (`--assume 'invited(ann)~.'`) and predict the verdict. Then say, in
+   the terms of the "Reading the verdict" table, what kind of rule set
+   this now is, and why the vouching rule cannot rescue it.
 
 Next: [for all](06-for-all.md) — the third figure in this lesson's
 gallery: after the contradictory and the ambiguous, the rejected

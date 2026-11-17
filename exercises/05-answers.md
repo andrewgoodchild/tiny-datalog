@@ -61,3 +61,45 @@ reasoning itself jumps a class. Same information, two homes: as an
 answer-set it is cheap and honest; as a stored fact it makes every
 downstream inference pay for the ambiguity. ASP systems ship the first
 design, and this exercise is why.
+
+**5. More regions, and one border too many.**
+
+An island with no borders can take any of the three colours whatever
+the mainland does, so 6 × 3 = 18 models, and the trace shows 18
+proposals, every one stable.
+
+`border(wa, qld)` makes all four regions border each other, and four
+mutually adjacent regions cannot be painted with three colours:
+
+```sh
+$ python3 datalog.py --models --trace --assume 'border(wa, qld).' programs/colouring.dl
+Search: 25 candidate atoms, 0 candidate models proposed
+Stable models: none — no consistent two-valued model exists.
+```
+
+Zero proposals. The solver showed that the constraints cannot all be
+satisfied without ever producing a candidate for the definition to
+check. All the work was in the SAT search, and that is where it
+usually is: the check costs one forward-chaining pass per proposal,
+while ruling out thirty-three million sets is the solver's job.
+
+**6. Nobody invited.**
+
+```sh
+$ python3 datalog.py --models --trace --assume 'invited(ann)~.' programs/vouching.dl
+Search: 1 candidate atom, 0 candidate models proposed
+Stable models: none — no consistent two-valued model exists.
+```
+
+No stable model: the rule set is *self-contradictory*, the second row
+of the table. The policy demands that Ann and Bob be trusted, and the
+only support either has is the other. Notice that `trusted(ann)` is
+not even a candidate atom now: the envelope `ground_program` builds
+is itself a least model, so an atom with only circular support never
+gets in. What is left is `breach`, which holds exactly if it does not.
+
+The vouching rule cannot rescue it for the reason the lesson's trace
+gave. Mutual vouching satisfies every rule and gives every atom a
+reason, and it still derives nothing from the facts. A test that every
+person be trusted, plus rules that can only pass trust along, is a
+contradiction until somebody is trusted for a reason of their own.
